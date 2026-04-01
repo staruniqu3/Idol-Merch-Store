@@ -82,12 +82,12 @@ const statusConfig: Record<string, {
     gradient: "from-emerald-500 to-teal-500",
   },
   returned: {
-    label: "Trả đơn",
-    icon: <X size={16} />,
-    color: "text-red-600",
-    bg: "bg-red-50",
-    dot: "bg-red-500",
-    gradient: "from-red-500 to-rose-600",
+    label: "Trả đơn toàn bộ",
+    icon: <CheckCircle size={16} />,
+    color: "text-teal-600",
+    bg: "bg-teal-50",
+    dot: "bg-teal-500",
+    gradient: "from-teal-500 to-emerald-600",
   },
 };
 

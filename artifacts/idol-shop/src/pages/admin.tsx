@@ -56,7 +56,7 @@ const shippingStatusLabels: Record<string, string> = {
   in_transit: "Đang giao",
   arrived: "Đã về kho",
   delivered: "Đã giao",
-  returned: "Trả đơn",
+  returned: "Trả đơn toàn bộ",
 };
 
 const tierColors: Record<string, string> = {
