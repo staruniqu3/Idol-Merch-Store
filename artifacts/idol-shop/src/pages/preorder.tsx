@@ -482,13 +482,13 @@ export default function PreorderPage() {
                                 />
                                 {/* Text label */}
                                 <div className="absolute inset-0 flex items-center px-5 gap-2 min-w-0 pointer-events-none">
-                                  {!showPOBar && item.artist && (
+                                  {item.artist && (
                                     <span className="text-[9px] font-black shrink-0 drop-shadow" style={{ color: "#fff" }}>
                                       {item.artist}
                                     </span>
                                   )}
                                   <span className="text-[10px] font-bold truncate drop-shadow" style={{ color: "#fff" }}>
-                                    {showPOBar ? "Pickup" : item.title}
+                                    {item.title}
                                   </span>
                                 </div>
                               </div>
