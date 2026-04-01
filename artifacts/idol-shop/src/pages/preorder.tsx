@@ -225,10 +225,12 @@ export default function PreorderPage() {
   const filtered = items
     .filter((i) => filter === "all" || i.isActive !== false)
     .sort((a, b) => {
-      if (!a.deadline && !b.deadline) return 0;
-      if (!a.deadline) return 1;
-      if (!b.deadline) return -1;
-      return new Date(a.deadline).getTime() - new Date(b.deadline).getTime();
+      const aEnd = a.deadline ?? a.pickupDeadline;
+      const bEnd = b.deadline ?? b.pickupDeadline;
+      if (!aEnd && !bEnd) return 0;
+      if (!aEnd) return 1;
+      if (!bEnd) return -1;
+      return new Date(aEnd).getTime() - new Date(bEnd).getTime();
     });
 
   const today = startOfDay(new Date());
@@ -242,9 +244,12 @@ export default function PreorderPage() {
   })();
 
   const rangeEnd = (() => {
-    const dates = items
-      .filter((i) => i.deadline)
-      .map((i) => startOfDay(new Date(i.deadline!)));
+    const dates = items.flatMap((i) => {
+      const ends: Date[] = [];
+      if (i.deadline) ends.push(startOfDay(new Date(i.deadline)));
+      if (i.pickupDeadline) ends.push(startOfDay(new Date(i.pickupDeadline)));
+      return ends;
+    });
     const latest = dates.length ? new Date(Math.max(...dates.map((d) => d.getTime()))) : today;
     return addDays(latest > addDays(today, 30) ? latest : addDays(today, 30), 5);
   })();
@@ -366,13 +371,18 @@ export default function PreorderPage() {
                 />
 
                 {filtered.map((item, idx) => {
+                  const isPickupOnly = !item.deadline && !!item.pickupDeadline;
                   const itemStart = item.startDate ? startOfDay(new Date(item.startDate)) : startOfDay(new Date(item.createdAt));
-                  const itemEnd = item.deadline ? startOfDay(new Date(item.deadline)) : addDays(today, 30);
+                  const itemEnd = item.deadline
+                    ? startOfDay(new Date(item.deadline))
+                    : item.pickupDeadline
+                      ? startOfDay(new Date(item.pickupDeadline))
+                      : addDays(today, 30);
                   const startOffset = diffDays(itemStart, rangeStart);
                   const durationDays = Math.max(diffDays(itemEnd, itemStart) + 1, 1);
                   const elapsed = Math.max(0, Math.min(durationDays, diffDays(today, itemStart) + 1));
                   const pct = durationDays > 0 ? (elapsed / durationDays) * 100 : 100;
-                  const days_ = getDaysLeft(item.deadline);
+                  const days_ = getDaysLeft(item.deadline ?? item.pickupDeadline);
                   const ended = days_ !== null && days_ < 0;
                   const urgent = days_ !== null && days_ >= 0 && days_ <= 3;
                   const ac = getArtistColor(item.artist);
@@ -391,8 +401,8 @@ export default function PreorderPage() {
                     : 0;
                   const pickupPct = hasPickupRange && pickupBarDays > 0 ? (pickupElapsed / pickupBarDays) * 100 : 0;
 
-                  // Hide PO bar when deadline has passed AND pickup date is set
-                  const showPOBar = !(ended && pickupDay);
+                  // Hide PO bar for pickup-only items, or when deadline ended and pickup is set
+                  const showPOBar = !isPickupOnly && !(ended && pickupDay);
                   const showPickupRow = pickupDay !== null;
 
                   const barBg = ended
@@ -517,11 +527,20 @@ export default function PreorderPage() {
               Chi tiết đơn pre-order
             </p>
             {filtered.map((item) => {
-              const days_ = getDaysLeft(item.deadline);
+              const isPickupOnly = !item.deadline && !!item.pickupDeadline;
+              const days_ = getDaysLeft(item.deadline ?? item.pickupDeadline);
               const ended = days_ !== null && days_ < 0;
               const urgent = days_ !== null && days_ >= 0 && days_ <= 3;
-              const itemStart = item.startDate ? startOfDay(new Date(item.startDate)) : startOfDay(new Date(item.createdAt));
-              const itemEnd = item.deadline ? startOfDay(new Date(item.deadline)) : null;
+              const itemStart = item.startDate
+                ? startOfDay(new Date(item.startDate))
+                : item.pickupDate
+                  ? startOfDay(new Date(item.pickupDate))
+                  : startOfDay(new Date(item.createdAt));
+              const itemEnd = item.deadline
+                ? startOfDay(new Date(item.deadline))
+                : item.pickupDeadline
+                  ? startOfDay(new Date(item.pickupDeadline))
+                  : null;
               const totalD = itemEnd ? diffDays(itemEnd, itemStart) : null;
               const elapsedD = itemEnd ? Math.max(0, Math.min(totalD ?? 0, diffDays(today, itemStart) + 1)) : null;
               const pct = totalD && elapsedD !== null && totalD > 0
@@ -581,12 +600,12 @@ export default function PreorderPage() {
                     </div>
                   </button>
 
-                  {isExpanded && (item.description || item.startDate || item.deadline || item.pickupDate) && (
+                  {isExpanded && (item.description || item.startDate || item.deadline || item.pickupDate || item.pickupDeadline) && (
                     <div className="border-t border-border px-4 pb-4 pt-3 space-y-2 bg-muted/30">
                       {item.description && (
                         <p className="text-sm text-muted-foreground leading-relaxed">{item.description}</p>
                       )}
-                      {item.startDate && (
+                      {item.startDate && !isPickupOnly && (
                         <div className="flex items-center gap-1.5 text-xs">
                           <Clock size={12} className="text-muted-foreground" />
                           <span className="text-muted-foreground">Bắt đầu PO:</span>
