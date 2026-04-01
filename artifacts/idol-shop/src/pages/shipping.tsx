@@ -270,7 +270,6 @@ export default function ShippingPage() {
             </div>
             <div>
               <h1 className="text-xl font-bold leading-tight">Theo Dõi Vận Chuyển</h1>
-              <p className="text-xs opacity-60 mt-0.5">Cập nhật theo Google Sheet</p>
             </div>
           </div>
           <div className="flex gap-2">
