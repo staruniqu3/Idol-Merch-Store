@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
-  Star, Gift, Package, Search, Trophy, ShoppingBag, Truck, Phone,
-  ChevronDown, ChevronUp, Ticket, Calendar, MapPin, ExternalLink, Hash, Sparkles
+  Star, Gift, Package, Search, Trophy, ShoppingBag, Truck,
+  ChevronDown, ChevronUp, Ticket, Calendar, MapPin, ExternalLink, Hash, Sparkles, User, Phone
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
@@ -47,6 +47,13 @@ interface SheetOrder {
   totalPrice: string;
   shippingMethod: string;
   notes: string;
+}
+
+interface SheetsBasicMember {
+  name: string;
+  phone: string;
+  customerCode: string;
+  tier: string;
 }
 
 const ELITE_TIERS = ["infinite", "solstice", "patron", "voyager"];
@@ -303,8 +310,13 @@ function SheetOrderCard({ order }: { order: SheetOrder }) {
 }
 
 export default function MembershipPage() {
-  const [phone, setPhone] = useState("");
-  const [searchPhone, setSearchPhone] = useState("");
+  const [nameQuery, setNameQuery] = useState("");
+  const [showDropdown, setShowDropdown] = useState(false);
+  const [allMembers, setAllMembers] = useState<SheetsBasicMember[]>([]);
+  const [membersLoading, setMembersLoading] = useState(true);
+  const [selectedMember, setSelectedMember] = useState<SheetsBasicMember | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
   const [profile, setProfile] = useState<MemberProfile | null>(null);
   const [profileLoading, setProfileLoading] = useState(false);
@@ -312,24 +324,57 @@ export default function MembershipPage() {
 
   const [shipping, setShipping] = useState<MemberShipping[]>([]);
   const [orders, setOrders] = useState<SheetOrder[]>([]);
-  const [ordersLoading, setOrdersLoading] = useState(false);
 
-  const handleSearch = async () => {
-    if (!phone.trim()) return;
-    const p = phone.trim();
-    setSearchPhone(p);
+  useEffect(() => {
+    const base = getBaseUrl();
+    fetch(`${base}/api/sheets/all-members?_t=${Date.now()}`, { cache: "no-store" })
+      .then((r) => r.ok ? r.json() : [])
+      .then((data: MemberProfile[]) => {
+        if (Array.isArray(data)) {
+          setAllMembers(data.filter((m) => m.name?.trim()).map((m) => ({
+            name: m.name,
+            phone: m.phone,
+            customerCode: m.customerCode,
+            tier: m.tier,
+          })));
+        }
+      })
+      .catch(() => {})
+      .finally(() => setMembersLoading(false));
+  }, []);
+
+  useEffect(() => {
+    const handleClick = (e: MouseEvent) => {
+      if (
+        dropdownRef.current && !dropdownRef.current.contains(e.target as Node) &&
+        inputRef.current && !inputRef.current.contains(e.target as Node)
+      ) {
+        setShowDropdown(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
+
+  const normalize = (s: string) => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  const filteredMembers = nameQuery.trim().length >= 1
+    ? allMembers.filter((m) => normalize(m.name).includes(normalize(nameQuery.trim())))
+    : [];
+
+  const handleSelectMember = async (member: SheetsBasicMember) => {
+    setSelectedMember(member);
+    setNameQuery(member.name);
+    setShowDropdown(false);
     setProfile(null);
     setShipping([]);
     setOrders([]);
     setProfileError(null);
-
     setProfileLoading(true);
     const base = getBaseUrl();
-
     const ts = Date.now();
     try {
       const profileResp = await fetch(
-        `${base}/api/sheets/member-profile?phone=${encodeURIComponent(p)}&_t=${ts}`,
+        `${base}/api/sheets/member-profile?phone=${encodeURIComponent(member.phone)}&_t=${ts}`,
         { cache: "no-store" }
       );
 
@@ -343,7 +388,7 @@ export default function MembershipPage() {
             { cache: "no-store" }
           ),
           fetch(
-            `${base}/api/sheets/member-orders?phone=${encodeURIComponent(p)}&_t=${ts}`,
+            `${base}/api/sheets/member-orders?phone=${encodeURIComponent(member.phone)}&_t=${ts}`,
             { cache: "no-store" }
           ),
         ]);
@@ -381,27 +426,64 @@ export default function MembershipPage() {
           </div>
         </div>
 
-        <div className="flex gap-2">
-          <div className="flex-1 relative">
-            <Phone size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-white/40" />
+        <div className="relative">
+          <div className="relative">
+            <User size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-white/40 pointer-events-none z-10" />
+            {profileLoading || membersLoading ? (
+              <Search size={15} className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 animate-pulse" />
+            ) : nameQuery && (
+              <button
+                type="button"
+                onClick={() => { setNameQuery(""); setProfile(null); setSelectedMember(null); setProfileError(null); setShowDropdown(false); }}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-white/50 hover:text-white/90 text-lg leading-none"
+              >×</button>
+            )}
             <input
-              className="w-full bg-white/15 border border-white/20 rounded-xl pl-9 pr-3 py-2.5 text-sm text-white placeholder-white/40 font-medium focus:outline-none focus:ring-2 focus:ring-white/30"
-              placeholder="Nhập số điện thoại..."
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+              ref={inputRef}
+              className="w-full bg-white/15 border border-white/20 rounded-xl pl-9 pr-9 py-2.5 text-sm text-white placeholder-white/40 font-medium focus:outline-none focus:ring-2 focus:ring-white/30"
+              placeholder={membersLoading ? "Đang tải danh sách..." : `Tìm tên trong ${allMembers.length} thành viên...`}
+              value={nameQuery}
+              onChange={(e) => { setNameQuery(e.target.value); setShowDropdown(true); setSelectedMember(null); setProfile(null); setProfileError(null); }}
+              onFocus={() => { if (nameQuery.trim()) setShowDropdown(true); }}
+              disabled={membersLoading}
               data-testid="input-member-phone"
+              autoComplete="off"
             />
           </div>
-          <button
-            onClick={handleSearch}
-            disabled={profileLoading}
-            className="bg-primary hover:bg-primary/90 disabled:opacity-60 text-white px-4 rounded-xl font-semibold text-sm transition-colors flex items-center gap-1.5"
-            data-testid="button-search-member"
-          >
-            <Search size={15} />
-            Tra cứu
-          </button>
+
+          {showDropdown && filteredMembers.length > 0 && (
+            <div
+              ref={dropdownRef}
+              className="absolute left-0 right-0 top-full mt-1.5 bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden z-50 max-h-64 overflow-y-auto"
+            >
+              {filteredMembers.map((m, idx) => {
+                const t = getTierConfig(m.tier);
+                return (
+                  <button
+                    key={idx}
+                    type="button"
+                    onMouseDown={() => handleSelectMember(m)}
+                    className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 text-left transition-colors border-b border-gray-50 last:border-0"
+                  >
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm shrink-0 ${t ? `bg-gradient-to-br ${t.gradient}` : "bg-gray-200"}`}>
+                      <span>{t?.emoji ?? "👤"}</span>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-gray-800 truncate">{m.name}</p>
+                      <p className="text-xs text-gray-400">{t?.label ?? m.tier}</p>
+                    </div>
+                    <Search size={13} className="text-gray-300 shrink-0" />
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
+          {showDropdown && nameQuery.trim().length >= 1 && filteredMembers.length === 0 && !membersLoading && (
+            <div ref={dropdownRef} className="absolute left-0 right-0 top-full mt-1.5 bg-white rounded-2xl shadow-xl border border-gray-100 px-4 py-3 z-50">
+              <p className="text-sm text-gray-500 text-center">Không tìm thấy tên <span className="font-semibold text-gray-700">"{nameQuery}"</span></p>
+            </div>
+          )}
         </div>
       </div>
 
@@ -420,7 +502,7 @@ export default function MembershipPage() {
               <Trophy size={28} strokeWidth={1.3} className="text-muted-foreground" />
             </div>
             <p className="font-bold">Không tìm thấy thành viên</p>
-            <p className="text-sm text-muted-foreground">Số điện thoại chưa đăng ký membership hoặc chưa có trong hệ thống.</p>
+            <p className="text-sm text-muted-foreground">Tên chưa có trong hệ thống hoặc chưa đăng ký membership.</p>
           </div>
         )}
 
@@ -576,7 +658,7 @@ export default function MembershipPage() {
               </div>
             )}
 
-            {!ordersLoading && orders.length > 0 && (() => {
+            {orders.length > 0 && (() => {
               const recent = [...orders].reverse().slice(0, 4);
               return (
                 <div className="bg-card border border-primary/15 rounded-2xl p-4">
@@ -610,38 +692,31 @@ export default function MembershipPage() {
               );
             })()}
 
-            {(ordersLoading || orders.length > 0) && (
+            {orders.length > 0 && (
               <div>
                 <div className="flex items-center gap-2 mb-3">
                   <ShoppingBag size={16} className="text-primary" />
                   <h3 className="font-bold text-base">Lịch Sử Đơn Hàng</h3>
                   <Badge variant="secondary" className="text-[10px]">{orders.length} đơn</Badge>
                 </div>
-                {ordersLoading && (
-                  <div className="space-y-2">
-                    {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-16 rounded-2xl" />)}
-                  </div>
-                )}
-                {!ordersLoading && orders.length > 0 && (
-                  <div className="space-y-2">
-                    {[...orders].reverse().map((order, i) => (
-                      <SheetOrderCard key={i} order={order} />
-                    ))}
-                  </div>
-                )}
+                <div className="space-y-2">
+                  {[...orders].reverse().map((order, i) => (
+                    <SheetOrderCard key={i} order={order} />
+                  ))}
+                </div>
               </div>
             )}
           </>
         )}
 
-        {!searchPhone && (
+        {!selectedMember && !profile && !profileError && (
           <div className="flex flex-col items-center justify-center py-8 text-muted-foreground gap-3">
             <div className="w-16 h-16 rounded-3xl bg-muted flex items-center justify-center">
               <Trophy size={30} strokeWidth={1.2} className="text-primary/40" />
             </div>
             <div className="text-center">
               <h3 className="font-bold text-foreground text-base">Kiểm tra thẻ thành viên</h3>
-              <p className="text-sm mt-1">Nhập số điện thoại để xem thông tin membership, voucher và mã vận đơn</p>
+              <p className="text-sm mt-1">Tìm tên của bạn trong danh sách thành viên để xem thông tin membership, voucher và mã vận đơn</p>
             </div>
 
             {/* Tier chart */}
