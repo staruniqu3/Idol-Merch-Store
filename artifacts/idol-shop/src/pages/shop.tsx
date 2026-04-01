@@ -369,24 +369,24 @@ export default function ShopPage() {
         {filtered.filter((p) => p.isAvailable).map((product) => (
           <div
             key={product.id}
-            className="bg-card rounded-2xl border border-border p-3 flex items-center gap-3 shadow-sm"
+            className="bg-card rounded-xl border border-border px-3 py-2 flex items-center gap-2 shadow-sm"
             data-testid={`card-product-${product.id}`}
           >
             <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-1.5 flex-wrap mb-0.5">
-                <Badge className={`text-[10px] border font-bold px-1.5 py-0 ${orderTypeBadgeClass[product.orderType] ?? ""}`} variant="outline">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <Badge className={`text-[10px] border font-bold px-1.5 py-0 shrink-0 ${orderTypeBadgeClass[product.orderType] ?? ""}`} variant="outline">
                   {orderTypeLabel[product.orderType] ?? product.orderType}
                 </Badge>
                 {product.stock <= 5 && product.stock > 0 && (
-                  <Badge className="text-[10px] bg-red-100 text-red-600 border-red-200 font-bold px-1.5 py-0" variant="outline">
+                  <Badge className="text-[10px] bg-red-100 text-red-600 border-red-200 font-bold px-1.5 py-0 shrink-0" variant="outline">
                     Gần hết
                   </Badge>
                 )}
+                <span className="text-xs font-bold leading-snug line-clamp-1 text-foreground">{product.name}</span>
               </div>
-              <p className="text-sm font-bold leading-snug line-clamp-2">{product.name}</p>
-              <div className="flex items-center gap-2 mt-1">
+              <div className="flex items-center gap-2 mt-0.5">
                 <span className="text-primary font-black text-sm">{formatPrice(product.price)}</span>
-                <span className={`text-xs font-black px-1.5 py-0.5 rounded-md ${
+                <span className={`text-[11px] font-black px-1.5 py-0 rounded-md ${
                   product.stock <= 5
                     ? "bg-red-100 text-red-600"
                     : product.stock <= 15
