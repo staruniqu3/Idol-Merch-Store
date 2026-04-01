@@ -155,8 +155,9 @@ function ProductsTab() {
   const { toast } = useToast();
   const [open, setOpen] = useState(false);
   const [editId, setEditId] = useState<number | null>(null);
-  const [form, setForm] = useState({ name: "", description: "", price: "", category: "Kpop", stock: "0", isAvailable: true, orderType: "preorder", imageUrl: "", tags: [] as string[] });
+  const [form, setForm] = useState({ name: "", description: "", price: "", category: "Kpop", stock: "0", isAvailable: true, orderType: "preorder", imageUrl: "", tags: [] as string[], variants: [] as string[] });
   const [customTagInput, setCustomTagInput] = useState("");
+  const [customVariantInput, setCustomVariantInput] = useState("");
   const [customCategoryInput, setCustomCategoryInput] = useState("");
   const [customCategories, setCustomCategories] = useState<string[]>(() => {
     try { return JSON.parse(localStorage.getItem("custom_categories") || "[]"); } catch { return []; }
@@ -189,7 +190,7 @@ function ProductsTab() {
     "Weverse Album", "Limited Edition", "Merch Bundle",
   ];
 
-  const resetForm = () => { setForm({ name: "", description: "", price: "", category: "Kpop", stock: "0", isAvailable: true, orderType: "preorder", imageUrl: "", tags: [] }); setCustomTagInput(""); };
+  const resetForm = () => { setForm({ name: "", description: "", price: "", category: "Kpop", stock: "0", isAvailable: true, orderType: "preorder", imageUrl: "", tags: [], variants: [] }); setCustomTagInput(""); setCustomVariantInput(""); };
 
   const addCustomTag = () => {
     const tag = customTagInput.trim();
@@ -200,13 +201,13 @@ function ProductsTab() {
 
   const openEdit = (p: NonNullable<typeof products>[0]) => {
     setEditId(p.id);
-    setForm({ name: p.name, description: p.description ?? "", price: String(p.price), category: p.category, stock: String(p.stock), isAvailable: p.isAvailable, orderType: p.orderType, imageUrl: p.imageUrl ?? "", tags: p.tags ?? [] });
+    setForm({ name: p.name, description: p.description ?? "", price: String(p.price), category: p.category, stock: String(p.stock), isAvailable: p.isAvailable, orderType: p.orderType, imageUrl: p.imageUrl ?? "", tags: p.tags ?? [], variants: p.variants ?? [] });
     setOpen(true);
   };
 
   const handleSave = () => {
     if (!form.name || !form.price) { toast({ title: "Vui lòng nhập đủ thông tin", variant: "destructive" }); return; }
-    const data = { name: form.name, description: form.description || null, price: parseFloat(form.price), category: form.category, stock: parseInt(form.stock), isAvailable: form.isAvailable, orderType: form.orderType, imageUrl: form.imageUrl || null, tags: form.tags.length > 0 ? form.tags : null };
+    const data = { name: form.name, description: form.description || null, price: parseFloat(form.price), category: form.category, stock: parseInt(form.stock), isAvailable: form.isAvailable, orderType: form.orderType, imageUrl: form.imageUrl || null, tags: form.tags.length > 0 ? form.tags : null, variants: form.variants.length > 0 ? form.variants : null };
     if (editId) {
       updateProduct.mutate({ id: editId, data }, {
         onSuccess: () => { queryClient.invalidateQueries({ queryKey: getListProductsQueryKey() }); setOpen(false); resetForm(); setEditId(null); toast({ title: "Đã cập nhật sản phẩm" }); },
@@ -277,6 +278,47 @@ function ProductsTab() {
                   type="button"
                   onClick={addCustomTag}
                   className="shrink-0 h-8 px-3 rounded-xl text-xs font-semibold bg-primary/10 text-primary hover:bg-primary/20 border border-primary/15 transition-colors"
+                >
+                  + Thêm
+                </button>
+              </div>
+            </div>
+            <div>
+              <Label>Biến thể</Label>
+              <p className="text-[10px] text-muted-foreground mt-0.5 mb-2">Ví dụ: Muvmuv, Lunar, Size S, Màu hồng...</p>
+              {form.variants.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 mb-2">
+                  {form.variants.map((v) => (
+                    <span key={v} className="flex items-center gap-0.5 text-[10px] font-semibold px-2 py-1 rounded-full bg-secondary/15 text-secondary-foreground border border-border">
+                      {v}
+                      <button type="button" onClick={() => setForm((f) => ({ ...f, variants: f.variants.filter((x) => x !== v) }))} className="ml-0.5 hover:opacity-70 text-muted-foreground">×</button>
+                    </span>
+                  ))}
+                </div>
+              )}
+              <div className="flex gap-1.5">
+                <Input
+                  value={customVariantInput}
+                  onChange={(e) => setCustomVariantInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      const v = customVariantInput.trim();
+                      if (v && !form.variants.includes(v)) setForm((f) => ({ ...f, variants: [...f.variants, v] }));
+                      setCustomVariantInput("");
+                    }
+                  }}
+                  placeholder="Tên biến thể..."
+                  className="rounded-xl h-8 text-xs"
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    const v = customVariantInput.trim();
+                    if (v && !form.variants.includes(v)) setForm((f) => ({ ...f, variants: [...f.variants, v] }));
+                    setCustomVariantInput("");
+                  }}
+                  className="shrink-0 h-8 px-3 rounded-xl text-xs font-semibold bg-secondary/10 text-secondary-foreground hover:bg-secondary/20 border border-border transition-colors"
                 >
                   + Thêm
                 </button>

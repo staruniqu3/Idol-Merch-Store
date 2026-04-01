@@ -10,6 +10,7 @@ import { ShoppingCart, Plus, Minus, X, Package, ShoppingBag, Sparkles, ExternalL
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
@@ -22,7 +23,10 @@ type CartItem = {
   quantity: number;
   orderType: string;
   imageUrl?: string | null;
+  variant?: string;
 };
+
+const cartKey = (productId: number, variant?: string) => `${productId}::${variant ?? ""}`;
 
 const PRESET_CATEGORIES = ["Kpop", "GMMTV", "US UK", "Tạp Hoá"];
 
@@ -64,22 +68,37 @@ export default function ShopPage() {
     selectedCategory === "Tất cả" ? true : p.category === selectedCategory
   ) ?? [];
 
+  const [variantPickerProduct, setVariantPickerProduct] = useState<typeof filtered[0] | null>(null);
+
   const cartCount = cart.reduce((s, i) => s + i.quantity, 0);
   const cartTotal = cart.reduce((s, i) => s + i.price * i.quantity, 0);
 
-  const addToCart = (product: typeof filtered[0]) => {
+  const doAddToCart = (product: typeof filtered[0], variant?: string) => {
+    const key = cartKey(product.id, variant);
     setCart((prev) => {
-      const existing = prev.find((i) => i.productId === product.id);
-      if (existing) return prev.map((i) => i.productId === product.id ? { ...i, quantity: i.quantity + 1 } : i);
-      return [...prev, { productId: product.id, name: product.name, price: product.price, quantity: 1, orderType: product.orderType, imageUrl: product.imageUrl }];
+      const existing = prev.find((i) => cartKey(i.productId, i.variant) === key);
+      if (existing) return prev.map((i) => cartKey(i.productId, i.variant) === key ? { ...i, quantity: i.quantity + 1 } : i);
+      return [...prev, { productId: product.id, name: product.name, price: product.price, quantity: 1, orderType: product.orderType, imageUrl: product.imageUrl, variant }];
     });
-    toast({ title: "Đã thêm vào giỏ hàng", description: product.name });
+    toast({ title: "Đã thêm vào giỏ hàng", description: variant ? `${product.name} (${variant})` : product.name });
   };
 
-  const removeFromCart = (productId: number) => setCart((prev) => prev.filter((i) => i.productId !== productId));
+  const addToCart = (product: typeof filtered[0]) => {
+    if (product.variants && product.variants.length > 0) {
+      setVariantPickerProduct(product);
+    } else {
+      doAddToCart(product);
+    }
+  };
 
-  const changeQty = (productId: number, delta: number) => {
-    setCart((prev) => prev.map((i) => i.productId === productId ? { ...i, quantity: Math.max(1, i.quantity + delta) } : i));
+  const removeFromCart = (productId: number, variant?: string) => {
+    const key = cartKey(productId, variant);
+    setCart((prev) => prev.filter((i) => cartKey(i.productId, i.variant) !== key));
+  };
+
+  const changeQty = (productId: number, delta: number, variant?: string) => {
+    const key = cartKey(productId, variant);
+    setCart((prev) => prev.map((i) => cartKey(i.productId, i.variant) === key ? { ...i, quantity: Math.max(1, i.quantity + delta) } : i));
   };
 
   const autoAddPoints = async (memberPhone: string, totalAmount: number) => {
@@ -110,7 +129,7 @@ export default function ShopPage() {
         data: {
           memberName: phone,
           memberPhone: phone,
-          items: JSON.stringify(cart.map((i) => ({ productId: i.productId, name: i.name, price: i.price, quantity: i.quantity }))),
+          items: JSON.stringify(cart.map((i) => ({ productId: i.productId, name: i.variant ? `${i.name} (${i.variant})` : i.name, price: i.price, quantity: i.quantity }))),
           totalAmount: cartTotal,
           orderType,
           notes: null,
@@ -234,7 +253,7 @@ export default function ShopPage() {
                     <>
                       <div className="flex-1 overflow-y-auto space-y-2 px-5 py-4">
                         {cart.map((item) => (
-                          <div key={item.productId} className="flex gap-3 p-2.5 bg-muted/60 rounded-2xl" data-testid={`cart-item-${item.productId}`}>
+                          <div key={cartKey(item.productId, item.variant)} className="flex gap-3 p-2.5 bg-muted/60 rounded-2xl" data-testid={`cart-item-${item.productId}`}>
                             {/* thumbnail */}
                             <div className="w-14 h-14 rounded-xl overflow-hidden bg-muted shrink-0 border border-border">
                               {item.imageUrl ? (
@@ -247,12 +266,15 @@ export default function ShopPage() {
                             </div>
                             <div className="flex-1 min-w-0">
                               <p className="text-sm font-bold leading-snug line-clamp-2">{item.name}</p>
+                              {item.variant && (
+                                <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/15">{item.variant}</span>
+                              )}
                               <p className="text-xs text-primary font-black mt-0.5">{formatPrice(item.price)}</p>
                               <div className="flex items-center gap-1 mt-1.5">
-                                <Button variant="outline" size="icon" className="h-6 w-6 rounded-lg" onClick={() => changeQty(item.productId, -1)} data-testid={`button-minus-${item.productId}`}><Minus size={10} /></Button>
+                                <Button variant="outline" size="icon" className="h-6 w-6 rounded-lg" onClick={() => changeQty(item.productId, -1, item.variant)} data-testid={`button-minus-${item.productId}`}><Minus size={10} /></Button>
                                 <span className="w-5 text-center text-sm font-black">{item.quantity}</span>
-                                <Button variant="outline" size="icon" className="h-6 w-6 rounded-lg" onClick={() => changeQty(item.productId, 1)} data-testid={`button-plus-${item.productId}`}><Plus size={10} /></Button>
-                                <Button variant="ghost" size="icon" className="h-6 w-6 rounded-lg text-destructive ml-1" onClick={() => removeFromCart(item.productId)} data-testid={`button-remove-${item.productId}`}><X size={10} /></Button>
+                                <Button variant="outline" size="icon" className="h-6 w-6 rounded-lg" onClick={() => changeQty(item.productId, 1, item.variant)} data-testid={`button-plus-${item.productId}`}><Plus size={10} /></Button>
+                                <Button variant="ghost" size="icon" className="h-6 w-6 rounded-lg text-destructive ml-1" onClick={() => removeFromCart(item.productId, item.variant)} data-testid={`button-remove-${item.productId}`}><X size={10} /></Button>
                               </div>
                             </div>
                           </div>
@@ -402,6 +424,14 @@ export default function ShopPage() {
                   ))}
                 </div>
               )}
+              {product.variants && product.variants.length > 0 && (
+                <div className="flex flex-wrap gap-1 mt-1">
+                  <span className="text-[9px] text-muted-foreground font-medium">Biến thể:</span>
+                  {product.variants.map((v) => (
+                    <span key={v} className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-secondary/10 text-secondary-foreground border border-border">{v}</span>
+                  ))}
+                </div>
+              )}
             </div>
             <Button
               size="sm"
@@ -415,6 +445,34 @@ export default function ShopPage() {
           </div>
         ))}
       </div>
+
+      {/* Variant picker dialog */}
+      <Dialog open={!!variantPickerProduct} onOpenChange={(open) => { if (!open) setVariantPickerProduct(null); }}>
+        <DialogContent className="max-w-xs rounded-2xl">
+          <DialogHeader>
+            <DialogTitle className="text-base font-black">Chọn biến thể</DialogTitle>
+          </DialogHeader>
+          {variantPickerProduct && (
+            <div className="space-y-3">
+              <p className="text-sm text-muted-foreground font-medium line-clamp-2">{variantPickerProduct.name}</p>
+              <div className="flex flex-wrap gap-2">
+                {variantPickerProduct.variants?.map((v) => (
+                  <button
+                    key={v}
+                    onClick={() => {
+                      doAddToCart(variantPickerProduct, v);
+                      setVariantPickerProduct(null);
+                    }}
+                    className="px-4 py-2 rounded-xl text-sm font-bold border-2 border-primary/20 bg-primary/5 text-primary hover:bg-primary/15 hover:border-primary/40 active:scale-95 transition-all"
+                  >
+                    {v}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
