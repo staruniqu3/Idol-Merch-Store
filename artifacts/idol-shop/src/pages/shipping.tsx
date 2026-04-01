@@ -58,7 +58,7 @@ const statusConfig: Record<string, {
     gradient: "from-amber-400 to-orange-500",
   },
   in_transit: {
-    label: "Đang vận chuyển",
+    label: "Đang giao",
     icon: <Truck size={16} />,
     color: "text-blue-600",
     bg: "bg-blue-50",
@@ -80,6 +80,14 @@ const statusConfig: Record<string, {
     bg: "bg-emerald-50",
     dot: "bg-emerald-500",
     gradient: "from-emerald-500 to-teal-500",
+  },
+  returned: {
+    label: "Trả đơn",
+    icon: <X size={16} />,
+    color: "text-red-600",
+    bg: "bg-red-50",
+    dot: "bg-red-500",
+    gradient: "from-red-500 to-rose-600",
   },
 };
 
