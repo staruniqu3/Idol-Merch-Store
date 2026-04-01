@@ -105,10 +105,10 @@ const tierConfig: Record<string, {
   "ruby": {
     label: "Ruby",
     emoji: "🥂",
-    gradient: "from-[#c8a96e] via-[#e8d5a3] to-[#b8955a]",
-    textColor: "text-[#3d2800]",
-    bg: "bg-amber-100 text-amber-800",
-    cardStyle: "bg-gradient-to-br from-[#c8a96e] via-[#e8d5a3] to-[#b8955a]",
+    gradient: "from-[#8b0000] via-[#c8435a] to-[#e8c4a0]",
+    textColor: "text-[#fff0f0]",
+    bg: "bg-red-100 text-red-800",
+    cardStyle: "bg-gradient-to-br from-[#8b0000] via-[#c8435a] to-[#e8c4a0]",
   },
   "platinum": {
     label: "Platinum",
