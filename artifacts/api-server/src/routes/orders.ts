@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, count, sum } from "drizzle-orm";
+import { eq, count, sum, lt, and } from "drizzle-orm";
 import { db, ordersTable, membersTable } from "@workspace/db";
 import {
   ListOrdersQueryParams,
@@ -135,6 +135,14 @@ router.patch("/orders/:id", async (req, res): Promise<void> => {
   }
 
   res.json(UpdateOrderResponse.parse(mapOrder(order)));
+});
+
+router.delete("/orders/cleanup", async (_req, res): Promise<void> => {
+  const cutoff = new Date(Date.now() - 60 * 24 * 60 * 60 * 1000);
+  const deleted = await db.delete(ordersTable)
+    .where(and(eq(ordersTable.status, "delivered"), lt(ordersTable.updatedAt, cutoff)))
+    .returning({ id: ordersTable.id });
+  res.json({ deleted: deleted.length });
 });
 
 export default router;

@@ -12,6 +12,8 @@ export const ordersTable = pgTable("orders", {
   status: text("status").notNull().default("pending"),
   orderType: text("order_type").notNull().default("preorder"),
   notes: text("notes"),
+  address: text("address"),
+  shippingCarrier: text("shipping_carrier"),
   pointsEarned: integer("points_earned").notNull().default(0),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),

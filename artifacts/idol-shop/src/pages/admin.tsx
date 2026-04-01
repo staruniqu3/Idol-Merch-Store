@@ -287,6 +287,11 @@ function OrdersTab() {
   const { toast } = useToast();
   const [expandedId, setExpandedId] = useState<number | null>(null);
 
+  useEffect(() => {
+    const base = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
+    fetch(`${base}/api/orders/cleanup`, { method: "DELETE" }).catch(() => {});
+  }, []);
+
   return (
     <div className="space-y-3">
       <h3 className="font-bold">Đơn Hàng ({orders?.length ?? 0})</h3>
@@ -322,6 +327,15 @@ function OrdersTab() {
                       </div>
                     ))}
                   </div>
+                  {(order as any).address && (
+                    <div className="text-xs bg-blue-50 border border-blue-100 rounded-xl p-2 text-blue-800 space-y-0.5">
+                      <p className="font-bold">📍 Địa chỉ giao hàng</p>
+                      <p>{(order as any).address}</p>
+                      {(order as any).shippingCarrier && (
+                        <p className="font-semibold">🚚 {(order as any).shippingCarrier}</p>
+                      )}
+                    </div>
+                  )}
                   {order.notes && <p className="text-xs bg-amber-50 border border-amber-100 rounded-xl p-2 text-amber-700">📝 {order.notes}</p>}
                   <div>
                     <Label className="text-xs">Cập nhật trạng thái</Label>
