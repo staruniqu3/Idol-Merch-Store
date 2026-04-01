@@ -709,7 +709,7 @@ function ShippingTab() {
 
 // ===================== Pre-order Schedule =====================
 interface PreorderItem {
-  id: number; title: string; description: string | null; startDate: string | null; deadline: string | null; pickupDate: string | null;
+  id: number; title: string; description: string | null; startDate: string | null; deadline: string | null; pickupDate: string | null; pickupDeadline: string | null;
   imageUrl: string | null; artist: string | null; isActive: boolean; createdAt: string;
 }
 
@@ -717,7 +717,7 @@ function PreorderTab() {
   const [items, setItems] = useState<PreorderItem[]>([]);
   const [open, setOpen] = useState(false);
   const [editId, setEditId] = useState<number | null>(null);
-  const [form, setForm] = useState({ title: "", description: "", startDate: "", deadline: "", pickupDate: "", artist: "", imageUrl: "", isActive: true });
+  const [form, setForm] = useState({ title: "", description: "", startDate: "", deadline: "", pickupDate: "", pickupDeadline: "", artist: "", imageUrl: "", isActive: true });
   const { toast } = useToast();
 
   const fetchItems = () => {
@@ -726,17 +726,17 @@ function PreorderTab() {
 
   useEffect(() => { fetchItems(); }, []);
 
-  const resetForm = () => setForm({ title: "", description: "", startDate: "", deadline: "", pickupDate: "", artist: "", imageUrl: "", isActive: true });
+  const resetForm = () => setForm({ title: "", description: "", startDate: "", deadline: "", pickupDate: "", pickupDeadline: "", artist: "", imageUrl: "", isActive: true });
 
   const openEdit = (item: PreorderItem) => {
     setEditId(item.id);
-    setForm({ title: item.title, description: item.description ?? "", startDate: item.startDate ?? "", deadline: item.deadline ?? "", pickupDate: item.pickupDate ?? "", artist: item.artist ?? "", imageUrl: item.imageUrl ?? "", isActive: item.isActive });
+    setForm({ title: item.title, description: item.description ?? "", startDate: item.startDate ?? "", deadline: item.deadline ?? "", pickupDate: item.pickupDate ?? "", pickupDeadline: item.pickupDeadline ?? "", artist: item.artist ?? "", imageUrl: item.imageUrl ?? "", isActive: item.isActive });
     setOpen(true);
   };
 
   const handleSave = async () => {
     if (!form.title) { toast({ title: "Nhập tiêu đề", variant: "destructive" }); return; }
-    const body = { title: form.title, description: form.description || null, startDate: form.startDate || null, deadline: form.deadline || null, pickupDate: form.pickupDate || null, artist: form.artist || null, imageUrl: form.imageUrl || null, isActive: form.isActive };
+    const body = { title: form.title, description: form.description || null, startDate: form.startDate || null, deadline: form.deadline || null, pickupDate: form.pickupDate || null, pickupDeadline: form.pickupDeadline || null, artist: form.artist || null, imageUrl: form.imageUrl || null, isActive: form.isActive };
     const url = editId ? `${getBaseUrl()}/api/preorder-schedule/${editId}` : `${getBaseUrl()}/api/preorder-schedule`;
     const method = editId ? "PATCH" : "POST";
     await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
@@ -769,7 +769,10 @@ function PreorderTab() {
               <div><Label>Bắt đầu PO</Label><Input type="date" value={form.startDate} onChange={(e) => setForm({ ...form, startDate: e.target.value })} className="rounded-xl mt-1" /></div>
               <div><Label>Deadline PO</Label><Input type="date" value={form.deadline} onChange={(e) => setForm({ ...form, deadline: e.target.value })} className="rounded-xl mt-1" /></div>
             </div>
-            <div><Label>Lịch pickup</Label><Input type="date" value={form.pickupDate} onChange={(e) => setForm({ ...form, pickupDate: e.target.value })} className="rounded-xl mt-1" /></div>
+            <div className="grid grid-cols-2 gap-2">
+              <div><Label>Bắt đầu Pickup</Label><Input type="date" value={form.pickupDate} onChange={(e) => setForm({ ...form, pickupDate: e.target.value })} className="rounded-xl mt-1" /></div>
+              <div><Label>Deadline Pickup</Label><Input type="date" value={form.pickupDeadline} onChange={(e) => setForm({ ...form, pickupDeadline: e.target.value })} className="rounded-xl mt-1" /></div>
+            </div>
             <div><Label>URL ảnh</Label><Input value={form.imageUrl} onChange={(e) => setForm({ ...form, imageUrl: e.target.value })} placeholder="https://..." className="rounded-xl mt-1" /></div>
             <div className="flex items-center gap-3 py-1">
               <Switch checked={form.isActive} onCheckedChange={(v) => setForm({ ...form, isActive: v })} id="isActive" />
@@ -792,7 +795,7 @@ function PreorderTab() {
               <div className="flex flex-wrap gap-x-3 mt-0.5">
                 {item.startDate && <p className="text-xs text-muted-foreground">Bắt đầu: {item.startDate}</p>}
                 {item.deadline && <p className="text-xs text-muted-foreground">Deadline: {item.deadline}</p>}
-                {item.pickupDate && <p className="text-xs text-emerald-600 font-medium">Pickup: {item.pickupDate}</p>}
+                {item.pickupDate && <p className="text-xs text-emerald-600 font-medium">Pickup: {item.pickupDate}{item.pickupDeadline ? ` → ${item.pickupDeadline}` : ""}</p>}
               </div>
               {!item.isActive && <Badge variant="secondary" className="text-[10px] mt-1">Đã đóng</Badge>}
             </div>

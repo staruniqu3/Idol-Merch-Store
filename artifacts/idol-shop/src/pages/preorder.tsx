@@ -9,6 +9,7 @@ interface PreorderItem {
   startDate: string | null;
   deadline: string | null;
   pickupDate: string | null;
+  pickupDeadline: string | null;
   imageUrl: string | null;
   artist: string | null;
   isActive: boolean;
@@ -115,6 +116,7 @@ function PreorderModal({ item, onClose }: { item: PreorderItem; onClose: () => v
   const start = item.startDate ? startOfDay(new Date(item.startDate)) : startOfDay(new Date(item.createdAt));
   const deadline = item.deadline ? startOfDay(new Date(item.deadline)) : null;
   const pickupDay = item.pickupDate ? startOfDay(new Date(item.pickupDate)) : null;
+  const pickupEndDay = item.pickupDeadline ? startOfDay(new Date(item.pickupDeadline)) : null;
   const today = startOfDay(new Date());
   const totalDays = deadline ? diffDays(deadline, start) : null;
   const elapsed = deadline ? Math.min(diffDays(today, start), totalDays ?? 0) : null;
@@ -182,6 +184,11 @@ function PreorderModal({ item, onClose }: { item: PreorderItem; onClose: () => v
                 <p className="text-sm font-bold text-emerald-800 mt-0.5">
                   {pickupDay.toLocaleDateString("vi-VN", { weekday: "long", day: "2-digit", month: "long", year: "numeric" })}
                 </p>
+                {pickupEndDay && (
+                  <p className="text-xs text-emerald-600 mt-0.5">
+                    Đến {pickupEndDay.toLocaleDateString("vi-VN", { weekday: "long", day: "2-digit", month: "long", year: "numeric" })}
+                  </p>
+                )}
               </div>
             </div>
           )}
@@ -371,9 +378,20 @@ export default function PreorderPage() {
                   const ac = getArtistColor(item.artist);
 
                   const pickupDay = item.pickupDate ? startOfDay(new Date(item.pickupDate)) : null;
+                  const pickupEndDay = item.pickupDeadline ? startOfDay(new Date(item.pickupDeadline)) : null;
                   const pickupOffset = pickupDay ? diffDays(pickupDay, rangeStart) : null;
 
-                  // Hide PO bar when deadline has passed AND pickup date is set (item in pickup phase)
+                  // Show pickup as a bar when both start + deadline exist, else just diamond
+                  const hasPickupRange = pickupDay !== null && pickupEndDay !== null;
+                  const pickupBarDays = hasPickupRange ? Math.max(diffDays(pickupEndDay!, pickupDay!) + 1, 1) : 0;
+
+                  // Pickup progress (today inside pickup window)
+                  const pickupElapsed = hasPickupRange
+                    ? Math.max(0, Math.min(pickupBarDays, diffDays(today, pickupDay!) + 1))
+                    : 0;
+                  const pickupPct = hasPickupRange && pickupBarDays > 0 ? (pickupElapsed / pickupBarDays) * 100 : 0;
+
+                  // Hide PO bar when deadline has passed AND pickup date is set
                   const showPOBar = !(ended && pickupDay);
                   const showPickupRow = pickupDay !== null;
 
@@ -393,8 +411,9 @@ export default function PreorderPage() {
                       ? "rgba(239,68,68,0.3)"
                       : ac ? `${ac.fill}55` : "hsl(var(--primary)/0.25)";
 
-                  // Pickup uses emerald color
                   const pickupFill = "#10B981";
+                  const pickupBg = "rgba(16,185,129,0.13)";
+                  const pickupBorder = "rgba(16,185,129,0.35)";
 
                   return (
                     <div key={item.id} style={{ marginTop: idx === 0 ? 6 : 2 }}>
@@ -432,34 +451,40 @@ export default function PreorderPage() {
                           style={{ height: showPOBar ? 28 : 38 }}
                           onClick={() => setSelected(item)}
                         >
-                          {/* Slim pickup bar behind the diamond when PO bar is hidden */}
-                          {!showPOBar && (
+                          {hasPickupRange ? (
+                            /* Pickup as full bar from pickupDate → pickupDeadline */
                             <div
-                              className="absolute rounded-full"
+                              className="absolute inset-y-1 rounded-full overflow-hidden cursor-pointer shadow-sm"
                               style={{
-                                left: 4,
-                                right: 4,
-                                top: "50%",
-                                height: 4,
-                                transform: "translateY(-50%)",
-                                background: "rgba(16,185,129,0.18)",
-                                borderRadius: 9999,
+                                left: pickupOffset! * DAY_PX + 4,
+                                width: Math.max(pickupBarDays * DAY_PX - 8, DAY_PX - 4),
                               }}
-                            />
-                          )}
-                          {/* Diamond marker */}
-                          <div
-                            className="absolute flex flex-col items-center cursor-pointer z-20"
-                            style={{ left: pickupOffset! * DAY_PX + DAY_PX / 2 - 9, top: showPOBar ? 3 : 5 }}
-                          >
+                            >
+                              <div className="h-full w-full rounded-full border" style={{ background: pickupBg, borderColor: pickupBorder }}>
+                                <div className="h-full rounded-full transition-all" style={{ width: `${pickupPct}%`, background: pickupFill }} />
+                              </div>
+                              <div className="absolute inset-0 flex items-center px-3 gap-1.5 min-w-0">
+                                <Package size={10} color="#fff" className="shrink-0 opacity-80" />
+                                <span className="text-[9px] font-bold truncate drop-shadow" style={{ color: "#fff" }}>
+                                  {showPOBar ? "Pickup" : item.title}
+                                </span>
+                              </div>
+                              {/* End diamond */}
+                              <div
+                                className="absolute top-1/2 -translate-y-1/2 w-3 h-3 rotate-45 border border-white/60 shadow-sm"
+                                style={{ right: 6, background: pickupFill }}
+                              />
+                            </div>
+                          ) : (
+                            /* Single pickup date — diamond only */
                             <div
-                              className="w-[18px] h-[18px] rotate-45 border-2 shadow"
-                              style={{ background: pickupFill, borderColor: "#fff" }}
-                            />
-                            <span className="text-[7px] font-black mt-0.5 whitespace-nowrap" style={{ color: pickupFill }}>
-                              Pickup
-                            </span>
-                          </div>
+                              className="absolute flex flex-col items-center cursor-pointer z-20"
+                              style={{ left: pickupOffset! * DAY_PX + DAY_PX / 2 - 9, top: showPOBar ? 3 : 5 }}
+                            >
+                              <div className="w-[18px] h-[18px] rotate-45 border-2 shadow" style={{ background: pickupFill, borderColor: "#fff" }} />
+                              <span className="text-[7px] font-black mt-0.5 whitespace-nowrap" style={{ color: pickupFill }}>Pickup</span>
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>
@@ -562,12 +587,17 @@ export default function PreorderPage() {
                         </div>
                       )}
                       {item.pickupDate && (
-                        <div className="flex items-center gap-1.5 text-xs">
-                          <Package size={12} className="text-emerald-500" />
-                          <span className="text-muted-foreground">Lịch pickup:</span>
-                          <span className="font-bold text-emerald-600">
-                            {new Date(item.pickupDate).toLocaleDateString("vi-VN", { weekday: "long", day: "2-digit", month: "long", year: "numeric" })}
-                          </span>
+                        <div className="flex items-start gap-1.5 text-xs">
+                          <Package size={12} className="text-emerald-500 mt-0.5 shrink-0" />
+                          <div>
+                            <span className="text-muted-foreground">Pickup: </span>
+                            <span className="font-bold text-emerald-600">
+                              {new Date(item.pickupDate).toLocaleDateString("vi-VN", { day: "2-digit", month: "long", year: "numeric" })}
+                            </span>
+                            {item.pickupDeadline && (
+                              <span className="text-emerald-600"> → {new Date(item.pickupDeadline).toLocaleDateString("vi-VN", { day: "2-digit", month: "long", year: "numeric" })}</span>
+                            )}
+                          </div>
                         </div>
                       )}
                     </div>
