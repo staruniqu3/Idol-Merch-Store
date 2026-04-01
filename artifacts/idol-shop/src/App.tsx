@@ -18,7 +18,7 @@ const queryClient = new QueryClient({
 
 const navItems = [
   { path: "/", label: "Shop", icon: ShoppingBag },
-  { path: "/preorder", label: "Pre-order", icon: Calendar },
+  { path: "/preorder", label: "Lịch PO", icon: Calendar },
   { path: "/shipping", label: "Vận chuyển", icon: Truck },
   { path: "/membership", label: "Thành viên", icon: Star },
 ];

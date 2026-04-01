@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { Calendar, Clock, AlertCircle, ChevronRight, X, Star, Package } from "lucide-react";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { Calendar, X, Star, Package, ChevronDown, ChevronUp, Clock } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 
 interface PreorderItem {
@@ -18,57 +18,77 @@ function getBaseUrl() {
   return base.replace(/\/$/, "");
 }
 
-function getDaysLeft(deadline: string | null): number | null {
-  if (!deadline) return null;
-  const d = new Date(deadline);
-  const now = new Date();
-  now.setHours(0, 0, 0, 0);
-  const diff = Math.ceil((d.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-  return diff;
+const DAY_PX = 52;
+
+function startOfDay(d: Date) {
+  const r = new Date(d);
+  r.setHours(0, 0, 0, 0);
+  return r;
 }
 
-function DeadlineBadge({ days }: { days: number | null }) {
+function addDays(d: Date, n: number) {
+  const r = new Date(d);
+  r.setDate(r.getDate() + n);
+  return r;
+}
+
+function diffDays(a: Date, b: Date) {
+  return Math.round((a.getTime() - b.getTime()) / 86400000);
+}
+
+const MONTH_LABELS_VI = ["Th.1", "Th.2", "Th.3", "Th.4", "Th.5", "Th.6",
+  "Th.7", "Th.8", "Th.9", "Th.10", "Th.11", "Th.12"];
+
+function getDaysLeft(deadline: string | null): number | null {
+  if (!deadline) return null;
+  const d = startOfDay(new Date(deadline));
+  const now = startOfDay(new Date());
+  return diffDays(d, now);
+}
+
+function UrgencyBadge({ days }: { days: number | null }) {
   if (days === null) return null;
-  if (days < 0) return (
-    <span className="text-[10px] font-bold bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">Đã kết thúc</span>
-  );
-  if (days === 0) return (
-    <span className="text-[10px] font-bold bg-red-100 text-red-600 px-2 py-0.5 rounded-full animate-pulse-soft">HÔM NAY</span>
-  );
-  if (days <= 3) return (
-    <span className="text-[10px] font-bold bg-red-50 text-red-500 px-2 py-0.5 rounded-full">Còn {days} ngày</span>
-  );
-  if (days <= 7) return (
-    <span className="text-[10px] font-bold bg-amber-50 text-amber-600 px-2 py-0.5 rounded-full">Còn {days} ngày</span>
-  );
-  return (
-    <span className="text-[10px] font-bold bg-green-50 text-green-600 px-2 py-0.5 rounded-full">Còn {days} ngày</span>
-  );
+  if (days < 0) return <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-400">Kết thúc</span>;
+  if (days === 0) return <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-red-500 text-white animate-pulse">HÔM NAY</span>;
+  if (days <= 3) return <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-red-100 text-red-600">Còn {days}d</span>;
+  if (days <= 7) return <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-600">Còn {days}d</span>;
+  return <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-600">Còn {days}d</span>;
 }
 
 function PreorderModal({ item, onClose }: { item: PreorderItem; onClose: () => void }) {
   const days = getDaysLeft(item.deadline);
   const ended = days !== null && days < 0;
+  const start = startOfDay(new Date(item.createdAt));
+  const deadline = item.deadline ? startOfDay(new Date(item.deadline)) : null;
+  const today = startOfDay(new Date());
+  const totalDays = deadline ? diffDays(deadline, start) : null;
+  const elapsed = deadline ? Math.min(diffDays(today, start), totalDays ?? 0) : null;
+  const progress = totalDays && elapsed !== null && totalDays > 0
+    ? Math.max(0, Math.min(100, (elapsed / totalDays) * 100))
+    : null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center animate-fade-in" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-end justify-center" onClick={onClose}>
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
       <div
-        className="relative w-full max-w-lg bg-card rounded-t-3xl shadow-2xl animate-slide-up overflow-hidden"
+        className="relative w-full max-w-lg bg-card rounded-t-3xl shadow-2xl overflow-hidden"
+        style={{ animation: "slideUp 0.25s ease-out" }}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="hero-gradient p-5 pt-6 text-white">
           <button
             onClick={onClose}
-            className="absolute top-4 right-4 w-8 h-8 rounded-full bg-white/20 flex items-center justify-center hover:bg-white/30 transition-colors"
+            className="absolute top-4 right-4 w-8 h-8 rounded-full bg-white/20 flex items-center justify-center"
           >
             <X size={16} />
           </button>
-          <div className="flex items-center gap-2 mb-1">
-            <Star size={14} className="text-pink-300" fill="currentColor" />
-            <span className="text-xs font-semibold text-pink-200">{item.artist ?? "Pre-order"}</span>
-          </div>
-          <h3 className="text-xl font-bold leading-tight">{item.title}</h3>
+          {item.artist && (
+            <div className="flex items-center gap-1.5 mb-1">
+              <Star size={12} className="text-pink-300" fill="currentColor" />
+              <span className="text-xs font-bold text-pink-200">{item.artist}</span>
+            </div>
+          )}
+          <h3 className="text-xl font-black leading-tight pr-8">{item.title}</h3>
         </div>
 
         <div className="p-5 space-y-4">
@@ -76,26 +96,30 @@ function PreorderModal({ item, onClose }: { item: PreorderItem; onClose: () => v
             <p className="text-sm text-foreground leading-relaxed">{item.description}</p>
           )}
 
-          {item.deadline && (
-            <div className={`rounded-2xl p-4 ${ended ? "bg-gray-50" : days !== null && days <= 3 ? "bg-red-50" : "bg-primary/10"}`}>
-              <div className="flex items-center gap-2 mb-1">
-                <AlertCircle size={14} className={ended ? "text-gray-400" : "text-primary"} />
-                <span className="text-xs font-bold text-muted-foreground">DEADLINE ĐẶT HÀNG</span>
+          {deadline && progress !== null && (
+            <div className={`rounded-2xl p-4 ${ended ? "bg-muted" : days !== null && days <= 3 ? "bg-red-50" : "bg-primary/5"}`}>
+              <div className="flex justify-between items-center mb-2">
+                <span className="text-xs font-bold text-muted-foreground uppercase tracking-wide">Tiến độ deadline</span>
+                <UrgencyBadge days={days} />
               </div>
-              <p className={`text-lg font-black ${ended ? "text-gray-400" : "text-primary"}`}>
-                {new Date(item.deadline).toLocaleDateString("vi-VN", { day: "2-digit", month: "long", year: "numeric" })}
-              </p>
-              {days !== null && days >= 0 && (
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  {days === 0 ? "Hôm nay là ngày cuối!" : `Còn ${days} ngày để đặt hàng`}
-                </p>
-              )}
+              <div className="w-full bg-muted rounded-full h-3 overflow-hidden">
+                <div
+                  className={`h-3 rounded-full transition-all ${ended ? "bg-gray-400" : days !== null && days <= 3 ? "bg-red-400" : "bg-primary"}`}
+                  style={{ width: `${progress}%` }}
+                />
+              </div>
+              <div className="flex justify-between text-[10px] text-muted-foreground mt-1.5">
+                <span>{start.toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit" })}</span>
+                <span className={`font-bold ${ended ? "text-gray-400" : days !== null && days <= 3 ? "text-red-500" : "text-primary"}`}>
+                  Deadline: {deadline.toLocaleDateString("vi-VN", { day: "2-digit", month: "long", year: "numeric" })}
+                </span>
+              </div>
             </div>
           )}
 
           <button
             onClick={onClose}
-            className="w-full py-3 rounded-2xl bg-muted text-muted-foreground font-semibold text-sm hover:bg-muted/80 transition-colors"
+            className="w-full py-3 rounded-2xl bg-muted text-muted-foreground font-semibold text-sm"
           >
             Đóng
           </button>
@@ -110,6 +134,8 @@ export default function PreorderPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [selected, setSelected] = useState<PreorderItem | null>(null);
   const [filter, setFilter] = useState<"active" | "all">("active");
+  const [expandedId, setExpandedId] = useState<number | null>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const base = getBaseUrl();
@@ -120,113 +146,297 @@ export default function PreorderPage() {
       .catch(() => setIsLoading(false));
   }, []);
 
-  const filtered = items.filter((i) => {
-    if (filter === "active") return i.isActive;
-    return true;
-  }).sort((a, b) => {
-    if (!a.deadline && !b.deadline) return 0;
-    if (!a.deadline) return 1;
-    if (!b.deadline) return -1;
-    return new Date(a.deadline).getTime() - new Date(b.deadline).getTime();
-  });
+  const filtered = items
+    .filter((i) => filter === "all" || i.isActive)
+    .sort((a, b) => {
+      if (!a.deadline && !b.deadline) return 0;
+      if (!a.deadline) return 1;
+      if (!b.deadline) return -1;
+      return new Date(a.deadline).getTime() - new Date(b.deadline).getTime();
+    });
+
+  const today = startOfDay(new Date());
+
+  const rangeStart = (() => {
+    const dates = items
+      .map((i) => startOfDay(new Date(i.createdAt)))
+      .filter(Boolean);
+    const earliest = dates.length ? new Date(Math.min(...dates.map((d) => d.getTime()))) : today;
+    return addDays(earliest < addDays(today, -14) ? earliest : addDays(today, -14), -3);
+  })();
+
+  const rangeEnd = (() => {
+    const dates = items
+      .filter((i) => i.deadline)
+      .map((i) => startOfDay(new Date(i.deadline!)));
+    const latest = dates.length ? new Date(Math.max(...dates.map((d) => d.getTime()))) : today;
+    return addDays(latest > addDays(today, 30) ? latest : addDays(today, 30), 5);
+  })();
+
+  const totalDays = diffDays(rangeEnd, rangeStart) + 1;
+  const todayOffset = diffDays(today, rangeStart);
+
+  const days = Array.from({ length: totalDays }, (_, i) => addDays(rangeStart, i));
+
+  useEffect(() => {
+    if (scrollRef.current && todayOffset >= 0) {
+      const scrollTo = todayOffset * DAY_PX - scrollRef.current.clientWidth / 2 + DAY_PX / 2;
+      scrollRef.current.scrollLeft = Math.max(0, scrollTo);
+    }
+  }, [isLoading, todayOffset]);
 
   const activeCount = items.filter((i) => i.isActive).length;
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="hero-gradient px-4 pt-10 pb-8 text-white">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-white/20 flex items-center justify-center">
-            <Calendar size={18} />
+    <div className="min-h-screen bg-background flex flex-col">
+      <style>{`
+        @keyframes slideUp {
+          from { transform: translateY(100%); opacity: 0; }
+          to { transform: translateY(0); opacity: 1; }
+        }
+      `}</style>
+
+      <div className="hero-gradient px-4 pt-10 pb-5 text-white shrink-0">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-white/20 flex items-center justify-center shrink-0">
+              <Calendar size={18} />
+            </div>
+            <div>
+              <h1 className="text-xl font-black leading-tight">Lịch Pre-order</h1>
+              <p className="text-xs opacity-60 mt-0.5">Theo dõi deadline đặt hàng</p>
+            </div>
           </div>
-          <div>
-            <h1 className="text-xl font-bold leading-tight">Lịch Pre-order</h1>
-            <p className="text-xs opacity-70 mt-0.5">Theo dõi deadline đặt hàng</p>
+          <div className="bg-white/15 rounded-2xl px-3 py-1.5 text-center min-w-[52px]">
+            <p className="text-xl font-black leading-none">{activeCount}</p>
+            <p className="text-[9px] opacity-70 font-semibold mt-0.5">Đang mở</p>
           </div>
         </div>
 
-        <div className="mt-4 flex items-center gap-3">
-          <div className="bg-white/15 rounded-2xl px-4 py-2 text-center">
-            <p className="text-2xl font-black">{activeCount}</p>
-            <p className="text-[10px] opacity-70 font-semibold">Đang mở</p>
-          </div>
-          <div className="flex gap-2">
-            {(["active", "all"] as const).map((f) => (
-              <button
-                key={f}
-                onClick={() => setFilter(f)}
-                className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${
-                  filter === f ? "bg-white text-foreground" : "bg-white/15 text-white/80"
-                }`}
-              >
-                {f === "active" ? "Đang mở" : "Tất cả"}
-              </button>
-            ))}
-          </div>
+        <div className="flex gap-2 mt-3">
+          {(["active", "all"] as const).map((f) => (
+            <button
+              key={f}
+              onClick={() => setFilter(f)}
+              className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all ${
+                filter === f ? "bg-white text-foreground shadow" : "bg-white/15 text-white/80"
+              }`}
+            >
+              {f === "active" ? "Đang mở" : "Tất cả"}
+            </button>
+          ))}
         </div>
       </div>
 
-      <div className="px-4 py-4 -mt-2 space-y-3">
-        {isLoading &&
-          Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-24 rounded-2xl" />)
-        }
+      {isLoading && (
+        <div className="px-4 py-4 space-y-3">
+          {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-24 rounded-2xl" />)}
+        </div>
+      )}
 
-        {!isLoading && filtered.length === 0 && (
-          <div className="flex flex-col items-center justify-center py-16 text-muted-foreground gap-3">
-            <div className="w-20 h-20 rounded-3xl bg-muted flex items-center justify-center">
-              <Package size={36} strokeWidth={1.2} />
-            </div>
-            <p className="font-bold text-foreground">Chưa có pre-order</p>
-            <p className="text-sm text-center">Shop sẽ thông báo khi có goods mới</p>
+      {!isLoading && filtered.length === 0 && (
+        <div className="flex flex-col items-center justify-center flex-1 py-16 text-muted-foreground gap-3 px-4">
+          <div className="w-20 h-20 rounded-3xl bg-muted flex items-center justify-center">
+            <Package size={36} strokeWidth={1.2} />
           </div>
-        )}
+          <p className="font-bold text-foreground">Chưa có pre-order</p>
+          <p className="text-sm text-center">Shop sẽ thông báo khi có goods mới</p>
+        </div>
+      )}
 
-        {filtered.map((item) => {
-          const days = getDaysLeft(item.deadline);
-          const ended = days !== null && days < 0;
-          const urgent = days !== null && days >= 0 && days <= 3;
+      {!isLoading && filtered.length > 0 && (
+        <>
+          <div
+            ref={scrollRef}
+            className="overflow-x-auto shrink-0 bg-card border-b border-border"
+            style={{ WebkitOverflowScrolling: "touch" }}
+          >
+            <div style={{ width: totalDays * DAY_PX, position: "relative", minWidth: "100%" }}>
 
-          return (
-            <button
-              key={item.id}
-              className={`w-full bg-card border rounded-2xl p-4 text-left card-hover shadow-sm transition-all active:scale-[0.98] ${
-                urgent ? "border-red-200 ring-1 ring-red-100" : ended ? "border-border opacity-60" : "border-border"
-              }`}
-              onClick={() => setSelected(item)}
-              data-testid={`preorder-card-${item.id}`}
-            >
-              <div className="flex items-start gap-3">
-                <div className={`w-11 h-11 rounded-xl shrink-0 flex items-center justify-center ${
-                  ended ? "bg-gray-100" : urgent ? "bg-red-100" : "bg-primary/10"
-                }`}>
-                  <Calendar size={20} className={ended ? "text-gray-400" : urgent ? "text-red-500" : "text-primary"} />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap mb-0.5">
-                    {item.artist && (
-                      <span className="text-[10px] font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-full">{item.artist}</span>
-                    )}
-                    <DeadlineBadge days={days} />
-                  </div>
-                  <p className="font-bold text-sm leading-snug">{item.title}</p>
-                  {item.description && (
-                    <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{item.description}</p>
-                  )}
-                  {item.deadline && (
-                    <div className="flex items-center gap-1 mt-1.5">
-                      <Clock size={11} className="text-muted-foreground" />
-                      <span className="text-[11px] text-muted-foreground">
-                        Deadline: {new Date(item.deadline).toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric" })}
+              <div className="flex border-b border-border/50" style={{ height: 36 }}>
+                {days.map((d, i) => {
+                  const isToday = diffDays(d, today) === 0;
+                  const isFirstOfMonth = d.getDate() === 1;
+                  return (
+                    <div
+                      key={i}
+                      style={{ width: DAY_PX, flexShrink: 0 }}
+                      className={`flex flex-col items-center justify-center border-r border-border/30 relative text-[10px] font-semibold transition-colors
+                        ${isToday ? "bg-primary/10 text-primary" : "text-muted-foreground"}`}
+                    >
+                      {isFirstOfMonth && (
+                        <span className="text-[8px] font-bold text-primary/60 leading-none -mt-0.5">
+                          {MONTH_LABELS_VI[d.getMonth()]}
+                        </span>
+                      )}
+                      <span className={`leading-none ${isToday ? "font-black text-primary" : ""}`}>
+                        {isToday ? "●" : d.getDate()}
                       </span>
+                      {!isFirstOfMonth && !isToday && (
+                        <span className="text-[8px] opacity-50 leading-none">
+                          {["CN", "T2", "T3", "T4", "T5", "T6", "T7"][d.getDay()]}
+                        </span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div className="relative" style={{ paddingBottom: 4 }}>
+                {/* Today vertical line */}
+                <div
+                  className="absolute top-0 bottom-0 w-0.5 bg-primary/50 z-10 pointer-events-none"
+                  style={{ left: todayOffset * DAY_PX + DAY_PX / 2 - 1 }}
+                />
+
+                {filtered.map((item, idx) => {
+                  const itemStart = startOfDay(new Date(item.createdAt));
+                  const itemEnd = item.deadline ? startOfDay(new Date(item.deadline)) : addDays(today, 30);
+                  const startOffset = diffDays(itemStart, rangeStart);
+                  const durationDays = diffDays(itemEnd, itemStart) + 1;
+                  const elapsed = Math.max(0, Math.min(durationDays, diffDays(today, itemStart) + 1));
+                  const pct = durationDays > 0 ? (elapsed / durationDays) * 100 : 100;
+                  const days_ = getDaysLeft(item.deadline);
+                  const ended = days_ !== null && days_ < 0;
+                  const urgent = days_ !== null && days_ >= 0 && days_ <= 3;
+
+                  return (
+                    <div
+                      key={item.id}
+                      className="relative flex items-center"
+                      style={{ height: 44, marginTop: idx === 0 ? 6 : 2 }}
+                    >
+                      <div
+                        className="absolute inset-y-1 rounded-full overflow-hidden cursor-pointer shadow-sm group"
+                        style={{
+                          left: startOffset * DAY_PX + 4,
+                          width: Math.max(durationDays * DAY_PX - 8, DAY_PX - 4),
+                        }}
+                        onClick={() => setSelected(item)}
+                      >
+                        <div
+                          className={`h-full w-full rounded-full ${
+                            ended ? "bg-gray-200" : urgent ? "bg-red-100" : "bg-primary/10"
+                          } border ${
+                            ended ? "border-gray-300" : urgent ? "border-red-200" : "border-primary/20"
+                          }`}
+                        >
+                          <div
+                            className={`h-full rounded-full transition-all ${
+                              ended ? "bg-gray-400" : urgent ? "bg-red-400" : "bg-primary"
+                            }`}
+                            style={{ width: `${pct}%` }}
+                          />
+                        </div>
+                        <div className="absolute inset-0 flex items-center px-3 gap-2 min-w-0">
+                          {item.artist && (
+                            <span className={`text-[9px] font-black shrink-0 ${ended ? "text-gray-500" : urgent ? "text-red-700" : "text-primary-foreground"} drop-shadow`}>
+                              {item.artist}
+                            </span>
+                          )}
+                          <span className={`text-[10px] font-bold truncate ${ended ? "text-gray-500" : "text-white"} drop-shadow`}>
+                            {item.title}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
+          <div className="flex-1 overflow-y-auto px-4 pt-3 pb-24 space-y-2">
+            <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest px-1 mb-2">
+              Chi tiết đơn pre-order
+            </p>
+            {filtered.map((item) => {
+              const days_ = getDaysLeft(item.deadline);
+              const ended = days_ !== null && days_ < 0;
+              const urgent = days_ !== null && days_ >= 0 && days_ <= 3;
+              const itemStart = startOfDay(new Date(item.createdAt));
+              const itemEnd = item.deadline ? startOfDay(new Date(item.deadline)) : null;
+              const totalD = itemEnd ? diffDays(itemEnd, itemStart) : null;
+              const elapsedD = itemEnd ? Math.max(0, Math.min(totalD ?? 0, diffDays(today, itemStart) + 1)) : null;
+              const pct = totalD && elapsedD !== null && totalD > 0
+                ? Math.min(100, (elapsedD / totalD) * 100)
+                : null;
+              const isExpanded = expandedId === item.id;
+
+              return (
+                <div
+                  key={item.id}
+                  className={`bg-card border rounded-2xl overflow-hidden shadow-sm transition-all ${
+                    urgent ? "border-red-200" : ended ? "border-border opacity-60" : "border-border"
+                  }`}
+                  data-testid={`preorder-card-${item.id}`}
+                >
+                  <button
+                    className="w-full p-4 text-left flex items-start gap-3"
+                    onClick={() => setExpandedId(isExpanded ? null : item.id)}
+                  >
+                    <div className={`w-10 h-10 rounded-xl shrink-0 flex items-center justify-center mt-0.5 ${
+                      ended ? "bg-gray-100" : urgent ? "bg-red-100" : "bg-primary/10"
+                    }`}>
+                      <Calendar size={18} className={ended ? "text-gray-400" : urgent ? "text-red-500" : "text-primary"} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap mb-1">
+                        {item.artist && (
+                          <span className="text-[10px] font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-full">{item.artist}</span>
+                        )}
+                        <UrgencyBadge days={days_} />
+                      </div>
+                      <p className="font-bold text-sm leading-snug">{item.title}</p>
+
+                      {pct !== null && (
+                        <div className="mt-2">
+                          <div className="w-full bg-muted rounded-full h-1.5 overflow-hidden">
+                            <div
+                              className={`h-1.5 rounded-full transition-all ${
+                                ended ? "bg-gray-300" : urgent ? "bg-red-400" : "bg-primary"
+                              }`}
+                              style={{ width: `${pct}%` }}
+                            />
+                          </div>
+                          <div className="flex justify-between text-[9px] text-muted-foreground mt-1">
+                            <span>{itemStart.toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit" })}</span>
+                            {itemEnd && (
+                              <span className={urgent ? "text-red-500 font-bold" : ""}>
+                                {itemEnd.toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric" })}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                    <div className="shrink-0 mt-1">
+                      {isExpanded ? <ChevronUp size={14} className="text-muted-foreground" /> : <ChevronDown size={14} className="text-muted-foreground" />}
+                    </div>
+                  </button>
+
+                  {isExpanded && (item.description || item.deadline) && (
+                    <div className="border-t border-border px-4 pb-4 pt-3 space-y-2 bg-muted/30">
+                      {item.description && (
+                        <p className="text-sm text-muted-foreground leading-relaxed">{item.description}</p>
+                      )}
+                      {item.deadline && (
+                        <div className="flex items-center gap-1.5 text-xs">
+                          <Clock size={12} className="text-muted-foreground" />
+                          <span className="text-muted-foreground">Deadline:</span>
+                          <span className={`font-bold ${urgent ? "text-red-500" : "text-foreground"}`}>
+                            {new Date(item.deadline).toLocaleDateString("vi-VN", { weekday: "long", day: "2-digit", month: "long", year: "numeric" })}
+                          </span>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
-                <ChevronRight size={14} className="text-muted-foreground shrink-0 mt-1" />
-              </div>
-            </button>
-          );
-        })}
-      </div>
+              );
+            })}
+          </div>
+        </>
+      )}
 
       {selected && <PreorderModal item={selected} onClose={() => setSelected(null)} />}
     </div>
