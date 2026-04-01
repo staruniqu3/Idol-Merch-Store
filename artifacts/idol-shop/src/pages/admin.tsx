@@ -294,25 +294,46 @@ function ProductsTab() {
                 </button>
               </div>
             </div>
-            <div>
-              <Label>Biến thể</Label>
-              <p className="text-[10px] text-muted-foreground mt-0.5 mb-2">Ví dụ: Muvmuv, Lunar, Size S... Giá điều chỉnh để trống = dùng giá gốc</p>
+            <div className="rounded-2xl border border-border bg-muted/40 p-3 space-y-3">
+              <div>
+                <p className="text-sm font-semibold">Biến thể</p>
+                <p className="text-[10px] text-muted-foreground mt-0.5">Muvmuv, Lunar, Size S... — Giá điều chỉnh để trống = dùng giá gốc</p>
+              </div>
               {form.variants.length > 0 && (
-                <div className="flex flex-wrap gap-1.5 mb-2">
-                  {form.variants.map((v, idx) => (
-                    <span key={idx} className="flex items-center gap-0.5 text-[10px] font-semibold px-2 py-1 rounded-full bg-secondary/15 text-secondary-foreground border border-border">
-                      {v.name}
-                      {v.priceAdjustment != null && v.priceAdjustment !== 0 && (
-                        <span className={`ml-0.5 ${v.priceAdjustment > 0 ? "text-emerald-600" : "text-destructive"}`}>
-                          {v.priceAdjustment > 0 ? "+" : ""}{new Intl.NumberFormat("vi-VN").format(v.priceAdjustment)}₫
-                        </span>
-                      )}
-                      <button type="button" onClick={() => setForm((f) => ({ ...f, variants: f.variants.filter((_, i) => i !== idx) }))} className="ml-0.5 hover:opacity-70 text-muted-foreground">×</button>
-                    </span>
-                  ))}
+                <div className="flex flex-wrap gap-1.5">
+                  {form.variants.map((v, idx) => {
+                    const hasAdj = v.priceAdjustment != null && v.priceAdjustment !== 0;
+                    const isPositive = (v.priceAdjustment ?? 0) > 0;
+                    return (
+                      <span
+                        key={idx}
+                        className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full border transition-all ${
+                          hasAdj
+                            ? isPositive
+                              ? "bg-emerald-50 border-emerald-200 text-emerald-800"
+                              : "bg-red-50 border-red-200 text-red-800"
+                            : "bg-violet-50 border-violet-200 text-violet-800"
+                        }`}
+                      >
+                        {v.name}
+                        {hasAdj && (
+                          <span className={`font-bold ${isPositive ? "text-emerald-600" : "text-red-600"}`}>
+                            {isPositive ? "+" : ""}{new Intl.NumberFormat("vi-VN").format(v.priceAdjustment!)}₫
+                          </span>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => setForm((f) => ({ ...f, variants: f.variants.filter((_, i) => i !== idx) }))}
+                          className="ml-0.5 w-3.5 h-3.5 rounded-full flex items-center justify-center hover:bg-black/10 transition-colors text-current opacity-60 hover:opacity-100"
+                        >
+                          ×
+                        </button>
+                      </span>
+                    );
+                  })}
                 </div>
               )}
-              <div className="flex gap-1.5">
+              <div className="flex gap-2 pt-1 border-t border-border/60">
                 <Input
                   value={customVariantInput.name}
                   onChange={(e) => setCustomVariantInput((s) => ({ ...s, name: e.target.value }))}
@@ -328,14 +349,14 @@ function ProductsTab() {
                     }
                   }}
                   placeholder="Tên biến thể..."
-                  className="rounded-xl h-8 text-xs flex-1"
+                  className="rounded-xl h-8 text-xs flex-1 bg-background"
                 />
                 <Input
                   value={customVariantInput.priceAdjustment}
                   onChange={(e) => setCustomVariantInput((s) => ({ ...s, priceAdjustment: e.target.value }))}
-                  placeholder="± Giá (tùy chọn)"
+                  placeholder="± Giá"
                   type="number"
-                  className="rounded-xl h-8 text-xs w-32"
+                  className="rounded-xl h-8 text-xs w-24 bg-background"
                 />
                 <button
                   type="button"
@@ -347,7 +368,7 @@ function ProductsTab() {
                     setForm((f) => ({ ...f, variants: [...f.variants, { name, priceAdjustment }] }));
                     setCustomVariantInput({ name: "", priceAdjustment: "" });
                   }}
-                  className="shrink-0 h-8 px-3 rounded-xl text-xs font-semibold bg-secondary/10 text-secondary-foreground hover:bg-secondary/20 border border-border transition-colors"
+                  className="shrink-0 h-8 px-3 rounded-xl text-xs font-bold bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
                 >
                   + Thêm
                 </button>
