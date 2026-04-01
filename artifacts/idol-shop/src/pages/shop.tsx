@@ -58,8 +58,6 @@ export default function ShopPage() {
   const [cartOpen, setCartOpen] = useState(false);
   const [step, setStep] = useState<"cart" | "checkout" | "payment">("cart");
   const [phone, setPhone] = useState("");
-  const [address, setAddress] = useState("");
-  const [carrier, setCarrier] = useState<"SPX" | "Viettel Post" | "">("");
   const createOrder = useCreateOrder();
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -108,10 +106,6 @@ export default function ShopPage() {
       toast({ title: "Vui lòng nhập số điện thoại", variant: "destructive" });
       return;
     }
-    if (!address.trim()) {
-      toast({ title: "Vui lòng nhập địa chỉ giao hàng", variant: "destructive" });
-      return;
-    }
     const orderType = cart.some((i) => i.orderType === "preorder") ? "preorder" : "pickup";
     createOrder.mutate(
       {
@@ -123,9 +117,7 @@ export default function ShopPage() {
           orderType,
           notes: null,
           memberId: null,
-          address: address.trim(),
-          shippingCarrier: carrier || null,
-        } as any,
+        },
       },
       {
         onSuccess: () => {
@@ -314,39 +306,6 @@ export default function ShopPage() {
                       <p className="text-[11px] text-muted-foreground mt-1.5">Shop sẽ liên hệ qua số này để xác nhận đơn.</p>
                     </div>
 
-                    <div>
-                      <Label htmlFor="address" className="font-bold">Địa chỉ giao hàng *</Label>
-                      <textarea
-                        id="address"
-                        value={address}
-                        onChange={(e) => setAddress(e.target.value)}
-                        placeholder="Số nhà, tên đường, phường/xã, quận/huyện, tỉnh/thành..."
-                        className="w-full rounded-xl mt-1 text-base border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground resize-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                        rows={3}
-                        data-testid="input-address"
-                      />
-                    </div>
-
-                    <div>
-                      <Label className="font-bold">Đơn vị vận chuyển mong muốn</Label>
-                      <div className="flex gap-2 mt-2">
-                        {(["SPX", "Viettel Post"] as const).map((c) => (
-                          <button
-                            key={c}
-                            type="button"
-                            onClick={() => setCarrier(carrier === c ? "" : c)}
-                            className={`flex-1 py-2 rounded-xl text-sm font-bold border-2 transition-all ${
-                              carrier === c
-                                ? "border-primary bg-primary text-white"
-                                : "border-border bg-background text-foreground"
-                            }`}
-                          >
-                            {c}
-                          </button>
-                        ))}
-                      </div>
-                      <p className="text-[11px] text-muted-foreground mt-1.5">Không bắt buộc — bỏ qua nếu không có yêu cầu.</p>
-                    </div>
                   </div>
 
                   <div className="space-y-2 mt-4">

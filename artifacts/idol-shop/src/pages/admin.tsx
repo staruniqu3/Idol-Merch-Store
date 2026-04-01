@@ -280,6 +280,25 @@ function ProductsTab() {
 }
 
 // ===================== Orders =====================
+function OrderAddressInfo({ phone }: { phone: string }) {
+  const [address, setAddress] = useState<string | null>(null);
+  const base = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
+  useEffect(() => {
+    fetch(`${base}/api/sheets/member-profile?phone=${encodeURIComponent(phone)}`)
+      .then((r) => r.ok ? r.json() : null)
+      .then((data) => { if (data?.address) setAddress(data.address); })
+      .catch(() => {});
+  }, [phone]);
+
+  if (!address) return null;
+  return (
+    <div className="text-xs bg-blue-50 border border-blue-100 rounded-xl p-2 text-blue-800 space-y-0.5">
+      <p className="font-bold">📍 Địa chỉ giao hàng (Sovereign Club)</p>
+      <p>{address}</p>
+    </div>
+  );
+}
+
 function OrdersTab() {
   const { data: orders } = useListOrders();
   const updateOrder = useUpdateOrder();
@@ -327,15 +346,7 @@ function OrdersTab() {
                       </div>
                     ))}
                   </div>
-                  {(order as any).address && (
-                    <div className="text-xs bg-blue-50 border border-blue-100 rounded-xl p-2 text-blue-800 space-y-0.5">
-                      <p className="font-bold">📍 Địa chỉ giao hàng</p>
-                      <p>{(order as any).address}</p>
-                      {(order as any).shippingCarrier && (
-                        <p className="font-semibold">🚚 {(order as any).shippingCarrier}</p>
-                      )}
-                    </div>
-                  )}
+                  <OrderAddressInfo phone={order.memberPhone} />
                   {order.notes && <p className="text-xs bg-amber-50 border border-amber-100 rounded-xl p-2 text-amber-700">📝 {order.notes}</p>}
                   <div>
                     <Label className="text-xs">Cập nhật trạng thái</Label>
