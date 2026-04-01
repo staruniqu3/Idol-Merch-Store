@@ -24,13 +24,13 @@ type CartItem = {
   orderType: string;
 };
 
-const CATEGORIES = ["Tất cả", "photocard", "album", "lightstick", "goods"];
+const CATEGORIES = ["Tất cả", "Kpop", "GMMTV", "US UK", "Tạp Hoá"];
 
 const categoryLabels: Record<string, string> = {
-  photocard: "Photocard",
-  album: "Album",
-  lightstick: "Lightstick",
-  goods: "Goods",
+  "Kpop": "Kpop",
+  "GMMTV": "GMMTV",
+  "US UK": "US UK",
+  "Tạp Hoá": "Tạp Hoá",
 };
 
 const orderTypeLabel: Record<string, string> = {

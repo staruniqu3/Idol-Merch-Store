@@ -17,8 +17,40 @@ const statusConfig: Record<string, {
   dot: string;
   gradient: string;
 }> = {
+  web_order: {
+    label: "Web trả hàng",
+    icon: <Clock size={16} />,
+    color: "text-sky-600",
+    bg: "bg-sky-50",
+    dot: "bg-sky-400",
+    gradient: "from-sky-400 to-cyan-500",
+  },
+  warehouse_origin: {
+    label: "Đã về kho tại nước sở tại",
+    icon: <Package size={16} />,
+    color: "text-indigo-600",
+    bg: "bg-indigo-50",
+    dot: "bg-indigo-400",
+    gradient: "from-indigo-400 to-blue-500",
+  },
+  warehouse_vn: {
+    label: "Về kho Việt",
+    icon: <MapPin size={16} />,
+    color: "text-violet-600",
+    bg: "bg-violet-50",
+    dot: "bg-violet-500",
+    gradient: "from-violet-500 to-purple-600",
+  },
+  sorting: {
+    label: "Phân loại hàng",
+    icon: <Package size={16} />,
+    color: "text-orange-600",
+    bg: "bg-orange-50",
+    dot: "bg-orange-400",
+    gradient: "from-orange-400 to-amber-500",
+  },
   preparing: {
-    label: "Đang chuẩn bị",
+    label: "Chuẩn bị giao",
     icon: <Clock size={16} />,
     color: "text-amber-600",
     bg: "bg-amber-50",

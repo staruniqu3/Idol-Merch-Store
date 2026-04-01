@@ -46,9 +46,16 @@ const statusColors: Record<string, string> = {
   cancelled: "bg-red-100 text-red-700",
 };
 
-const shippingStatusOptions = ["preparing", "in_transit", "arrived", "delivered"];
+const shippingStatusOptions = ["web_order", "warehouse_origin", "warehouse_vn", "sorting", "preparing", "in_transit", "delivered"];
 const shippingStatusLabels: Record<string, string> = {
-  preparing: "Chuẩn bị", in_transit: "Đang vận chuyển", arrived: "Đã về kho", delivered: "Đã giao",
+  web_order: "Web trả hàng",
+  warehouse_origin: "Đã về kho tại nước sở tại",
+  warehouse_vn: "Về kho Việt",
+  sorting: "Phân loại hàng",
+  preparing: "Chuẩn bị giao",
+  in_transit: "Đang vận chuyển",
+  arrived: "Đã về kho",
+  delivered: "Đã giao",
 };
 
 const tierColors: Record<string, string> = {
@@ -147,9 +154,9 @@ function ProductsTab() {
   const { toast } = useToast();
   const [open, setOpen] = useState(false);
   const [editId, setEditId] = useState<number | null>(null);
-  const [form, setForm] = useState({ name: "", description: "", price: "", category: "photocard", stock: "0", isAvailable: true, orderType: "preorder", imageUrl: "" });
+  const [form, setForm] = useState({ name: "", description: "", price: "", category: "Kpop", stock: "0", isAvailable: true, orderType: "preorder", imageUrl: "" });
 
-  const resetForm = () => setForm({ name: "", description: "", price: "", category: "photocard", stock: "0", isAvailable: true, orderType: "preorder", imageUrl: "" });
+  const resetForm = () => setForm({ name: "", description: "", price: "", category: "Kpop", stock: "0", isAvailable: true, orderType: "preorder", imageUrl: "" });
 
   const openEdit = (p: NonNullable<typeof products>[0]) => {
     setEditId(p.id);
@@ -196,7 +203,7 @@ function ProductsTab() {
                 <Select value={form.category} onValueChange={(v) => setForm({ ...form, category: v })}>
                   <SelectTrigger className="rounded-xl mt-1"><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    {["photocard", "album", "lightstick", "goods"].map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                    {["Kpop", "GMMTV", "US UK", "Tạp Hoá"].map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
