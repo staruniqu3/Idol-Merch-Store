@@ -2,10 +2,15 @@ import { google } from "googleapis";
 
 let cachedToken: { value: string; expiresAt: number } | null = null;
 
+export function invalidateToken() {
+  cachedToken = null;
+}
+
 async function getAccessToken(): Promise<string> {
-  if (cachedToken && cachedToken.expiresAt > Date.now() + 60000) {
+  if (cachedToken && cachedToken.expiresAt > Date.now() + 120000) {
     return cachedToken.value;
   }
+  cachedToken = null;
 
   const hostname = process.env.REPLIT_CONNECTORS_HOSTNAME;
   const xReplitToken = process.env.REPL_IDENTITY
