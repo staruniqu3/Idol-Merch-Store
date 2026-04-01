@@ -1,3 +1,7 @@
+[variables]
+COREPACK_INTEGRITY_KEYS = "0"
+NODE_VERSION = "22"
+
 [phases.install]
 cmds = [
   "corepack enable && corepack prepare pnpm@10.26.1 --activate && pnpm install --no-frozen-lockfile"
