@@ -814,24 +814,25 @@ function PreorderTab() {
 }
 
 // ===================== Statistics =====================
+const STATS_ACCOUNTED_KEY = "stats_accounted_order_ids";
+const STATS_ORDERED_ITEMS_KEY = "stats_ordered_items";
+
 function StatsTab() {
   const { data: orders } = useListOrders();
+
+  const [accountedIds, setAccountedIds] = useState<Set<number>>(() => {
+    try { return new Set(JSON.parse(localStorage.getItem(STATS_ACCOUNTED_KEY) || "[]")); } catch { return new Set(); }
+  });
   const [orderedItems, setOrderedItems] = useState<Set<string>>(() => {
-    try { return new Set(JSON.parse(localStorage.getItem("stats_ordered_items") || "[]")); } catch { return new Set(); }
+    try { return new Set(JSON.parse(localStorage.getItem(STATS_ORDERED_ITEMS_KEY) || "[]")); } catch { return new Set(); }
   });
 
-  const toggleOrdered = (name: string) => {
-    setOrderedItems((prev) => {
-      const next = new Set(prev);
-      if (next.has(name)) next.delete(name); else next.add(name);
-      localStorage.setItem("stats_ordered_items", JSON.stringify([...next]));
-      return next;
-    });
-  };
+  const activeOrders = (orders ?? []).filter(
+    (o) => o.status === "confirmed" && !accountedIds.has(o.id)
+  );
 
   const itemMap: Record<string, { qty: number; revenue: number }> = {};
-  orders?.forEach((order) => {
-    if (order.status === "cancelled") return;
+  activeOrders.forEach((order) => {
     try {
       const items: Array<{ name: string; quantity: number; price: number }> = JSON.parse(order.items);
       items.forEach((it) => {
@@ -841,6 +842,23 @@ function StatsTab() {
       });
     } catch {}
   });
+
+  const toggleOrdered = (name: string) => {
+    setOrderedItems((prev) => {
+      const next = new Set(prev);
+      if (next.has(name)) next.delete(name); else next.add(name);
+      localStorage.setItem(STATS_ORDERED_ITEMS_KEY, JSON.stringify([...next]));
+      return next;
+    });
+  };
+
+  const handleComplete = () => {
+    const newAccounted = new Set([...accountedIds, ...activeOrders.map((o) => o.id)]);
+    setAccountedIds(newAccounted);
+    localStorage.setItem(STATS_ACCOUNTED_KEY, JSON.stringify([...newAccounted]));
+    setOrderedItems(new Set());
+    localStorage.removeItem(STATS_ORDERED_ITEMS_KEY);
+  };
 
   const allEntries = Object.entries(itemMap).sort((a, b) => b[1].qty - a[1].qty);
   const pending = allEntries.filter(([name]) => !orderedItems.has(name));
@@ -852,16 +870,32 @@ function StatsTab() {
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <h3 className="font-bold">Thống Kê Số Lượng Hàng Cần Đặt</h3>
-        {done.length > 0 && (
-          <button
-            type="button"
-            onClick={() => { setOrderedItems(new Set()); localStorage.removeItem("stats_ordered_items"); }}
-            className="text-xs text-muted-foreground hover:text-destructive transition-colors"
-          >
-            Bỏ chọn tất cả
-          </button>
-        )}
+        <div>
+          <h3 className="font-bold">Thống Kê Số Lượng Hàng Cần Đặt</h3>
+          {activeOrders.length > 0 && (
+            <p className="text-xs text-muted-foreground mt-0.5">{activeOrders.length} đơn Đã chuyển khoản</p>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          {done.length > 0 && (
+            <button
+              type="button"
+              onClick={() => { setOrderedItems(new Set()); localStorage.removeItem(STATS_ORDERED_ITEMS_KEY); }}
+              className="text-xs text-muted-foreground hover:text-destructive transition-colors"
+            >
+              Bỏ chọn
+            </button>
+          )}
+          {activeOrders.length > 0 && (
+            <button
+              type="button"
+              onClick={handleComplete}
+              className="text-xs font-semibold text-emerald-600 hover:text-emerald-700 border border-emerald-600/30 hover:border-emerald-600/60 px-2.5 py-1 rounded-lg bg-emerald-50/50 transition-colors"
+            >
+              ✓ Hoàn thành lô
+            </button>
+          )}
+        </div>
       </div>
       <div className="bg-card border border-border rounded-2xl p-4 flex items-center gap-3">
         <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center">
@@ -875,7 +909,11 @@ function StatsTab() {
       {sorted.length === 0 ? (
         <div className="text-center py-8 text-muted-foreground">
           <BarChart3 size={28} strokeWidth={1.2} className="mx-auto mb-2" />
-          <p className="text-sm">Chưa có đơn hàng nào</p>
+          <p className="text-sm">
+            {orders && orders.length > 0
+              ? "Không có đơn Đã chuyển khoản mới"
+              : "Chưa có đơn hàng nào"}
+          </p>
         </div>
       ) : (
         <div className="space-y-2">
