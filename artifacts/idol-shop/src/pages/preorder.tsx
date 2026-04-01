@@ -366,9 +366,12 @@ export default function PreorderPage() {
                   const urgent = days_ !== null && days_ >= 0 && days_ <= 3;
                   const ac = getArtistColor(item.artist);
 
-                  // Pickup segment
-                  const pickupStart = item.pickupDate ? startOfDay(new Date(item.pickupDate)) : null;
-                  const pickupOffset = pickupStart ? diffDays(pickupStart, rangeStart) : null;
+                  const pickupDay = item.pickupDate ? startOfDay(new Date(item.pickupDate)) : null;
+                  const pickupOffset = pickupDay ? diffDays(pickupDay, rangeStart) : null;
+
+                  // Hide PO bar when deadline has passed AND pickup date is set (item in pickup phase)
+                  const showPOBar = !(ended && pickupDay);
+                  const showPickupRow = pickupDay !== null;
 
                   const barBg = ended
                     ? "rgba(200,200,200,0.25)"
@@ -386,65 +389,73 @@ export default function PreorderPage() {
                       ? "rgba(239,68,68,0.3)"
                       : ac ? `${ac.fill}55` : "hsl(var(--primary)/0.25)";
 
+                  // Pickup uses emerald color
+                  const pickupFill = "#10B981";
+
                   return (
-                    <div
-                      key={item.id}
-                      className="relative flex items-center"
-                      style={{ height: 44, marginTop: idx === 0 ? 6 : 2 }}
-                    >
-                      {/* PO bar */}
-                      <div
-                        className="absolute inset-y-1 rounded-full overflow-hidden cursor-pointer shadow-sm group"
-                        style={{
-                          left: startOffset * DAY_PX + 4,
-                          width: Math.max(durationDays * DAY_PX - 8, DAY_PX - 4),
-                        }}
-                        onClick={() => setSelected(item)}
-                      >
-                        <div
-                          className="h-full w-full rounded-full border"
-                          style={{ background: barBg, borderColor: barBorder }}
-                        >
+                    <div key={item.id} style={{ marginTop: idx === 0 ? 6 : 2 }}>
+                      {/* PO bar row */}
+                      {showPOBar && (
+                        <div className="relative flex items-center" style={{ height: 38 }}>
                           <div
-                            className="h-full rounded-full transition-all"
-                            style={{ width: `${pct}%`, background: barFill }}
-                          />
-                        </div>
-                        <div className="absolute inset-0 flex items-center px-3 gap-2 min-w-0">
-                          {item.artist && (
-                            <span
-                              className="text-[9px] font-black shrink-0 drop-shadow"
-                              style={{ color: ended ? "#9CA3AF" : urgent ? "#B91C1C" : "#fff" }}
-                            >
-                              {item.artist}
-                            </span>
-                          )}
-                          <span
-                            className="text-[10px] font-bold truncate drop-shadow"
-                            style={{ color: ended ? "#9CA3AF" : "#fff" }}
-                          >
-                            {item.title}
-                          </span>
-                        </div>
-                      </div>
-                      {/* Pickup segment marker */}
-                      {pickupOffset !== null && (
-                        <div
-                          className="absolute flex flex-col items-center cursor-pointer z-20"
-                          style={{ left: pickupOffset * DAY_PX + DAY_PX / 2 - 9, top: 2 }}
-                          onClick={() => setSelected(item)}
-                          title={`Pickup: ${item.pickupDate}`}
-                        >
-                          <div
-                            className="w-[18px] h-[18px] rotate-45 border-2 shadow"
+                            className="absolute inset-y-1 rounded-full overflow-hidden cursor-pointer shadow-sm"
                             style={{
-                              background: ac ? ac.fill : "hsl(var(--primary))",
-                              borderColor: "#fff",
+                              left: startOffset * DAY_PX + 4,
+                              width: Math.max(durationDays * DAY_PX - 8, DAY_PX - 4),
                             }}
-                          />
-                          <span className="text-[7px] font-black mt-0.5 whitespace-nowrap" style={{ color: ac ? ac.fill : "hsl(var(--primary))" }}>
-                            Pickup
-                          </span>
+                            onClick={() => setSelected(item)}
+                          >
+                            <div className="h-full w-full rounded-full border" style={{ background: barBg, borderColor: barBorder }}>
+                              <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: barFill }} />
+                            </div>
+                            <div className="absolute inset-0 flex items-center px-3 gap-2 min-w-0">
+                              {item.artist && (
+                                <span className="text-[9px] font-black shrink-0 drop-shadow" style={{ color: ended ? "#9CA3AF" : urgent ? "#B91C1C" : "#fff" }}>
+                                  {item.artist}
+                                </span>
+                              )}
+                              <span className="text-[10px] font-bold truncate drop-shadow" style={{ color: ended ? "#9CA3AF" : "#fff" }}>
+                                {item.title}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                      {/* Pickup row — separate, never overlaps PO bar */}
+                      {showPickupRow && (
+                        <div
+                          className="relative"
+                          style={{ height: showPOBar ? 28 : 38 }}
+                          onClick={() => setSelected(item)}
+                        >
+                          {/* Slim pickup bar behind the diamond when PO bar is hidden */}
+                          {!showPOBar && (
+                            <div
+                              className="absolute rounded-full"
+                              style={{
+                                left: 4,
+                                right: 4,
+                                top: "50%",
+                                height: 4,
+                                transform: "translateY(-50%)",
+                                background: "rgba(16,185,129,0.18)",
+                                borderRadius: 9999,
+                              }}
+                            />
+                          )}
+                          {/* Diamond marker */}
+                          <div
+                            className="absolute flex flex-col items-center cursor-pointer z-20"
+                            style={{ left: pickupOffset! * DAY_PX + DAY_PX / 2 - 9, top: showPOBar ? 3 : 5 }}
+                          >
+                            <div
+                              className="w-[18px] h-[18px] rotate-45 border-2 shadow"
+                              style={{ background: pickupFill, borderColor: "#fff" }}
+                            />
+                            <span className="text-[7px] font-black mt-0.5 whitespace-nowrap" style={{ color: pickupFill }}>
+                              Pickup
+                            </span>
+                          </div>
                         </div>
                       )}
                     </div>
