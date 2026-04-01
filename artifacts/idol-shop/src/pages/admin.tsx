@@ -654,6 +654,18 @@ function PreorderTab() {
 // ===================== Statistics =====================
 function StatsTab() {
   const { data: orders } = useListOrders();
+  const [orderedItems, setOrderedItems] = useState<Set<string>>(() => {
+    try { return new Set(JSON.parse(localStorage.getItem("stats_ordered_items") || "[]")); } catch { return new Set(); }
+  });
+
+  const toggleOrdered = (name: string) => {
+    setOrderedItems((prev) => {
+      const next = new Set(prev);
+      if (next.has(name)) next.delete(name); else next.add(name);
+      localStorage.setItem("stats_ordered_items", JSON.stringify([...next]));
+      return next;
+    });
+  };
 
   const itemMap: Record<string, { qty: number; revenue: number }> = {};
   orders?.forEach((order) => {
@@ -668,21 +680,34 @@ function StatsTab() {
     } catch {}
   });
 
-  const sorted = Object.entries(itemMap).sort((a, b) => b[1].qty - a[1].qty);
-  const totalItems = sorted.reduce((s, [, v]) => s + v.qty, 0);
+  const allEntries = Object.entries(itemMap).sort((a, b) => b[1].qty - a[1].qty);
+  const pending = allEntries.filter(([name]) => !orderedItems.has(name));
+  const done = allEntries.filter(([name]) => orderedItems.has(name));
+  const sorted = [...pending, ...done];
+  const totalItems = allEntries.reduce((s, [, v]) => s + v.qty, 0);
+  const pendingItems = pending.reduce((s, [, v]) => s + v.qty, 0);
 
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
         <h3 className="font-bold">Thống Kê Số Lượng Hàng Cần Đặt</h3>
+        {done.length > 0 && (
+          <button
+            type="button"
+            onClick={() => { setOrderedItems(new Set()); localStorage.removeItem("stats_ordered_items"); }}
+            className="text-xs text-muted-foreground hover:text-destructive transition-colors"
+          >
+            Bỏ chọn tất cả
+          </button>
+        )}
       </div>
       <div className="bg-card border border-border rounded-2xl p-4 flex items-center gap-3">
         <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center">
           <Package size={18} className="text-primary" />
         </div>
         <div>
-          <p className="text-2xl font-black">{totalItems}</p>
-          <p className="text-xs text-muted-foreground">Tổng sản phẩm cần đặt</p>
+          <p className="text-2xl font-black">{pendingItems}<span className="text-sm font-normal text-muted-foreground"> / {totalItems}</span></p>
+          <p className="text-xs text-muted-foreground">Còn cần đặt / Tổng sản phẩm</p>
         </div>
       </div>
       {sorted.length === 0 ? (
@@ -694,21 +719,38 @@ function StatsTab() {
         <div className="space-y-2">
           {sorted.map(([name, { qty, revenue }]) => {
             const pct = totalItems > 0 ? (qty / totalItems) * 100 : 0;
+            const isDone = orderedItems.has(name);
             return (
-              <div key={name} className="bg-card border border-border rounded-2xl p-3">
+              <button
+                key={name}
+                type="button"
+                onClick={() => toggleOrdered(name)}
+                className={`w-full text-left bg-card border rounded-2xl p-3 transition-all ${
+                  isDone
+                    ? "border-border/40 opacity-45 grayscale"
+                    : "border-border hover:border-primary/30 hover:bg-primary/5"
+                }`}
+              >
                 <div className="flex items-center justify-between mb-2">
-                  <p className="font-bold text-sm flex-1 min-w-0 truncate pr-2">{name}</p>
+                  <div className="flex items-center gap-2 flex-1 min-w-0">
+                    <div className={`w-4 h-4 rounded-full border-2 shrink-0 flex items-center justify-center transition-all ${
+                      isDone ? "bg-muted-foreground/40 border-muted-foreground/40" : "border-primary/40"
+                    }`}>
+                      {isDone && <div className="w-2 h-2 rounded-full bg-white" />}
+                    </div>
+                    <p className={`font-bold text-sm truncate pr-2 ${isDone ? "line-through" : ""}`}>{name}</p>
+                  </div>
                   <div className="flex items-center gap-2 shrink-0">
-                    <Badge variant="secondary" className="text-xs font-black bg-primary/10 text-primary border-primary/20">
+                    <Badge variant="secondary" className={`text-xs font-black ${isDone ? "bg-muted text-muted-foreground border-muted" : "bg-primary/10 text-primary border-primary/20"}`}>
                       ×{qty}
                     </Badge>
                     <span className="text-xs text-muted-foreground">{formatPrice(revenue)}</span>
                   </div>
                 </div>
                 <div className="w-full bg-muted rounded-full h-1.5 overflow-hidden">
-                  <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${pct}%` }} />
+                  <div className={`h-full rounded-full transition-all ${isDone ? "bg-muted-foreground/30" : "bg-primary"}`} style={{ width: `${pct}%` }} />
                 </div>
-              </div>
+              </button>
             );
           })}
         </div>
