@@ -38,7 +38,7 @@ function formatDate(d: string) {
 
 const statusOptions = ["pending", "confirmed", "shipped", "delivered", "cancelled"];
 const statusLabels: Record<string, string> = {
-  pending: "Chờ xác nhận", confirmed: "Đã xác nhận", shipped: "Đang giao", delivered: "Đã giao", cancelled: "Đã hủy",
+  pending: "Đã nhập thông tin", confirmed: "Đã chuyển khoản", shipped: "Đang giao", delivered: "Đã giao", cancelled: "Đã hủy",
 };
 const statusColors: Record<string, string> = {
   pending: "bg-amber-100 text-amber-700", confirmed: "bg-blue-100 text-blue-700",
@@ -526,100 +526,187 @@ function PreorderTab() {
   );
 }
 
+// ===================== Statistics =====================
+function StatsTab() {
+  const { data: orders } = useListOrders();
+
+  const itemMap: Record<string, { qty: number; revenue: number }> = {};
+  orders?.forEach((order) => {
+    if (order.status === "cancelled") return;
+    try {
+      const items: Array<{ name: string; quantity: number; price: number }> = JSON.parse(order.items);
+      items.forEach((it) => {
+        if (!itemMap[it.name]) itemMap[it.name] = { qty: 0, revenue: 0 };
+        itemMap[it.name].qty += it.quantity;
+        itemMap[it.name].revenue += it.price * it.quantity;
+      });
+    } catch {}
+  });
+
+  const sorted = Object.entries(itemMap).sort((a, b) => b[1].qty - a[1].qty);
+  const totalItems = sorted.reduce((s, [, v]) => s + v.qty, 0);
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <h3 className="font-bold">Thống Kê Số Lượng Hàng Cần Đặt</h3>
+      </div>
+      <div className="bg-card border border-border rounded-2xl p-4 flex items-center gap-3">
+        <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center">
+          <Package size={18} className="text-primary" />
+        </div>
+        <div>
+          <p className="text-2xl font-black">{totalItems}</p>
+          <p className="text-xs text-muted-foreground">Tổng sản phẩm cần đặt</p>
+        </div>
+      </div>
+      {sorted.length === 0 ? (
+        <div className="text-center py-8 text-muted-foreground">
+          <BarChart3 size={28} strokeWidth={1.2} className="mx-auto mb-2" />
+          <p className="text-sm">Chưa có đơn hàng nào</p>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {sorted.map(([name, { qty, revenue }]) => {
+            const pct = totalItems > 0 ? (qty / totalItems) * 100 : 0;
+            return (
+              <div key={name} className="bg-card border border-border rounded-2xl p-3">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="font-bold text-sm flex-1 min-w-0 truncate pr-2">{name}</p>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <Badge variant="secondary" className="text-xs font-black bg-primary/10 text-primary border-primary/20">
+                      ×{qty}
+                    </Badge>
+                    <span className="text-xs text-muted-foreground">{formatPrice(revenue)}</span>
+                  </div>
+                </div>
+                <div className="w-full bg-muted rounded-full h-1.5 overflow-hidden">
+                  <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${pct}%` }} />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ===================== Members =====================
+interface SheetMember {
+  customerCode: string; name: string; phone: string; tier: string; points: number;
+  birthday: string; address: string; facebookName: string;
+}
+
 function MembersTab() {
-  const { data: members } = useListMembers();
-  const createMember = useCreateMember();
+  const [members, setMembers] = useState<SheetMember[]>([]);
+  const [loading, setLoading] = useState(true);
   const addPoints = useAddPoints();
+  const { data: dbMembers } = useListMembers();
   const queryClient = useQueryClient();
   const { toast } = useToast();
-  const [open, setOpen] = useState(false);
   const [pointsOpen, setPointsOpen] = useState(false);
-  const [selectedMemberId, setSelectedMemberId] = useState<number | null>(null);
+  const [selectedPhone, setSelectedPhone] = useState<string>("");
   const [pointsAmount, setPointsAmount] = useState("");
-  const [form, setForm] = useState({ name: "", phone: "", email: "", notes: "" });
+  const [search, setSearch] = useState("");
 
-  const resetForm = () => setForm({ name: "", phone: "", email: "", notes: "" });
+  const fetchMembers = () => {
+    setLoading(true);
+    fetch(`${getBaseUrl()}/api/sheets/all-members`)
+      .then((r) => r.json())
+      .then((data) => { setMembers(Array.isArray(data) ? data : []); setLoading(false); })
+      .catch(() => { setMembers([]); setLoading(false); });
+  };
 
-  const handleCreate = () => {
-    if (!form.name || !form.phone) { toast({ title: "Nhập tên và SĐT", variant: "destructive" }); return; }
-    createMember.mutate({ data: { name: form.name, phone: form.phone, email: form.email || null, notes: form.notes || null } }, {
-      onSuccess: () => { queryClient.invalidateQueries({ queryKey: getListMembersQueryKey() }); setOpen(false); resetForm(); toast({ title: "Đã thêm thành viên" }); },
-      onError: () => toast({ title: "SĐT đã tồn tại", variant: "destructive" }),
+  useEffect(() => { fetchMembers(); }, []);
+
+  const handleAddPoints = () => {
+    if (!selectedPhone || !pointsAmount) return;
+    const dbMember = dbMembers?.find((m) => m.phone.replace(/\D/g, "") === selectedPhone.replace(/\D/g, "") || m.phone === selectedPhone);
+    if (!dbMember) { toast({ title: "Không tìm thấy trong hệ thống", variant: "destructive" }); return; }
+    addPoints.mutate({ id: dbMember.id, data: { points: parseInt(pointsAmount), reason: null } }, {
+      onSuccess: () => { queryClient.invalidateQueries({ queryKey: getListMembersQueryKey() }); setPointsOpen(false); setPointsAmount(""); toast({ title: "Đã thêm điểm" }); },
     });
   };
 
-  const handleAddPoints = () => {
-    if (!selectedMemberId || !pointsAmount) return;
-    addPoints.mutate({ id: selectedMemberId, data: { points: parseInt(pointsAmount), reason: null } }, {
-      onSuccess: () => { queryClient.invalidateQueries({ queryKey: getListMembersQueryKey() }); setPointsOpen(false); setPointsAmount(""); toast({ title: "Đã thêm điểm" }); },
-    });
+  const filtered = members.filter((m) =>
+    !search || m.name.toLowerCase().includes(search.toLowerCase()) || m.phone.includes(search) || m.customerCode.toLowerCase().includes(search.toLowerCase())
+  );
+
+  const tierEmoji = (tier: string) => {
+    const t = tier.toLowerCase();
+    if (t.includes("dragon") || t.includes("phoenix") || t.includes("infinite") || t.includes("solstice") || t.includes("patron") || t.includes("voyager")) return "👑";
+    if (t.includes("platinum") || t.includes("ruby")) return "💎";
+    if (t.includes("gold")) return "🥇";
+    if (t.includes("silver")) return "🥈";
+    return "🌟";
   };
 
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <h3 className="font-bold">Thành Viên ({members?.length ?? 0})</h3>
-        <Button size="sm" className="rounded-xl" onClick={() => { resetForm(); setOpen(true); }} data-testid="button-add-member">
-          <Plus size={14} className="mr-1" />Thêm
+        <h3 className="font-bold">Thành Viên ({filtered.length})</h3>
+        <Button size="sm" variant="outline" className="rounded-xl text-xs" onClick={fetchMembers}>
+          Làm mới
         </Button>
       </div>
 
-      <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) resetForm(); }}>
-        <DialogContent className="rounded-2xl">
-          <DialogHeader><DialogTitle>Thêm thành viên mới</DialogTitle></DialogHeader>
-          <div className="space-y-3 mt-2">
-            <div><Label>Họ tên *</Label><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="rounded-xl mt-1" data-testid="input-member-name" /></div>
-            <div><Label>Số điện thoại *</Label><Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} className="rounded-xl mt-1" data-testid="input-member-phone-admin" /></div>
-            <div><Label>Email</Label><Input value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className="rounded-xl mt-1" /></div>
-            <div><Label>Ghi chú</Label><Textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} rows={2} className="rounded-xl mt-1" /></div>
-            <Button className="w-full rounded-xl" onClick={handleCreate} data-testid="button-save-member">Thêm thành viên</Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <Input
+        placeholder="Tìm theo tên, SĐT, mã KH..."
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        className="rounded-xl"
+        data-testid="input-member-search"
+      />
 
       <Dialog open={pointsOpen} onOpenChange={setPointsOpen}>
         <DialogContent className="rounded-2xl">
-          <DialogHeader><DialogTitle>Thêm điểm</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>Thêm điểm thủ công</DialogTitle></DialogHeader>
           <div className="space-y-3 mt-2">
-            <p className="text-sm text-muted-foreground">{members?.find((m) => m.id === selectedMemberId)?.name}</p>
+            <p className="text-sm font-semibold">{members.find((m) => m.phone === selectedPhone)?.name}</p>
             <div><Label>Số điểm</Label><Input type="number" value={pointsAmount} onChange={(e) => setPointsAmount(e.target.value)} className="rounded-xl mt-1" data-testid="input-points-amount" /></div>
             <Button className="w-full rounded-xl" onClick={handleAddPoints} data-testid="button-save-points">Thêm điểm</Button>
           </div>
         </DialogContent>
       </Dialog>
 
+      {loading ? (
+        <div className="text-center py-8 text-muted-foreground text-sm">Đang tải...</div>
+      ) : (
       <div className="space-y-2">
-        {members?.map((m) => (
-          <div key={m.id} className="bg-card border border-border rounded-2xl p-3 flex items-center gap-3" data-testid={`admin-member-${m.id}`}>
+        {filtered.map((m, idx) => (
+          <div key={idx} className="bg-card border border-border rounded-2xl p-3 flex items-center gap-3" data-testid={`admin-member-${m.customerCode || idx}`}>
             <div className="w-10 h-10 bg-muted rounded-xl flex items-center justify-center shrink-0 font-black text-base text-muted-foreground">
-              {m.name.charAt(0).toUpperCase()}
+              {(m.name || "?").charAt(0).toUpperCase()}
             </div>
             <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <p className="font-bold text-sm truncate">{m.name}</p>
-                <span className={`text-[11px] font-bold ${tierColors[m.tier] ?? ""}`}>
-                  {m.tier === "bronze" ? "🥉" : m.tier === "silver" ? "🥈" : m.tier === "gold" ? "🥇" : "💎"}
-                </span>
+                <span className="text-[11px]">{tierEmoji(m.tier)}</span>
+                {m.customerCode && <span className="text-[10px] bg-secondary/10 text-secondary px-1.5 py-0.5 rounded-full font-semibold">{m.customerCode}</span>}
               </div>
               <p className="text-xs text-muted-foreground">{m.phone}</p>
-              <div className="flex items-center gap-1 mt-0.5">
-                <Sparkles size={10} className="text-amber-500" />
-                <span className="text-xs font-bold text-amber-600">{m.points.toLocaleString()} pts</span>
+              <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                <div className="flex items-center gap-1">
+                  <Sparkles size={10} className="text-amber-500" />
+                  <span className="text-xs font-bold text-amber-600">{m.points.toLocaleString()} pts</span>
+                </div>
+                <Badge variant="secondary" className="text-[10px]">{m.tier}</Badge>
               </div>
             </div>
             <Button
               variant="outline"
               size="sm"
               className="shrink-0 rounded-xl text-xs"
-              onClick={() => { setSelectedMemberId(m.id); setPointsOpen(true); }}
-              data-testid={`button-add-points-${m.id}`}
+              onClick={() => { setSelectedPhone(m.phone); setPointsOpen(true); }}
+              data-testid={`button-add-points-${m.customerCode || idx}`}
             >
               + Điểm
             </Button>
           </div>
         ))}
       </div>
+      )}
     </div>
   );
 }
@@ -696,6 +783,7 @@ const tabs = [
   { id: "dashboard", label: "Tổng quan", icon: BarChart3 },
   { id: "products", label: "Sản phẩm", icon: Package },
   { id: "orders", label: "Đơn hàng", icon: ShoppingBag },
+  { id: "stats", label: "Thống kê", icon: TrendingUp },
   { id: "shipping", label: "Vận chuyển", icon: Truck },
   { id: "preorder", label: "Pre-order", icon: Calendar },
   { id: "members", label: "Thành viên", icon: Users },
@@ -764,6 +852,7 @@ export default function AdminPage() {
         {activeTab === "dashboard" && <DashboardTab />}
         {activeTab === "products" && <ProductsTab />}
         {activeTab === "orders" && <OrdersTab />}
+        {activeTab === "stats" && <StatsTab />}
         {activeTab === "shipping" && <ShippingTab />}
         {activeTab === "preorder" && <PreorderTab />}
         {activeTab === "members" && <MembersTab />}

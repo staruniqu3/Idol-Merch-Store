@@ -84,6 +84,23 @@ export default function ShopPage() {
     setCart((prev) => prev.map((i) => i.productId === productId ? { ...i, quantity: Math.max(1, i.quantity + delta) } : i));
   };
 
+  const autoAddPoints = async (memberPhone: string, totalAmount: number) => {
+    const base = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
+    const pts = Math.floor(totalAmount / 10000);
+    if (pts <= 0) return;
+    try {
+      const res = await fetch(`${base}/api/members/lookup?phone=${encodeURIComponent(memberPhone)}`);
+      if (!res.ok) return;
+      const member = await res.json();
+      if (!member?.id) return;
+      await fetch(`${base}/api/members/${member.id}/points`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ points: pts, reason: "Đặt hàng thành công" }),
+      });
+    } catch {}
+  };
+
   const handleCheckout = () => {
     if (!phone.trim()) {
       toast({ title: "Vui lòng nhập số điện thoại", variant: "destructive" });
@@ -105,6 +122,7 @@ export default function ShopPage() {
       {
         onSuccess: () => {
           queryClient.invalidateQueries({ queryKey: getListOrdersQueryKey() });
+          autoAddPoints(phone.trim(), cartTotal);
           setStep("payment");
         },
         onError: () => toast({ title: "Có lỗi xảy ra", variant: "destructive" }),

@@ -4,6 +4,7 @@ import {
   getMemberProfile,
   getMemberShipping,
   getAllShippingTracking,
+  getAllMembers,
   invalidateToken,
 } from "../lib/google-sheets";
 
@@ -60,6 +61,15 @@ router.get("/sheets/all-shipping", async (_req, res): Promise<void> => {
   try {
     const rows = await withTokenRetry(() => getAllShippingTracking());
     res.json(rows);
+  } catch (err: any) {
+    res.status(503).json({ error: err.message ?? "Google Sheets unavailable" });
+  }
+});
+
+router.get("/sheets/all-members", async (_req, res): Promise<void> => {
+  try {
+    const members = await withTokenRetry(() => getAllMembers());
+    res.json(members);
   } catch (err: any) {
     res.status(503).json({ error: err.message ?? "Google Sheets unavailable" });
   }

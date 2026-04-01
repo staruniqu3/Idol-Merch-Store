@@ -225,6 +225,35 @@ export async function getAllShippingTracking(): Promise<AllShippingRow[]> {
     }));
 }
 
+export async function getAllMembers(): Promise<MemberProfile[]> {
+  const sheets = await getGoogleSheetsClient();
+  const resp = await sheets.spreadsheets.values.get({
+    spreadsheetId: MEMBERSHIP_SHEET_ID,
+    range: "Sheet1!A:O",
+  });
+
+  const rows = resp.data.values ?? [];
+  if (rows.length < 2) return [];
+
+  return rows.slice(1).filter((r) => r[2] || r[3]).map((row) => ({
+    stt: row[0] ?? "",
+    customerCode: row[1] ?? "",
+    name: row[2] ?? "",
+    phone: row[3] ?? "",
+    birthday: row[4] ?? "",
+    address: row[5] ?? "",
+    points: parseFloat(row[6] ?? "0") || 0,
+    tier: row[7] ?? "Newcomers",
+    yearPoints: parseFloat(row[8] ?? "0") || 0,
+    redeemedPoints: parseFloat(row[9] ?? "0") || 0,
+    vouchersGranted: parseInt(row[10] ?? "0") || 0,
+    vouchersUsed: parseInt(row[11] ?? "0") || 0,
+    vouchersRemaining: parseInt(row[12] ?? "0") || 0,
+    facebookName: row[13] ?? "",
+    facebookLink: row[14] ?? "",
+  }));
+}
+
 export async function getMemberShipping(customerCode: string): Promise<MemberShipping[]> {
   const sheets = await getGoogleSheetsClient();
   const resp = await sheets.spreadsheets.values.get({
