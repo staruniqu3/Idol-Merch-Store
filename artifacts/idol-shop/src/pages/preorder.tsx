@@ -451,31 +451,80 @@ export default function PreorderPage() {
                           style={{ height: showPOBar ? 28 : 38 }}
                           onClick={() => setSelected(item)}
                         >
-                          {hasPickupRange ? (
-                            /* Pickup as full bar from pickupDate → pickupDeadline */
-                            <div
-                              className="absolute inset-y-1 rounded-full overflow-hidden cursor-pointer shadow-sm"
-                              style={{
-                                left: pickupOffset! * DAY_PX + 4,
-                                width: Math.max(pickupBarDays * DAY_PX - 8, DAY_PX - 4),
-                              }}
-                            >
-                              <div className="h-full w-full rounded-full border" style={{ background: pickupBg, borderColor: pickupBorder }}>
-                                <div className="h-full rounded-full transition-all" style={{ width: `${pickupPct}%`, background: pickupFill }} />
-                              </div>
-                              <div className="absolute inset-0 flex items-center px-3 gap-1.5 min-w-0">
-                                <Package size={10} color="#fff" className="shrink-0 opacity-80" />
-                                <span className="text-[9px] font-bold truncate drop-shadow" style={{ color: "#fff" }}>
-                                  {showPOBar ? "Pickup" : item.title}
-                                </span>
-                              </div>
-                              {/* End diamond */}
+                          {hasPickupRange ? (() => {
+                            const barLeft = pickupOffset! * DAY_PX + DAY_PX / 2;
+                            const barWidth = Math.max(pickupBarDays * DAY_PX, DAY_PX);
+                            const diamondSize = 16;
+                            const barHeight = 8;
+                            const centerY = showPOBar ? 14 : 19;
+                            return (
+                              /* Diamond bar: ◆————————————————◆ */
                               <div
-                                className="absolute top-1/2 -translate-y-1/2 w-3 h-3 rotate-45 border border-white/60 shadow-sm"
-                                style={{ right: 6, background: pickupFill }}
-                              />
-                            </div>
-                          ) : (
+                                className="absolute cursor-pointer"
+                                style={{ left: barLeft, width: barWidth, top: 0, bottom: 0 }}
+                                onClick={() => setSelected(item)}
+                              >
+                                {/* Track line */}
+                                <div
+                                  className="absolute rounded-sm overflow-hidden"
+                                  style={{
+                                    left: diamondSize / 2,
+                                    right: diamondSize / 2,
+                                    top: centerY - barHeight / 2,
+                                    height: barHeight,
+                                    background: pickupBg,
+                                    border: `1px solid ${pickupBorder}`,
+                                  }}
+                                >
+                                  {/* Progress fill */}
+                                  <div
+                                    className="h-full transition-all"
+                                    style={{ width: `${pickupPct}%`, background: pickupFill }}
+                                  />
+                                </div>
+                                {/* Label inside track */}
+                                <div
+                                  className="absolute flex items-center justify-center pointer-events-none"
+                                  style={{
+                                    left: diamondSize / 2 + 2,
+                                    right: diamondSize / 2 + 2,
+                                    top: centerY - barHeight / 2,
+                                    height: barHeight,
+                                  }}
+                                >
+                                  <span className="text-[7px] font-black drop-shadow-sm text-white whitespace-nowrap overflow-hidden">
+                                    {showPOBar ? "Pickup" : item.title}
+                                  </span>
+                                </div>
+                                {/* Start diamond ◆ */}
+                                <div
+                                  className="absolute shadow-sm border-2"
+                                  style={{
+                                    width: diamondSize,
+                                    height: diamondSize,
+                                    left: 0,
+                                    top: centerY - diamondSize / 2,
+                                    transform: "rotate(45deg)",
+                                    background: pickupFill,
+                                    borderColor: "#fff",
+                                  }}
+                                />
+                                {/* End diamond ◆ */}
+                                <div
+                                  className="absolute shadow-sm border-2"
+                                  style={{
+                                    width: diamondSize,
+                                    height: diamondSize,
+                                    right: 0,
+                                    top: centerY - diamondSize / 2,
+                                    transform: "rotate(45deg)",
+                                    background: pickupFill,
+                                    borderColor: "#fff",
+                                  }}
+                                />
+                              </div>
+                            );
+                          })() : (
                             /* Single pickup date — diamond only */
                             <div
                               className="absolute flex flex-col items-center cursor-pointer z-20"
