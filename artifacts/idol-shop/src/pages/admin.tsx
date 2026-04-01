@@ -192,7 +192,30 @@ function ProductsTab() {
         <DialogContent className="max-h-[90vh] overflow-y-auto rounded-2xl">
           <DialogHeader><DialogTitle>{editId ? "Sửa sản phẩm" : "Thêm sản phẩm"}</DialogTitle></DialogHeader>
           <div className="space-y-3 mt-2">
-            <div><Label>Tên sản phẩm *</Label><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="rounded-xl mt-1" data-testid="input-product-name" /></div>
+            <div>
+              <Label>Tên sản phẩm *</Label>
+              <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="rounded-xl mt-1" data-testid="input-product-name" />
+              <div className="flex flex-wrap gap-1.5 mt-2">
+                {[
+                  "Photocard Set", "Album Standard", "Album Special", "Lightstick",
+                  "Plush", "Keychain", "Poster", "Slogan", "Wappen",
+                  "PC Holder", "Standee", "Fan", "Acrylic", "Sticker Pack",
+                  "Weverse Album", "Limited Edition", "Merch Bundle",
+                ].map((preset) => (
+                  <button
+                    key={preset}
+                    type="button"
+                    onClick={() => setForm((f) => ({
+                      ...f,
+                      name: f.name ? `${f.name.trimEnd()} - ${preset}` : preset,
+                    }))}
+                    className="text-[10px] font-semibold px-2 py-1 rounded-full bg-primary/10 text-primary hover:bg-primary/20 transition-colors border border-primary/15"
+                  >
+                    {preset}
+                  </button>
+                ))}
+              </div>
+            </div>
             <div><Label>Mô tả</Label><Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={2} className="rounded-xl mt-1" /></div>
             <div className="grid grid-cols-2 gap-2">
               <div><Label>Giá (VND) *</Label><Input type="number" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} className="rounded-xl mt-1" data-testid="input-product-price" /></div>
