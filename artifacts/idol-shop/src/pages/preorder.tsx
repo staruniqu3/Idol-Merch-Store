@@ -47,7 +47,6 @@ const ARTIST_COLORS: Record<string, { fill: string; bg: string; text: string }> 
   "got7":         { fill: "#16A34A", bg: "rgba(22,163,74,0.15)",   text: "#fff" },
   "gidle":        { fill: "#A855F7", bg: "rgba(168,85,247,0.18)",  text: "#fff" },
   "(g)i-dle":     { fill: "#A855F7", bg: "rgba(168,85,247,0.18)",  text: "#fff" },
-  "gidle":        { fill: "#A855F7", bg: "rgba(168,85,247,0.18)",  text: "#fff" },
   "lesserafim":   { fill: "#E11D48", bg: "rgba(225,29,72,0.15)",   text: "#fff" },
   "le sserafim":  { fill: "#E11D48", bg: "rgba(225,29,72,0.15)",   text: "#fff" },
   "txt":          { fill: "#7C3AED", bg: "rgba(124,58,237,0.18)",  text: "#fff" },
