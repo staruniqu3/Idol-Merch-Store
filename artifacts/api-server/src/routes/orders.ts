@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
-import { eq, count, sum, lt, and } from "drizzle-orm";
-import { db, ordersTable, membersTable } from "@workspace/db";
+import { eq, count, lt, and } from "drizzle-orm";
+import { db, ordersTable, membersTable, productsTable } from "@workspace/db";
 import {
   ListOrdersQueryParams,
   ListOrdersResponse,
@@ -123,6 +123,13 @@ router.patch("/orders/:id", async (req, res): Promise<void> => {
     return;
   }
 
+  // Fetch current order before update to check previous status
+  const [existing] = await db.select().from(ordersTable).where(eq(ordersTable.id, params.data.id));
+  if (!existing) {
+    res.status(404).json({ error: "Order not found" });
+    return;
+  }
+
   const [order] = await db
     .update(ordersTable)
     .set(parsed.data as Partial<typeof ordersTable.$inferInsert>)
@@ -132,6 +139,22 @@ router.patch("/orders/:id", async (req, res): Promise<void> => {
   if (!order) {
     res.status(404).json({ error: "Order not found" });
     return;
+  }
+
+  // Auto-decrement stock when order is confirmed for the first time
+  // Only deduct stock for non-preorder products (pickup / instock)
+  if (parsed.data.status === "confirmed" && existing.status !== "confirmed") {
+    type OrderItem = { productId: number; quantity: number };
+    let items: OrderItem[] = [];
+    try { items = JSON.parse(existing.items); } catch {}
+
+    for (const item of items) {
+      if (!item.productId || !item.quantity) continue;
+      const [product] = await db.select().from(productsTable).where(eq(productsTable.id, item.productId));
+      if (!product || product.orderType === "preorder") continue;
+      const newStock = Math.max(0, product.stock - item.quantity);
+      await db.update(productsTable).set({ stock: newStock }).where(eq(productsTable.id, item.productId));
+    }
   }
 
   res.json(UpdateOrderResponse.parse(mapOrder(order)));
