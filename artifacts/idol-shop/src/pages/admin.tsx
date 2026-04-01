@@ -967,21 +967,56 @@ function StatsTab() {
 
 // ===================== Members =====================
 
-function MemberShippingBadge({ phone }: { phone: string }) {
-  const [carrier, setCarrier] = useState<string | null>(null);
+interface SheetOrder {
+  timestamp: string; name: string; phone: string; memberStatus: string;
+  address: string; products: string; totalPrice: string; shippingMethod: string; notes: string;
+}
+
+function MemberRecentOrders({ phone }: { phone: string }) {
+  const [orders, setOrders] = useState<SheetOrder[]>([]);
+  const [expanded, setExpanded] = useState(false);
   const base = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
+
   useEffect(() => {
-    fetch(`${base}/api/sheets/member-orders?phone=${encodeURIComponent(phone)}`)
+    if (!phone) return;
+    fetch(`${base}/api/sheets/member-orders?phone=${encodeURIComponent(phone)}&_t=${Date.now()}`)
       .then((r) => r.ok ? r.json() : [])
-      .then((orders: any[]) => {
-        const last = orders.filter((o) => o.shippingMethod).pop();
-        if (last?.shippingMethod) setCarrier(last.shippingMethod);
-      })
+      .then((data: SheetOrder[]) => { if (Array.isArray(data)) setOrders(data.slice().reverse()); })
       .catch(() => {});
   }, [phone]);
-  if (!carrier) return null;
+
+  if (orders.length === 0) return null;
+
+  const shown = expanded ? orders : orders.slice(0, 2);
+
   return (
-    <span className="text-[10px] px-1.5 py-0.5 rounded-full font-bold bg-indigo-100 text-indigo-700">🚚 {carrier}</span>
+    <div className="mt-2 border-t border-border pt-2 space-y-1.5">
+      <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide">
+        Đơn gần nhất ({orders.length})
+      </p>
+      {shown.map((o, i) => (
+        <div key={i} className="bg-muted/50 rounded-lg px-2 py-1.5 text-[11px]">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-muted-foreground shrink-0">{o.timestamp ? new Date(o.timestamp).toLocaleDateString("vi-VN") : "—"}</span>
+            {o.totalPrice && <span className="font-bold text-primary shrink-0">{o.totalPrice}</span>}
+          </div>
+          {o.products && <p className="text-foreground truncate mt-0.5">{o.products}</p>}
+          {o.shippingMethod && (
+            <span className="text-[10px] px-1.5 py-0.5 rounded-full font-semibold bg-indigo-100 text-indigo-700 inline-block mt-0.5">
+              🚚 {o.shippingMethod}
+            </span>
+          )}
+        </div>
+      ))}
+      {orders.length > 2 && (
+        <button
+          className="text-[10px] text-primary font-semibold hover:underline"
+          onClick={() => setExpanded((v) => !v)}
+        >
+          {expanded ? "Thu gọn" : `Xem thêm ${orders.length - 2} đơn`}
+        </button>
+      )}
+    </div>
   );
 }
 
@@ -1015,7 +1050,7 @@ function MembersTab() {
 
   const fetchSheets = () => {
     setSheetsLoading(true);
-    fetch(`${base}/api/sheets/all-members`, { cache: "no-store" })
+    fetch(`${base}/api/sheets/all-members?_t=${Date.now()}`)
       .then((r) => r.ok ? r.json() : [])
       .then((data) => {
         const rows = Array.isArray(data) ? data.filter((m: any) => m.name || m.phone) : [];
@@ -1178,13 +1213,13 @@ function MembersTab() {
                     <Sparkles size={10} className="text-amber-500" />
                     <span className="text-xs font-bold text-amber-600">{(m.points ?? 0).toLocaleString()} pts</span>
                   </div>
-                  <MemberShippingBadge phone={m.phone} />
                   {m.joinedAt && (
                     <span className="text-[10px] text-muted-foreground">
                       Tham gia {new Date(m.joinedAt).toLocaleDateString("vi-VN")}
                     </span>
                   )}
                 </div>
+                {m.phone && <MemberRecentOrders phone={m.phone} />}
               </div>
               <Button
                 variant="outline"
