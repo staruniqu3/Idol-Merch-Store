@@ -326,30 +326,38 @@ export default function MembershipPage() {
     setProfileLoading(true);
     const base = getBaseUrl();
 
+    const ts = Date.now();
     try {
-      const [profileResp, ordersResp] = await Promise.all([
-        fetch(`${base}/api/sheets/member-profile?phone=${encodeURIComponent(p)}`),
-        fetch(`${base}/api/sheets/member-orders?phone=${encodeURIComponent(p)}`),
-      ]);
+      const profileResp = await fetch(
+        `${base}/api/sheets/member-profile?phone=${encodeURIComponent(p)}&_t=${ts}`,
+        { cache: "no-store" }
+      );
 
       if (profileResp.ok) {
         const profileData: MemberProfile = await profileResp.json();
         setProfile(profileData);
 
-        const shippingResp = await fetch(
-          `${base}/api/sheets/member-shipping?code=${encodeURIComponent(profileData.customerCode)}`
-        );
-        if (shippingResp.ok) {
-          setShipping(await shippingResp.json());
+        const [shippingResp, ordersResp] = await Promise.allSettled([
+          fetch(
+            `${base}/api/sheets/member-shipping?code=${encodeURIComponent(profileData.customerCode)}&_t=${ts}`,
+            { cache: "no-store" }
+          ),
+          fetch(
+            `${base}/api/sheets/member-orders?phone=${encodeURIComponent(p)}&_t=${ts}`,
+            { cache: "no-store" }
+          ),
+        ]);
+
+        if (shippingResp.status === "fulfilled" && shippingResp.value.ok) {
+          setShipping(await shippingResp.value.json());
+        }
+        if (ordersResp.status === "fulfilled" && ordersResp.value.ok) {
+          setOrders(await ordersResp.value.json());
         }
       } else if (profileResp.status === 404) {
         setProfileError("Không tìm thấy thành viên");
       } else {
         setProfileError("Không thể kết nối dữ liệu");
-      }
-
-      if (ordersResp.ok) {
-        setOrders(await ordersResp.json());
       }
     } catch {
       setProfileError("Lỗi kết nối. Vui lòng thử lại.");
