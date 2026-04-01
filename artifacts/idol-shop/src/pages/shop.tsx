@@ -123,7 +123,7 @@ export default function ShopPage() {
               <h1 className="text-xl font-black leading-tight tracking-tight">
                 Tiệm Chu Du
               </h1>
-              <p className="text-[10px] font-bold opacity-50 uppercase tracking-[0.15em]">Merchandise · K-pop · J-pop</p>
+              <p className="text-[10px] font-bold opacity-50 uppercase tracking-[0.15em]">Order & Pickup tất tần tật</p>
             </div>
           </div>
           <Sheet open={cartOpen} onOpenChange={setCartOpen}>
