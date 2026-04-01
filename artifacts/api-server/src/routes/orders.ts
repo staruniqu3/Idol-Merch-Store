@@ -51,6 +51,27 @@ router.get("/orders/summary", async (_req, res): Promise<void> => {
   );
 });
 
+router.get("/orders/by-phone", async (req, res): Promise<void> => {
+  const phone = req.query.phone as string;
+  if (!phone) { res.status(400).json({ error: "phone required" }); return; }
+  const orders = await db
+    .select()
+    .from(ordersTable)
+    .where(eq(ordersTable.memberPhone, phone))
+    .orderBy(ordersTable.createdAt);
+  res.json(orders.map((o) => ({
+    id: o.id,
+    orderCode: formatOrderCode(o.id),
+    items: o.items,
+    totalAmount: parseFloat(o.totalAmount),
+    status: o.status,
+    orderType: o.orderType,
+    trackingNumber: o.trackingNumber ?? null,
+    shippingCarrier: o.shippingCarrier ?? null,
+    createdAt: o.createdAt,
+  })));
+});
+
 router.get("/orders", async (req, res): Promise<void> => {
   const query = ListOrdersQueryParams.safeParse(req.query);
   let orders = await db.select().from(ordersTable).orderBy(ordersTable.createdAt);
