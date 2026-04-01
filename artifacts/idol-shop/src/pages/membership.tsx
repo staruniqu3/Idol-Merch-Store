@@ -642,14 +642,14 @@ export default function MembershipPage() {
               {/* Hidden elite tiers — names only */}
               <div className="mt-5">
                 <p className="text-[10px] text-center text-muted-foreground uppercase tracking-widest font-semibold mb-3">✦ Hạng đặc biệt ẩn ✦</p>
-                <div className="flex flex-col items-center gap-1.5">
+                <div className="flex flex-row flex-wrap justify-center gap-2">
                   {(["infinite","solstice","patron","voyager"] as const).map((k) => {
                     const cfg = getTierConfig(k);
                     const isDragon = DRAGON_TIERS.includes(k);
                     return (
                       <div
                         key={k}
-                        className={`relative overflow-hidden rounded-xl px-8 py-2 ${isDragon ? "tier-card-dragon" : "tier-card-phoenix"}`}
+                        className={`relative overflow-hidden rounded-xl px-5 py-2 ${isDragon ? "tier-card-dragon" : "tier-card-phoenix"}`}
                       >
                         <span className={`relative z-10 text-sm font-black tracking-widest uppercase ${cfg.textColor}`}>
                           {cfg.label}
