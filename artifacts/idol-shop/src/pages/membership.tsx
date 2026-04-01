@@ -61,6 +61,7 @@ const tierConfig: Record<string, {
   bg: string;
   cardStyle?: string;
   elite?: boolean;
+  benefits?: string[];
 }> = {
   "newcomer": {
     label: "Newcomer",
@@ -69,6 +70,7 @@ const tierConfig: Record<string, {
     textColor: "text-pink-50",
     bg: "bg-pink-100 text-pink-700",
     cardStyle: "bg-gradient-to-br from-pink-400 via-rose-400 to-pink-500",
+    benefits: ["Tích điểm mỗi đơn", "Voucher sinh nhật", "Thông báo pre-order"],
   },
   "newcomers": {
     label: "Newcomer",
@@ -77,6 +79,7 @@ const tierConfig: Record<string, {
     textColor: "text-pink-50",
     bg: "bg-pink-100 text-pink-700",
     cardStyle: "bg-gradient-to-br from-pink-400 via-rose-400 to-pink-500",
+    benefits: ["Tích điểm mỗi đơn", "Voucher sinh nhật", "Thông báo pre-order"],
   },
   "friend of store": {
     label: "Friend of Store",
@@ -85,6 +88,7 @@ const tierConfig: Record<string, {
     textColor: "text-emerald-50",
     bg: "bg-emerald-100 text-emerald-700",
     cardStyle: "bg-gradient-to-br from-emerald-500 via-green-500 to-teal-500",
+    benefits: ["Tích điểm x1.2", "Voucher ưu đãi", "Ưu tiên pre-order", "Quà sinh nhật"],
   },
   "muses": {
     label: "Muses",
@@ -93,6 +97,7 @@ const tierConfig: Record<string, {
     textColor: "text-violet-50",
     bg: "bg-violet-100 text-violet-700",
     cardStyle: "bg-gradient-to-br from-violet-600 via-purple-600 to-indigo-500",
+    benefits: ["Tích điểm x1.5", "Freeship nội thành", "Voucher đặc biệt", "Early access"],
   },
   "dreamer": {
     label: "Dreamer",
@@ -101,6 +106,7 @@ const tierConfig: Record<string, {
     textColor: "text-sky-50",
     bg: "bg-sky-100 text-sky-700",
     cardStyle: "bg-gradient-to-br from-sky-400 via-cyan-400 to-blue-400",
+    benefits: ["Tích điểm x2", "Freeship toàn quốc", "Quà tặng kèm", "VIP pre-order"],
   },
   "ruby": {
     label: "Ruby",
@@ -109,6 +115,7 @@ const tierConfig: Record<string, {
     textColor: "text-[#fff0f0]",
     bg: "bg-red-100 text-red-800",
     cardStyle: "bg-gradient-to-br from-[#8b0000] via-[#c8435a] to-[#e8c4a0]",
+    benefits: ["Tích điểm x2.5", "Freeship ưu tiên", "Quà sinh nhật cao cấp", "Exclusive items", "Giảm giá đặc biệt"],
   },
   "platinum": {
     label: "Platinum",
@@ -117,6 +124,7 @@ const tierConfig: Record<string, {
     textColor: "text-slate-50",
     bg: "bg-slate-100 text-slate-600",
     cardStyle: "bg-gradient-to-br from-slate-400 via-gray-400 to-slate-500",
+    benefits: ["Tích điểm x3", "Freeship miễn phí", "Exclusive items", "Personal shopping", "Invitation sự kiện"],
   },
   "priviledged": {
     label: "Priviledged",
@@ -125,6 +133,7 @@ const tierConfig: Record<string, {
     textColor: "text-gray-100",
     bg: "bg-gray-900 text-gray-100",
     cardStyle: "bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900",
+    benefits: ["Tất cả quyền lợi Platinum", "Ưu tiên tuyệt đối", "Limited edition access", "Concierge service"],
   },
   "privileged": {
     label: "Priviledged",
@@ -133,6 +142,7 @@ const tierConfig: Record<string, {
     textColor: "text-gray-100",
     bg: "bg-gray-900 text-gray-100",
     cardStyle: "bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900",
+    benefits: ["Tất cả quyền lợi Platinum", "Ưu tiên tuyệt đối", "Limited edition access", "Concierge service"],
   },
   "infinite": {
     label: "Infinite",
@@ -468,28 +478,40 @@ export default function MembershipPage() {
               )}
             </div>
 
-            {profile.vouchersGranted > 0 && (
-              <div className="bg-card border border-primary/20 rounded-2xl p-4">
-                <div className="flex items-center gap-2 mb-3">
-                  <Ticket size={16} className="text-primary" />
-                  <h3 className="font-bold text-base">Voucher Membership</h3>
+            <div className="bg-card border border-primary/20 rounded-2xl p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <Ticket size={16} className="text-primary" />
+                <h3 className="font-bold text-base">Voucher Membership</h3>
+              </div>
+              <div className="grid grid-cols-3 gap-2 mb-3">
+                <div className="bg-muted/50 rounded-xl p-3 text-center">
+                  <p className="text-lg font-black text-primary">{profile.vouchersGranted}</p>
+                  <p className="text-[10px] text-muted-foreground font-medium mt-0.5">Được tặng</p>
                 </div>
-                <div className="grid grid-cols-3 gap-2">
-                  <div className="bg-muted/50 rounded-xl p-3 text-center">
-                    <p className="text-lg font-black text-primary">{profile.vouchersGranted}</p>
-                    <p className="text-[10px] text-muted-foreground font-medium mt-0.5">Được tặng</p>
-                  </div>
-                  <div className="bg-muted/50 rounded-xl p-3 text-center">
-                    <p className="text-lg font-black text-muted-foreground">{profile.vouchersUsed}</p>
-                    <p className="text-[10px] text-muted-foreground font-medium mt-0.5">Đã dùng</p>
-                  </div>
-                  <div className="bg-primary/10 rounded-xl p-3 text-center border border-primary/20">
-                    <p className="text-lg font-black text-primary">{profile.vouchersRemaining}</p>
-                    <p className="text-[10px] text-primary/70 font-medium mt-0.5">Còn lại</p>
-                  </div>
+                <div className="bg-muted/50 rounded-xl p-3 text-center">
+                  <p className="text-lg font-black text-muted-foreground">{profile.vouchersUsed}</p>
+                  <p className="text-[10px] text-muted-foreground font-medium mt-0.5">Đã dùng</p>
+                </div>
+                <div className="bg-primary/10 rounded-xl p-3 text-center border border-primary/20">
+                  <p className="text-lg font-black text-primary">{profile.vouchersRemaining}</p>
+                  <p className="text-[10px] text-primary/70 font-medium mt-0.5">Còn lại</p>
                 </div>
               </div>
-            )}
+              {(() => {
+                const benefits = tierConfig[profile.tier.toLowerCase().trim()]?.benefits ?? [];
+                if (!benefits.length) return null;
+                return (
+                  <div className="border-t border-border pt-3 mt-1">
+                    <p className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider mb-2">Quyền lợi hạng {tier?.label}</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {benefits.map((b: string, i: number) => (
+                        <span key={i} className="text-[10px] bg-primary/10 text-primary font-semibold px-2 py-0.5 rounded-full">{b}</span>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
 
             {shipping.length > 0 && (
               <div>
