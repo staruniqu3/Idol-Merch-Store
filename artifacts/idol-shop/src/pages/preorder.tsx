@@ -20,6 +20,55 @@ function getBaseUrl() {
 
 const DAY_PX = 52;
 
+const ARTIST_COLORS: Record<string, { fill: string; bg: string; text: string }> = {
+  "aespa":        { fill: "#00BFA5", bg: "rgba(0,191,165,0.15)",   text: "#fff" },
+  "newjeans":     { fill: "#60A5FA", bg: "rgba(96,165,250,0.15)",  text: "#fff" },
+  "nj":           { fill: "#60A5FA", bg: "rgba(96,165,250,0.15)",  text: "#fff" },
+  "bts":          { fill: "#6D4CA5", bg: "rgba(109,76,165,0.18)",  text: "#fff" },
+  "blackpink":    { fill: "#E91E8C", bg: "rgba(233,30,140,0.15)",  text: "#fff" },
+  "seventeen":    { fill: "#3B82F6", bg: "rgba(59,130,246,0.15)",  text: "#fff" },
+  "svt":          { fill: "#3B82F6", bg: "rgba(59,130,246,0.15)",  text: "#fff" },
+  "straykids":    { fill: "#F59E0B", bg: "rgba(245,158,11,0.18)",  text: "#fff" },
+  "stray kids":   { fill: "#F59E0B", bg: "rgba(245,158,11,0.18)",  text: "#fff" },
+  "skz":          { fill: "#F59E0B", bg: "rgba(245,158,11,0.18)",  text: "#fff" },
+  "twice":        { fill: "#F43F5E", bg: "rgba(244,63,94,0.15)",   text: "#fff" },
+  "ive":          { fill: "#8B5CF6", bg: "rgba(139,92,246,0.15)",  text: "#fff" },
+  "itzy":         { fill: "#F97316", bg: "rgba(249,115,22,0.15)",  text: "#fff" },
+  "nct":          { fill: "#10B981", bg: "rgba(16,185,129,0.15)",  text: "#fff" },
+  "nct127":       { fill: "#EF4444", bg: "rgba(239,68,68,0.15)",   text: "#fff" },
+  "nctdream":     { fill: "#10B981", bg: "rgba(16,185,129,0.15)",  text: "#fff" },
+  "nct dream":    { fill: "#10B981", bg: "rgba(16,185,129,0.15)",  text: "#fff" },
+  "wayv":         { fill: "#0EA5E9", bg: "rgba(14,165,233,0.15)",  text: "#fff" },
+  "exo":          { fill: "#DC2626", bg: "rgba(220,38,38,0.15)",   text: "#fff" },
+  "shinee":       { fill: "#06B6D4", bg: "rgba(6,182,212,0.15)",   text: "#fff" },
+  "redvelvet":    { fill: "#BE123C", bg: "rgba(190,18,60,0.15)",   text: "#fff" },
+  "red velvet":   { fill: "#BE123C", bg: "rgba(190,18,60,0.15)",   text: "#fff" },
+  "rv":           { fill: "#BE123C", bg: "rgba(190,18,60,0.15)",   text: "#fff" },
+  "got7":         { fill: "#16A34A", bg: "rgba(22,163,74,0.15)",   text: "#fff" },
+  "gidle":        { fill: "#A855F7", bg: "rgba(168,85,247,0.18)",  text: "#fff" },
+  "(g)i-dle":     { fill: "#A855F7", bg: "rgba(168,85,247,0.18)",  text: "#fff" },
+  "gidle":        { fill: "#A855F7", bg: "rgba(168,85,247,0.18)",  text: "#fff" },
+  "lesserafim":   { fill: "#E11D48", bg: "rgba(225,29,72,0.15)",   text: "#fff" },
+  "le sserafim":  { fill: "#E11D48", bg: "rgba(225,29,72,0.15)",   text: "#fff" },
+  "txt":          { fill: "#7C3AED", bg: "rgba(124,58,237,0.18)",  text: "#fff" },
+  "tomorrow x together": { fill: "#7C3AED", bg: "rgba(124,58,237,0.18)", text: "#fff" },
+  "enhypen":      { fill: "#0F766E", bg: "rgba(15,118,110,0.18)",  text: "#fff" },
+  "riize":        { fill: "#2563EB", bg: "rgba(37,99,235,0.15)",   text: "#fff" },
+  "illit":        { fill: "#EC4899", bg: "rgba(236,72,153,0.18)",  text: "#fff" },
+  "xdinary heroes": { fill: "#DC2626", bg: "rgba(220,38,38,0.15)", text: "#fff" },
+  "day6":         { fill: "#0891B2", bg: "rgba(8,145,178,0.18)",   text: "#fff" },
+};
+
+function getArtistColor(artist: string | null) {
+  if (!artist) return null;
+  const key = artist.toLowerCase().replace(/\s+/g, " ").trim();
+  return (
+    ARTIST_COLORS[key] ??
+    ARTIST_COLORS[key.replace(/\s/g, "")] ??
+    null
+  );
+}
+
 function startOfDay(d: Date) {
   const r = new Date(d);
   r.setHours(0, 0, 0, 0);
@@ -299,6 +348,23 @@ export default function PreorderPage() {
                   const days_ = getDaysLeft(item.deadline);
                   const ended = days_ !== null && days_ < 0;
                   const urgent = days_ !== null && days_ >= 0 && days_ <= 3;
+                  const ac = getArtistColor(item.artist);
+
+                  const barBg = ended
+                    ? "rgba(200,200,200,0.25)"
+                    : urgent
+                      ? "rgba(239,68,68,0.15)"
+                      : ac ? ac.bg : "rgba(var(--primary),0.10)";
+                  const barFill = ended
+                    ? "#9CA3AF"
+                    : urgent
+                      ? "#F87171"
+                      : ac ? ac.fill : "hsl(var(--primary))";
+                  const barBorder = ended
+                    ? "rgba(156,163,175,0.4)"
+                    : urgent
+                      ? "rgba(239,68,68,0.3)"
+                      : ac ? `${ac.fill}55` : "hsl(var(--primary)/0.25)";
 
                   return (
                     <div
@@ -315,26 +381,27 @@ export default function PreorderPage() {
                         onClick={() => setSelected(item)}
                       >
                         <div
-                          className={`h-full w-full rounded-full ${
-                            ended ? "bg-gray-200" : urgent ? "bg-red-100" : "bg-primary/10"
-                          } border ${
-                            ended ? "border-gray-300" : urgent ? "border-red-200" : "border-primary/20"
-                          }`}
+                          className="h-full w-full rounded-full border"
+                          style={{ background: barBg, borderColor: barBorder }}
                         >
                           <div
-                            className={`h-full rounded-full transition-all ${
-                              ended ? "bg-gray-400" : urgent ? "bg-red-400" : "bg-primary"
-                            }`}
-                            style={{ width: `${pct}%` }}
+                            className="h-full rounded-full transition-all"
+                            style={{ width: `${pct}%`, background: barFill }}
                           />
                         </div>
                         <div className="absolute inset-0 flex items-center px-3 gap-2 min-w-0">
                           {item.artist && (
-                            <span className={`text-[9px] font-black shrink-0 ${ended ? "text-gray-500" : urgent ? "text-red-700" : "text-primary-foreground"} drop-shadow`}>
+                            <span
+                              className="text-[9px] font-black shrink-0 drop-shadow"
+                              style={{ color: ended ? "#9CA3AF" : urgent ? "#B91C1C" : "#fff" }}
+                            >
                               {item.artist}
                             </span>
                           )}
-                          <span className={`text-[10px] font-bold truncate ${ended ? "text-gray-500" : "text-white"} drop-shadow`}>
+                          <span
+                            className="text-[10px] font-bold truncate drop-shadow"
+                            style={{ color: ended ? "#9CA3AF" : "#fff" }}
+                          >
                             {item.title}
                           </span>
                         </div>
