@@ -36,7 +36,7 @@ function formatDate(d: string) {
   return new Date(d).toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric" });
 }
 
-const statusOptions = ["awaiting", "pending", "confirmed", "shipped", "delivered", "cancelled"];
+const statusOptions = ["awaiting", "confirmed", "pending", "shipped", "delivered", "cancelled"];
 const statusLabels: Record<string, string> = {
   awaiting: "Chờ xác nhận", pending: "Đã nhập thông tin", confirmed: "Đã chuyển khoản", shipped: "Đang giao", delivered: "Đã giao", cancelled: "Đã hủy",
 };

@@ -1,12 +1,31 @@
 import { google } from "googleapis";
 
+// ── Auth ──────────────────────────────────────────────────────────────────────
+// Supports two modes:
+//   1. Railway / any server: set GOOGLE_SERVICE_ACCOUNT_JSON env var with the
+//      full service account JSON key (base64 or raw JSON string).
+//   2. Replit dev: uses the built-in Google Sheets connector proxy.
+
 let cachedToken: { value: string; expiresAt: number } | null = null;
 
 export function invalidateToken() {
   cachedToken = null;
 }
 
-async function getAccessToken(): Promise<string> {
+async function getServiceAccountClient() {
+  const raw = process.env.GOOGLE_SERVICE_ACCOUNT_JSON!;
+  const json = raw.trim().startsWith("{")
+    ? raw
+    : Buffer.from(raw, "base64").toString("utf-8");
+  const key = JSON.parse(json);
+  const auth = new google.auth.GoogleAuth({
+    credentials: key,
+    scopes: ["https://www.googleapis.com/auth/spreadsheets.readonly"],
+  });
+  return google.sheets({ version: "v4", auth: await auth.getClient() as any });
+}
+
+async function getReplitOAuthToken(): Promise<string> {
   if (cachedToken && cachedToken.expiresAt > Date.now() + 120000) {
     return cachedToken.value;
   }
@@ -19,18 +38,11 @@ async function getAccessToken(): Promise<string> {
     ? "depl " + process.env.WEB_REPL_RENEWAL
     : null;
 
-  if (!hostname || !xReplitToken) {
-    throw new Error("Google Sheets: missing Replit connector env vars");
-  }
+  if (!hostname || !xReplitToken) throw new Error("Google Sheets: no auth configured");
 
   const resp = await fetch(
     `https://${hostname}/api/v2/connection?include_secrets=true&connector_names=google-sheet`,
-    {
-      headers: {
-        Accept: "application/json",
-        "X-Replit-Token": xReplitToken,
-      },
-    }
+    { headers: { Accept: "application/json", "X-Replit-Token": xReplitToken } }
   );
 
   const data = await resp.json() as any;
@@ -39,9 +51,7 @@ async function getAccessToken(): Promise<string> {
     item?.settings?.access_token ||
     item?.settings?.oauth?.credentials?.access_token;
 
-  if (!accessToken) {
-    throw new Error("Google Sheets: not connected");
-  }
+  if (!accessToken) throw new Error("Google Sheets: not connected");
 
   const expiresAt = item?.settings?.expires_at
     ? new Date(item.settings.expires_at).getTime()
@@ -52,7 +62,10 @@ async function getAccessToken(): Promise<string> {
 }
 
 export async function getGoogleSheetsClient() {
-  const accessToken = await getAccessToken();
+  if (process.env.GOOGLE_SERVICE_ACCOUNT_JSON) {
+    return getServiceAccountClient();
+  }
+  const accessToken = await getReplitOAuthToken();
   const oauth2Client = new google.auth.OAuth2();
   oauth2Client.setCredentials({ access_token: accessToken });
   return google.sheets({ version: "v4", auth: oauth2Client });
