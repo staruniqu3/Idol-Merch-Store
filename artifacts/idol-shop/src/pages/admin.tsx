@@ -156,8 +156,23 @@ function ProductsTab() {
   const [open, setOpen] = useState(false);
   const [editId, setEditId] = useState<number | null>(null);
   const [form, setForm] = useState({ name: "", description: "", price: "", category: "Kpop", stock: "0", isAvailable: true, orderType: "preorder", imageUrl: "", tags: [] as string[] });
+  const [customTagInput, setCustomTagInput] = useState("");
 
-  const resetForm = () => setForm({ name: "", description: "", price: "", category: "Kpop", stock: "0", isAvailable: true, orderType: "preorder", imageUrl: "", tags: [] });
+  const PRESET_TAGS = [
+    "Photocard Set", "Album Standard", "Album Special", "Lightstick",
+    "Plush", "Keychain", "Poster", "Slogan", "Wappen",
+    "PC Holder", "Standee", "Fan", "Acrylic", "Sticker Pack",
+    "Weverse Album", "Limited Edition", "Merch Bundle",
+  ];
+
+  const resetForm = () => { setForm({ name: "", description: "", price: "", category: "Kpop", stock: "0", isAvailable: true, orderType: "preorder", imageUrl: "", tags: [] }); setCustomTagInput(""); };
+
+  const addCustomTag = () => {
+    const tag = customTagInput.trim();
+    if (!tag || form.tags.includes(tag)) { setCustomTagInput(""); return; }
+    setForm((f) => ({ ...f, tags: [...f.tags, tag] }));
+    setCustomTagInput("");
+  };
 
   const openEdit = (p: NonNullable<typeof products>[0]) => {
     setEditId(p.id);
@@ -199,12 +214,7 @@ function ProductsTab() {
             <div>
               <Label>Tags</Label>
               <div className="flex flex-wrap gap-1.5 mt-2">
-                {[
-                  "Photocard Set", "Album Standard", "Album Special", "Lightstick",
-                  "Plush", "Keychain", "Poster", "Slogan", "Wappen",
-                  "PC Holder", "Standee", "Fan", "Acrylic", "Sticker Pack",
-                  "Weverse Album", "Limited Edition", "Merch Bundle",
-                ].map((tag) => {
+                {PRESET_TAGS.map((tag) => {
                   const selected = form.tags.includes(tag);
                   return (
                     <button
@@ -224,6 +234,28 @@ function ProductsTab() {
                     </button>
                   );
                 })}
+                {form.tags.filter((t) => !PRESET_TAGS.includes(t)).map((tag) => (
+                  <span key={tag} className="flex items-center gap-0.5 text-[10px] font-semibold px-2 py-1 rounded-full bg-primary text-primary-foreground border border-primary">
+                    {tag}
+                    <button type="button" onClick={() => setForm((f) => ({ ...f, tags: f.tags.filter((t) => t !== tag) }))} className="ml-0.5 hover:opacity-70">×</button>
+                  </span>
+                ))}
+              </div>
+              <div className="flex gap-1.5 mt-2">
+                <Input
+                  value={customTagInput}
+                  onChange={(e) => setCustomTagInput(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addCustomTag(); } }}
+                  placeholder="Tạo tag mới..."
+                  className="rounded-xl h-8 text-xs"
+                />
+                <button
+                  type="button"
+                  onClick={addCustomTag}
+                  className="shrink-0 h-8 px-3 rounded-xl text-xs font-semibold bg-primary/10 text-primary hover:bg-primary/20 border border-primary/15 transition-colors"
+                >
+                  + Thêm
+                </button>
               </div>
             </div>
             <div><Label>Mô tả</Label><Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={2} className="rounded-xl mt-1" /></div>
