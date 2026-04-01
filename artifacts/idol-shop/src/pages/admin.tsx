@@ -797,24 +797,20 @@ function PreorderTab() {
                   onClick={() => setScheduleMode("pickup")}
                   className={`flex-1 py-2 text-sm font-medium transition-colors ${scheduleMode === "pickup" ? "bg-emerald-600 text-white" : "bg-muted text-muted-foreground hover:bg-muted/70"}`}
                 >
-                  📦 Lịch nhận hàng
+                  🛍️ Lịch đi mua hàng tại store
                 </button>
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-2">
-              <div><Label>Bắt đầu PO</Label><Input type="date" value={form.startDate} onChange={(e) => setForm({ ...form, startDate: e.target.value })} className="rounded-xl mt-1" /></div>
+              <div><Label>{scheduleMode === "pickup" ? "Bắt đầu đi pickup" : "Bắt đầu PO"}</Label><Input type="date" value={form.startDate} onChange={(e) => setForm({ ...form, startDate: e.target.value })} className="rounded-xl mt-1" /></div>
               {scheduleMode === "po" && (
                 <div><Label>Deadline PO</Label><Input type="date" value={form.deadline} onChange={(e) => setForm({ ...form, deadline: e.target.value })} className="rounded-xl mt-1" /></div>
               )}
+              {scheduleMode === "pickup" && (
+                <div><Label className="text-emerald-700 dark:text-emerald-400">Deadline pickup</Label><Input type="date" value={form.pickupDeadline} onChange={(e) => setForm({ ...form, pickupDeadline: e.target.value })} className="rounded-xl mt-1" /></div>
+              )}
             </div>
-
-            {scheduleMode === "pickup" && (
-              <div className="grid grid-cols-2 gap-2 p-3 bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-900 rounded-xl">
-                <div><Label className="text-emerald-700 dark:text-emerald-400">Ngày bắt đầu nhận</Label><Input type="date" value={form.pickupDate} onChange={(e) => setForm({ ...form, pickupDate: e.target.value })} className="rounded-xl mt-1" /></div>
-                <div><Label className="text-emerald-700 dark:text-emerald-400">Ngày kết thúc nhận</Label><Input type="date" value={form.pickupDeadline} onChange={(e) => setForm({ ...form, pickupDeadline: e.target.value })} className="rounded-xl mt-1" /></div>
-              </div>
-            )}
 
             <div><Label>URL ảnh</Label><Input value={form.imageUrl} onChange={(e) => setForm({ ...form, imageUrl: e.target.value })} placeholder="https://..." className="rounded-xl mt-1" /></div>
             <div className="flex items-center gap-3 py-1">
@@ -836,9 +832,9 @@ function PreorderTab() {
               <p className="font-bold text-sm">{item.title}</p>
               {item.artist && <p className="text-xs text-primary font-semibold mt-0.5">{item.artist}</p>}
               <div className="flex flex-wrap gap-x-3 mt-0.5">
-                {item.startDate && <p className="text-xs text-muted-foreground">Bắt đầu: {item.startDate}</p>}
+                {item.startDate && !item.pickupDeadline && <p className="text-xs text-muted-foreground">Bắt đầu: {item.startDate}</p>}
                 {item.deadline && <p className="text-xs text-muted-foreground">Deadline: {item.deadline}</p>}
-                {item.pickupDate && <p className="text-xs text-emerald-600 font-medium">Pickup: {item.pickupDate}{item.pickupDeadline ? ` → ${item.pickupDeadline}` : ""}</p>}
+                {item.pickupDeadline && <p className="text-xs text-emerald-600 font-medium">🛍️ Pickup{item.startDate ? `: ${item.startDate}` : ""} · deadline {item.pickupDeadline}</p>}
               </div>
               {!item.isActive && <Badge variant="secondary" className="text-[10px] mt-1">Đã đóng</Badge>}
             </div>
