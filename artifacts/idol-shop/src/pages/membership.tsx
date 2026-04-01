@@ -430,6 +430,40 @@ export default function MembershipPage() {
               </div>
             )}
 
+            {!ordersLoading && orders.length > 0 && (() => {
+              const recent = [...orders].reverse().slice(0, 4);
+              return (
+                <div className="bg-card border border-primary/15 rounded-2xl p-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Package size={15} className="text-primary" />
+                    <h3 className="font-bold text-sm">Hàng Gần Nhất</h3>
+                    <Badge variant="secondary" className="text-[10px] ml-auto">{orders.length} đơn tổng</Badge>
+                  </div>
+                  <div className="space-y-2">
+                    {recent.map((order, i) => (
+                      <div key={i} className="flex items-start gap-3">
+                        <div className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${i === 0 ? "bg-primary" : "bg-muted-foreground/30"}`} />
+                        <div className="flex-1 min-w-0">
+                          <p className={`text-sm leading-snug ${i === 0 ? "font-bold text-foreground" : "font-medium text-muted-foreground"}`}>
+                            {order.products || "—"}
+                          </p>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            <span className="text-[10px] text-muted-foreground">{formatDate(order.timestamp)}</span>
+                            {order.totalPrice && (
+                              <>
+                                <span className="text-muted-foreground/40 text-[10px]">·</span>
+                                <span className="text-[10px] font-bold text-primary">{order.totalPrice}</span>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })()}
+
             {(ordersLoading || orders.length > 0) && (
               <div>
                 <div className="flex items-center gap-2 mb-3">

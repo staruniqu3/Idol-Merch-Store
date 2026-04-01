@@ -175,6 +175,51 @@ export async function getMemberProfile(phone: string): Promise<MemberProfile | n
   };
 }
 
+export interface AllShippingRow {
+  customerCode: string;
+  name: string;
+  trackingCode: string;
+  carrier: string;
+  status: string;
+  shippingFee: string;
+}
+
+export async function getAllShippingTracking(): Promise<AllShippingRow[]> {
+  const sheets = await getGoogleSheetsClient();
+
+  const [shippingResp, membersResp] = await Promise.all([
+    sheets.spreadsheets.values.get({
+      spreadsheetId: MEMBERSHIP_SHEET_ID,
+      range: "Sheet2!A:E",
+    }),
+    sheets.spreadsheets.values.get({
+      spreadsheetId: MEMBERSHIP_SHEET_ID,
+      range: "Sheet1!B:C",
+    }),
+  ]);
+
+  const shippingRows = shippingResp.data.values ?? [];
+  const memberRows = membersResp.data.values ?? [];
+
+  // Build code→name map from Sheet1 (col B=code, col C=name)
+  const nameMap: Record<string, string> = {};
+  memberRows.slice(1).forEach((r) => {
+    if (r[0]) nameMap[r[0].trim()] = r[1] ?? "";
+  });
+
+  return shippingRows
+    .slice(1)
+    .filter((r) => r[1]) // must have tracking code
+    .map((r) => ({
+      customerCode: r[0] ?? "",
+      name: nameMap[r[0]?.trim() ?? ""] ?? "",
+      trackingCode: r[1] ?? "",
+      carrier: r[2] ?? "",
+      status: r[3] ?? "",
+      shippingFee: r[4] ?? "",
+    }));
+}
+
 export async function getMemberShipping(customerCode: string): Promise<MemberShipping[]> {
   const sheets = await getGoogleSheetsClient();
   const resp = await sheets.spreadsheets.values.get({

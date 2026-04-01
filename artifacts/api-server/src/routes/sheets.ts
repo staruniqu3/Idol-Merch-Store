@@ -3,6 +3,7 @@ import {
   getMemberOrdersByPhone,
   getMemberProfile,
   getMemberShipping,
+  getAllShippingTracking,
 } from "../lib/google-sheets";
 
 const router: IRouter = Router();
@@ -48,6 +49,15 @@ router.get("/sheets/member-shipping", async (req, res): Promise<void> => {
   try {
     const shipping = await getMemberShipping(code);
     res.json(shipping);
+  } catch (err: any) {
+    res.status(503).json({ error: err.message ?? "Google Sheets unavailable" });
+  }
+});
+
+router.get("/sheets/all-shipping", async (_req, res): Promise<void> => {
+  try {
+    const rows = await getAllShippingTracking();
+    res.json(rows);
   } catch (err: any) {
     res.status(503).json({ error: err.message ?? "Google Sheets unavailable" });
   }
