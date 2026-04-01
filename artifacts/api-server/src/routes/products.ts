@@ -89,7 +89,7 @@ router.patch("/products/:id", async (req, res): Promise<void> => {
 
   const [product] = await db
     .update(productsTable)
-    .set(updateData as Parameters<typeof db.update>[0] extends infer T ? T : never)
+    .set(updateData as unknown as typeof productsTable.$inferInsert)
     .where(eq(productsTable.id, params.data.id))
     .returning();
 

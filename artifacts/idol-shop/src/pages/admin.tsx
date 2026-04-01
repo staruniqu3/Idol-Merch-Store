@@ -5,7 +5,7 @@ import {
   useListOrders, getListOrdersQueryKey, useUpdateOrder,
   useListShippingUpdates, getListShippingUpdatesQueryKey, useCreateShippingUpdate, useUpdateShippingUpdate, useDeleteShippingUpdate,
   useListMembers, getListMembersQueryKey, useCreateMember, useAddPoints,
-  useListRewards, getListRewardsQueryKey, useCreateReward, useDeleteReward, useUpdateReward,
+  useListRewards, getListRewardsQueryKey, useCreateReward, useDeleteReward,
   useGetOrderSummary,
 } from "@workspace/api-client-react";
 import {
@@ -131,7 +131,7 @@ function DashboardTab() {
       {summary && (
         <div className="bg-card border border-border rounded-2xl p-4 space-y-3">
           <h3 className="font-bold flex items-center gap-2"><BarChart3 size={16} className="text-primary" /> Theo trạng thái</h3>
-          {Object.entries((summary.byStatus ?? {}) as Record<string, number>).map(([status, count]) => (
+          {Object.entries({ pending: summary.pendingOrders, shipped: summary.shippedOrders, delivered: summary.deliveredOrders } as Record<string, number>).map(([status, count]) => (
             <div key={status} className="flex items-center justify-between">
               <Badge className={`text-[10px] ${statusColors[status] ?? ""}`} variant="secondary">
                 {statusLabels[status] ?? status}

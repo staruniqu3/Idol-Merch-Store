@@ -1,0 +1,34 @@
+pnpm run build
+3s
+> workspace@0.0.0 build /app
+> pnpm run typecheck && pnpm -r --if-present run build
+> workspace@0.0.0 typecheck /app
+> pnpm run typecheck:libs && pnpm -r --filter "./artifacts/**" --filter "./scripts" --if-present run typecheck
+> workspace@0.0.0 typecheck:libs /app
+> tsc --build
+lib/api-zod/src/index.ts(2,1): error TS2308: Module "./generated/api" has already exported a member named 'AddPointsBody'. Consider explicitly re-exporting to resolve the ambiguity.
+
+lib/api-zod/src/index.ts(2,1): error TS2308: Module "./generated/api" has already exported a member named 'CreateMemberBody'. Consider explicitly re-exporting to resolve the ambiguity.
+
+lib/api-zod/src/index.ts(2,1): error TS2308: Module "./generated/api" has already exported a member named 'CreateOrderBody'. Consider explicitly re-exporting to resolve the ambiguity.
+
+lib/api-zod/src/index.ts(2,1): error TS2308: Module "./generated/api" has already exported a member named 'CreateProductBody'. Consider explicitly re-exporting to resolve the ambiguity.
+
+lib/api-zod/src/index.ts(2,1): error TS2308: Module "./generated/api" has already exported a member named 'CreateRewardBody'. Consider explicitly re-exporting to resolve the ambiguity.
+
+lib/api-zod/src/index.ts(2,1): error TS2308: Module "./generated/api" has already exported a member named 'CreateShippingUpdateBody'. Consider explicitly re-exporting to resolve the ambiguity.
+
+lib/api-zod/src/index.ts(2,1): error TS2308: Module "./generated/api" has already exported a member named 'RedeemRewardBody'. Consider explicitly re-exporting to resolve the ambiguity.
+
+lib/api-zod/src/index.ts(2,1): error TS2308: Module "./generated/api" has already exported a member named 'UpdateMemberBody'. Consider explicitly re-exporting to resolve the ambiguity.
+
+lib/api-zod/src/index.ts(2,1): error TS2308: Module "./generated/api" has already exported a member named 'UpdateOrderBody'. Consider explicitly re-exporting to resolve the ambiguity.
+
+lib/api-zod/src/index.ts(2,1): error TS2308: Module "./generated/api" has already exported a member named 'UpdateProductBody'. Consider explicitly re-exporting to resolve the ambiguity.
+
+lib/api-zod/src/index.ts(2,1): error TS2308: Module "./generated/api" has already exported a member named 'UpdateShippingUpdateBody'. Consider explicitly re-exporting to resolve the ambiguity.
+
+ ELIFECYCLE  Command failed with exit code 2.
+ ELIFECYCLE  Command failed with exit code 2.
+ ELIFECYCLE  Command failed with exit code 2.
+ERROR: failed to build: failed to solve: process "pnpm run build" did not complete successfully: exit code: 2
