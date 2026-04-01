@@ -6,13 +6,12 @@ import {
   useCreateOrder,
   getListOrdersQueryKey,
 } from "@workspace/api-client-react";
-import { ShoppingCart, Plus, Minus, X, Package, ShoppingBag, Sparkles } from "lucide-react";
+import { ShoppingCart, Plus, Minus, X, Package, ShoppingBag, Sparkles, ExternalLink, CreditCard, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -22,6 +21,7 @@ type CartItem = {
   price: number;
   quantity: number;
   orderType: string;
+  imageUrl?: string | null;
 };
 
 const CATEGORIES = ["Tất cả", "Kpop", "GMMTV", "US UK", "Tạp Hoá"];
@@ -47,15 +47,15 @@ function formatPrice(price: number) {
   return new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(price);
 }
 
+const MATMAT_URL = "https://matmat.up.railway.app/";
+
 export default function ShopPage() {
   const { data: products, isLoading } = useListProducts();
   const [selectedCategory, setSelectedCategory] = useState("Tất cả");
   const [cart, setCart] = useState<CartItem[]>([]);
   const [cartOpen, setCartOpen] = useState(false);
-  const [checkoutOpen, setCheckoutOpen] = useState(false);
-  const [name, setName] = useState("");
+  const [step, setStep] = useState<"cart" | "checkout" | "payment">("cart");
   const [phone, setPhone] = useState("");
-  const [notes, setNotes] = useState("");
   const createOrder = useCreateOrder();
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -71,7 +71,7 @@ export default function ShopPage() {
     setCart((prev) => {
       const existing = prev.find((i) => i.productId === product.id);
       if (existing) return prev.map((i) => i.productId === product.id ? { ...i, quantity: i.quantity + 1 } : i);
-      return [...prev, { productId: product.id, name: product.name, price: product.price, quantity: 1, orderType: product.orderType }];
+      return [...prev, { productId: product.id, name: product.name, price: product.price, quantity: 1, orderType: product.orderType, imageUrl: product.imageUrl }];
     });
     toast({ title: "Đã thêm vào giỏ hàng", description: product.name });
   };
@@ -83,22 +83,38 @@ export default function ShopPage() {
   };
 
   const handleCheckout = () => {
-    if (!name.trim() || !phone.trim()) {
-      toast({ title: "Vui lòng nhập tên và số điện thoại", variant: "destructive" });
+    if (!phone.trim()) {
+      toast({ title: "Vui lòng nhập số điện thoại", variant: "destructive" });
       return;
     }
     const orderType = cart.some((i) => i.orderType === "preorder") ? "preorder" : "pickup";
     createOrder.mutate(
-      { data: { memberName: name, memberPhone: phone, items: JSON.stringify(cart.map((i) => ({ productId: i.productId, name: i.name, price: i.price, quantity: i.quantity }))), totalAmount: cartTotal, orderType, notes: notes || null, memberId: null } },
+      {
+        data: {
+          memberName: phone,
+          memberPhone: phone,
+          items: JSON.stringify(cart.map((i) => ({ productId: i.productId, name: i.name, price: i.price, quantity: i.quantity }))),
+          totalAmount: cartTotal,
+          orderType,
+          notes: null,
+          memberId: null,
+        },
+      },
       {
         onSuccess: () => {
           queryClient.invalidateQueries({ queryKey: getListOrdersQueryKey() });
-          setCart([]); setName(""); setPhone(""); setNotes(""); setCartOpen(false); setCheckoutOpen(false);
-          toast({ title: "Đặt hàng thành công!", description: "Shop sẽ liên hệ bạn sớm nhé 🎉" });
+          setStep("payment");
         },
         onError: () => toast({ title: "Có lỗi xảy ra", variant: "destructive" }),
       }
     );
+  };
+
+  const handleClose = () => {
+    setCartOpen(false);
+    setStep("cart");
+    setPhone("");
+    setCart([]);
   };
 
   return (
@@ -120,13 +136,12 @@ export default function ShopPage() {
               </div>
             </div>
             <div>
-              <h1 className="text-xl font-black leading-tight tracking-tight">
-                Tiệm Chu Du
-              </h1>
+              <h1 className="text-xl font-black leading-tight tracking-tight">Tiệm Chu Du</h1>
               <p className="text-[10px] font-bold opacity-50 uppercase tracking-[0.15em]">Order & Pickup tất tần tật</p>
             </div>
           </div>
-          <Sheet open={cartOpen} onOpenChange={setCartOpen}>
+
+          <Sheet open={cartOpen} onOpenChange={(v) => { setCartOpen(v); if (!v) { setStep("cart"); setPhone(""); } }}>
             <SheetTrigger asChild>
               <button className="relative w-10 h-10 bg-white/15 rounded-xl flex items-center justify-center hover:bg-white/25 transition-colors" data-testid="button-cart">
                 <ShoppingCart size={18} />
@@ -137,58 +152,155 @@ export default function ShopPage() {
                 )}
               </button>
             </SheetTrigger>
-            <SheetContent side="right" className="w-full max-w-sm flex flex-col">
-              <SheetHeader>
-                <SheetTitle>Giỏ hàng ({cartCount})</SheetTitle>
+
+            <SheetContent side="right" className="w-full max-w-sm flex flex-col p-0">
+              <SheetHeader className="px-5 pt-5 pb-3 border-b border-border">
+                <SheetTitle>
+                  {step === "payment" ? "Thanh toán" : `Giỏ hàng (${cartCount})`}
+                </SheetTitle>
               </SheetHeader>
-              {cart.length === 0 ? (
-                <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground gap-3">
-                  <ShoppingBag size={48} strokeWidth={1.2} className="text-primary/30" />
-                  <p className="font-semibold">Giỏ hàng trống</p>
-                  <p className="text-sm">Thêm sản phẩm để đặt hàng</p>
+
+              {/* ── STEP: PAYMENT SUCCESS ── */}
+              {step === "payment" && (
+                <div className="flex-1 flex flex-col items-center justify-center px-5 gap-5 text-center">
+                  <div className="w-16 h-16 rounded-full bg-emerald-100 flex items-center justify-center">
+                    <CheckCircle2 size={32} className="text-emerald-500" />
+                  </div>
+                  <div>
+                    <p className="text-lg font-black">Đặt hàng thành công! 🎉</p>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Shop đã nhận đơn của bạn.<br />Vui lòng chuyển khoản và điền form xác nhận.
+                    </p>
+                  </div>
+
+                  <a
+                    href={MATMAT_URL}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="w-full"
+                  >
+                    <div className="w-full bg-gradient-to-br from-primary to-pink-400 rounded-2xl p-5 text-white shadow-lg hover:shadow-xl transition-shadow cursor-pointer">
+                      <div className="flex items-center gap-3 mb-3">
+                        <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
+                          <CreditCard size={20} />
+                        </div>
+                        <div className="text-left">
+                          <p className="font-black text-base leading-tight">Chuyển khoản & Điền form</p>
+                          <p className="text-[11px] opacity-75 font-medium">Mát Mát Payment</p>
+                        </div>
+                        <ExternalLink size={16} className="ml-auto opacity-70" />
+                      </div>
+                      <div className="bg-white/15 rounded-xl px-3 py-2 text-sm font-bold">
+                        {formatPrice(cartTotal)}
+                      </div>
+                    </div>
+                  </a>
+
+                  <Button variant="ghost" className="w-full rounded-xl" onClick={handleClose}>
+                    Đóng
+                  </Button>
                 </div>
-              ) : (
+              )}
+
+              {/* ── STEP: CART ── */}
+              {step === "cart" && (
                 <>
-                  <div className="flex-1 overflow-y-auto space-y-3 mt-4">
+                  {cart.length === 0 ? (
+                    <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground gap-3 px-5">
+                      <ShoppingBag size={48} strokeWidth={1.2} className="text-primary/30" />
+                      <p className="font-semibold">Giỏ hàng trống</p>
+                      <p className="text-sm">Thêm sản phẩm để đặt hàng</p>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="flex-1 overflow-y-auto space-y-2 px-5 py-4">
+                        {cart.map((item) => (
+                          <div key={item.productId} className="flex gap-3 p-2.5 bg-muted/60 rounded-2xl" data-testid={`cart-item-${item.productId}`}>
+                            {/* thumbnail */}
+                            <div className="w-14 h-14 rounded-xl overflow-hidden bg-muted shrink-0 border border-border">
+                              {item.imageUrl ? (
+                                <img src={item.imageUrl} alt={item.name} className="w-full h-full object-cover" />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center">
+                                  <Package size={20} className="text-muted-foreground/40" />
+                                </div>
+                              )}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-bold leading-snug line-clamp-2">{item.name}</p>
+                              <p className="text-xs text-primary font-black mt-0.5">{formatPrice(item.price)}</p>
+                              <div className="flex items-center gap-1 mt-1.5">
+                                <Button variant="outline" size="icon" className="h-6 w-6 rounded-lg" onClick={() => changeQty(item.productId, -1)} data-testid={`button-minus-${item.productId}`}><Minus size={10} /></Button>
+                                <span className="w-5 text-center text-sm font-black">{item.quantity}</span>
+                                <Button variant="outline" size="icon" className="h-6 w-6 rounded-lg" onClick={() => changeQty(item.productId, 1)} data-testid={`button-plus-${item.productId}`}><Plus size={10} /></Button>
+                                <Button variant="ghost" size="icon" className="h-6 w-6 rounded-lg text-destructive ml-1" onClick={() => removeFromCart(item.productId)} data-testid={`button-remove-${item.productId}`}><X size={10} /></Button>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+
+                      <div className="border-t border-border px-5 pt-3 pb-5 space-y-3">
+                        <div className="flex justify-between items-center">
+                          <span className="font-semibold text-muted-foreground">Tổng cộng</span>
+                          <span className="text-xl font-black text-primary">{formatPrice(cartTotal)}</span>
+                        </div>
+                        <Button className="w-full rounded-xl font-bold" onClick={() => setStep("checkout")} data-testid="button-checkout">
+                          Đặt hàng ngay
+                        </Button>
+                      </div>
+                    </>
+                  )}
+                </>
+              )}
+
+              {/* ── STEP: CHECKOUT ── */}
+              {step === "checkout" && (
+                <div className="flex-1 flex flex-col px-5 py-4">
+                  {/* order summary mini */}
+                  <div className="bg-muted/50 rounded-2xl p-3 mb-4 space-y-1.5">
                     {cart.map((item) => (
-                      <div key={item.productId} className="flex gap-3 p-3 bg-muted rounded-2xl" data-testid={`cart-item-${item.productId}`}>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-bold leading-snug line-clamp-2">{item.name}</p>
-                          <p className="text-xs text-primary font-black mt-0.5">{formatPrice(item.price)}</p>
-                        </div>
-                        <div className="flex items-center gap-1 shrink-0">
-                          <Button variant="outline" size="icon" className="h-7 w-7 rounded-lg" onClick={() => changeQty(item.productId, -1)} data-testid={`button-minus-${item.productId}`}><Minus size={11} /></Button>
-                          <span className="w-6 text-center text-sm font-black">{item.quantity}</span>
-                          <Button variant="outline" size="icon" className="h-7 w-7 rounded-lg" onClick={() => changeQty(item.productId, 1)} data-testid={`button-plus-${item.productId}`}><Plus size={11} /></Button>
-                          <Button variant="ghost" size="icon" className="h-7 w-7 rounded-lg text-destructive" onClick={() => removeFromCart(item.productId)} data-testid={`button-remove-${item.productId}`}><X size={11} /></Button>
-                        </div>
+                      <div key={item.productId} className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">{item.name} ×{item.quantity}</span>
+                        <span className="font-bold">{formatPrice(item.price * item.quantity)}</span>
                       </div>
                     ))}
-                  </div>
-                  <div className="border-t border-border pt-4 mt-4 space-y-4">
-                    <div className="flex justify-between items-center">
-                      <span className="font-semibold text-muted-foreground">Tổng cộng</span>
-                      <span className="text-xl font-black text-primary">{formatPrice(cartTotal)}</span>
+                    <div className="border-t border-border pt-1.5 flex justify-between font-black">
+                      <span>Tổng</span>
+                      <span className="text-primary">{formatPrice(cartTotal)}</span>
                     </div>
-                    {!checkoutOpen ? (
-                      <Button className="w-full rounded-xl font-bold" onClick={() => setCheckoutOpen(true)} data-testid="button-checkout">
-                        Đặt hàng ngay
-                      </Button>
-                    ) : (
-                      <div className="space-y-3">
-                        <div><Label htmlFor="name">Họ tên *</Label><Input id="name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Nguyễn Văn A" className="rounded-xl mt-1" data-testid="input-name" /></div>
-                        <div><Label htmlFor="phone">Số điện thoại *</Label><Input id="phone" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="09xxxxxxxx" className="rounded-xl mt-1" data-testid="input-phone" /></div>
-                        <div><Label htmlFor="notes">Ghi chú</Label><Textarea id="notes" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Ghi chú thêm..." rows={2} className="rounded-xl mt-1" data-testid="input-notes" /></div>
-                        <Button className="w-full rounded-xl font-bold" onClick={handleCheckout} disabled={createOrder.isPending} data-testid="button-place-order">
-                          {createOrder.isPending ? "Đang đặt..." : "Xác nhận đặt hàng"}
-                        </Button>
-                        <Button variant="ghost" className="w-full rounded-xl" onClick={() => setCheckoutOpen(false)}>
-                          Quay lại giỏ hàng
-                        </Button>
-                      </div>
-                    )}
                   </div>
-                </>
+
+                  <div className="space-y-3 flex-1">
+                    <div>
+                      <Label htmlFor="phone" className="font-bold">Số điện thoại *</Label>
+                      <Input
+                        id="phone"
+                        value={phone}
+                        onChange={(e) => setPhone(e.target.value)}
+                        placeholder="09xxxxxxxx"
+                        className="rounded-xl mt-1 text-base"
+                        inputMode="tel"
+                        data-testid="input-phone"
+                      />
+                      <p className="text-[11px] text-muted-foreground mt-1.5">Shop sẽ liên hệ qua số này để xác nhận đơn.</p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2 mt-4">
+                    <Button
+                      className="w-full rounded-xl font-bold"
+                      onClick={handleCheckout}
+                      disabled={createOrder.isPending}
+                      data-testid="button-place-order"
+                    >
+                      {createOrder.isPending ? "Đang xử lý..." : "Xác nhận đặt hàng"}
+                    </Button>
+                    <Button variant="ghost" className="w-full rounded-xl" onClick={() => setStep("cart")}>
+                      Quay lại giỏ hàng
+                    </Button>
+                  </div>
+                </div>
               )}
             </SheetContent>
           </Sheet>
