@@ -412,41 +412,41 @@ export default function MembershipPage() {
               className={`${tier.elite ? (DRAGON_TIERS.includes(profile.tier.toLowerCase().trim()) ? "tier-card-dragon" : "tier-card-phoenix") : `bg-gradient-to-br ${tier.gradient}`} rounded-2xl p-5 shadow-xl relative overflow-hidden`}
               data-testid="member-card"
             >
-              <div className="absolute top-0 right-0 w-32 h-32 rounded-full bg-white/5 -translate-y-8 translate-x-8" />
-              <div className="absolute bottom-0 left-0 w-20 h-20 rounded-full bg-black/10 translate-y-6 -translate-x-6" />
+              <div className="absolute top-0 right-0 w-32 h-32 rounded-full bg-black/10 -translate-y-8 translate-x-8" />
+              <div className="absolute bottom-0 left-0 w-20 h-20 rounded-full bg-black/15 translate-y-6 -translate-x-6" />
 
               <div className="relative flex items-start justify-between mb-1">
                 <div>
-                  <p className="text-[10px] opacity-60 font-bold uppercase tracking-widest">Tiệm Chu Du</p>
-                  <h2 className="text-2xl font-black mt-0.5">{profile.name}</h2>
-                  <div className="flex items-center gap-1 mt-1 opacity-70">
+                  <p className={`text-[10px] font-bold uppercase tracking-widest ${tier.textColor} opacity-80`}>Tiệm Chu Du</p>
+                  <h2 className={`text-2xl font-black mt-0.5 drop-shadow-sm ${tier.textColor}`}>{profile.name}</h2>
+                  <div className={`flex items-center gap-1 mt-1 ${tier.textColor} opacity-90`}>
                     <Hash size={11} />
-                    <span className="text-xs font-mono font-semibold">{profile.customerCode}</span>
+                    <span className="text-xs font-mono font-bold">{profile.customerCode}</span>
                   </div>
                 </div>
                 <div className="text-right">
-                  <span className="text-4xl">{tier.emoji}</span>
-                  <p className="text-sm font-black mt-0.5" data-testid="text-tier">{tier.label}</p>
+                  <span className="text-4xl drop-shadow-sm">{tier.emoji}</span>
+                  <p className={`text-sm font-black mt-0.5 drop-shadow-sm ${tier.textColor}`} data-testid="text-tier">{tier.label}</p>
                 </div>
               </div>
 
-              <div className="relative bg-white/15 rounded-xl p-3 mt-3">
+              <div className="relative bg-black/15 rounded-xl p-3 mt-3">
                 <div className="flex justify-between items-center mb-1">
-                  <span className="text-xs opacity-80 font-medium">Điểm tích lũy</span>
-                  <span className="font-black text-xl" data-testid="text-points">
+                  <span className={`text-xs font-semibold ${tier.textColor} opacity-90`}>Điểm tích lũy</span>
+                  <span className={`font-black text-xl drop-shadow-sm ${tier.textColor}`} data-testid="text-points">
                     {profile.points.toLocaleString("vi-VN", { minimumFractionDigits: 0, maximumFractionDigits: 1 })} pts
                   </span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-xs opacity-80 font-medium">Điểm trong năm</span>
-                  <span className="text-sm font-bold opacity-90">
+                  <span className={`text-xs font-semibold ${tier.textColor} opacity-90`}>Điểm trong năm</span>
+                  <span className={`text-sm font-bold ${tier.textColor}`}>
                     {profile.yearPoints.toLocaleString("vi-VN", { minimumFractionDigits: 0, maximumFractionDigits: 1 })} pts
                   </span>
                 </div>
                 {profile.redeemedPoints > 0 && (
                   <div className="flex justify-between items-center mt-1">
-                    <span className="text-xs opacity-80 font-medium">Đã quy đổi</span>
-                    <span className="text-sm font-bold opacity-90">
+                    <span className={`text-xs font-semibold ${tier.textColor} opacity-90`}>Đã quy đổi</span>
+                    <span className={`text-sm font-bold ${tier.textColor}`}>
                       -{profile.redeemedPoints.toLocaleString()} pts
                     </span>
                   </div>
@@ -454,9 +454,9 @@ export default function MembershipPage() {
               </div>
 
               {profile.phone && (
-                <div className="relative flex items-center gap-1 mt-2 opacity-60">
+                <div className={`relative flex items-center gap-1 mt-2 ${tier.textColor} opacity-80`}>
                   <Phone size={11} />
-                  <span className="text-xs font-medium">{profile.phone}</span>
+                  <span className="text-xs font-semibold">{profile.phone}</span>
                   {profile.birthday && (
                     <>
                       <span className="mx-1">·</span>
