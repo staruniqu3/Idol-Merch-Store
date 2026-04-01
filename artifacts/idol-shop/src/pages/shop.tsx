@@ -303,7 +303,7 @@ export default function ShopPage() {
                         inputMode="tel"
                         data-testid="input-phone"
                       />
-                      <p className="text-[11px] text-muted-foreground mt-1.5">Shop sẽ liên hệ qua số này để xác nhận đơn.</p>
+                      <p className="text-[11px] text-muted-foreground mt-1.5">Shop dùng để nhập đơn vào hệ thống.</p>
                     </div>
 
                   </div>
