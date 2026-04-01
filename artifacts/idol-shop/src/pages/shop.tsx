@@ -385,7 +385,15 @@ export default function ShopPage() {
               <p className="text-sm font-bold leading-snug line-clamp-2">{product.name}</p>
               <div className="flex items-center gap-2 mt-1">
                 <span className="text-primary font-black text-sm">{formatPrice(product.price)}</span>
-                <span className="text-[10px] text-muted-foreground">Còn {product.stock}</span>
+                <span className={`text-xs font-black px-1.5 py-0.5 rounded-md ${
+                  product.stock <= 5
+                    ? "bg-red-100 text-red-600"
+                    : product.stock <= 15
+                      ? "bg-amber-100 text-amber-700"
+                      : "bg-emerald-100 text-emerald-700"
+                }`}>
+                  Còn {product.stock}
+                </span>
               </div>
             </div>
             <Button
