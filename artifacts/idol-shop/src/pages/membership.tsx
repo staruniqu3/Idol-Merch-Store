@@ -357,14 +357,12 @@ export default function MembershipPage() {
   }, []);
 
   const normalize = (s: string) => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-  const filteredMembers = nameQuery.trim().length >= 1
+  const isPhoneMode = /^\d/.test(nameQuery.trim());
+  const filteredMembers = !isPhoneMode && nameQuery.trim().length >= 1
     ? allMembers.filter((m) => normalize(m.name).includes(normalize(nameQuery.trim())))
     : [];
 
-  const handleSelectMember = async (member: SheetsBasicMember) => {
-    setSelectedMember(member);
-    setNameQuery(member.name);
-    setShowDropdown(false);
+  const fetchProfile = async (phone: string) => {
     setProfile(null);
     setShipping([]);
     setOrders([]);
@@ -374,31 +372,18 @@ export default function MembershipPage() {
     const ts = Date.now();
     try {
       const profileResp = await fetch(
-        `${base}/api/sheets/member-profile?phone=${encodeURIComponent(member.phone)}&_t=${ts}`,
+        `${base}/api/sheets/member-profile?phone=${encodeURIComponent(phone)}&_t=${ts}`,
         { cache: "no-store" }
       );
-
       if (profileResp.ok) {
         const profileData: MemberProfile = await profileResp.json();
         setProfile(profileData);
-
         const [shippingResp, ordersResp] = await Promise.allSettled([
-          fetch(
-            `${base}/api/sheets/member-shipping?code=${encodeURIComponent(profileData.customerCode)}&_t=${ts}`,
-            { cache: "no-store" }
-          ),
-          fetch(
-            `${base}/api/sheets/member-orders?phone=${encodeURIComponent(member.phone)}&_t=${ts}`,
-            { cache: "no-store" }
-          ),
+          fetch(`${base}/api/sheets/member-shipping?code=${encodeURIComponent(profileData.customerCode)}&_t=${ts}`, { cache: "no-store" }),
+          fetch(`${base}/api/sheets/member-orders?phone=${encodeURIComponent(phone)}&_t=${ts}`, { cache: "no-store" }),
         ]);
-
-        if (shippingResp.status === "fulfilled" && shippingResp.value.ok) {
-          setShipping(await shippingResp.value.json());
-        }
-        if (ordersResp.status === "fulfilled" && ordersResp.value.ok) {
-          setOrders(await ordersResp.value.json());
-        }
+        if (shippingResp.status === "fulfilled" && shippingResp.value.ok) setShipping(await shippingResp.value.json());
+        if (ordersResp.status === "fulfilled" && ordersResp.value.ok) setOrders(await ordersResp.value.json());
       } else if (profileResp.status === 404) {
         setProfileError("Không tìm thấy thành viên");
       } else {
@@ -409,6 +394,21 @@ export default function MembershipPage() {
     } finally {
       setProfileLoading(false);
     }
+  };
+
+  const handleSelectMember = (member: SheetsBasicMember) => {
+    setSelectedMember(member);
+    setNameQuery(member.name);
+    setShowDropdown(false);
+    fetchProfile(member.phone);
+  };
+
+  const handlePhoneSearch = () => {
+    const phone = nameQuery.trim();
+    if (!phone) return;
+    setSelectedMember(null);
+    setShowDropdown(false);
+    fetchProfile(phone);
   };
 
   const tier = profile ? getTierConfig(profile.tier) : null;
@@ -427,31 +427,49 @@ export default function MembershipPage() {
         </div>
 
         <div className="relative">
-          <div className="relative">
-            <User size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-white/40 pointer-events-none z-10" />
-            {profileLoading || membersLoading ? (
-              <Search size={15} className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 animate-pulse" />
-            ) : nameQuery && (
+          <div className="flex gap-2">
+            <div className="flex-1 relative">
+              {isPhoneMode
+                ? <Phone size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-white/40 pointer-events-none z-10" />
+                : <User size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-white/40 pointer-events-none z-10" />
+              }
+              {!profileLoading && nameQuery && (
+                <button
+                  type="button"
+                  onClick={() => { setNameQuery(""); setProfile(null); setSelectedMember(null); setProfileError(null); setShowDropdown(false); }}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-white/50 hover:text-white/90 text-lg leading-none z-10"
+                >×</button>
+              )}
+              {profileLoading && (
+                <Search size={15} className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 animate-pulse z-10" />
+              )}
+              <input
+                ref={inputRef}
+                className="w-full bg-white/15 border border-white/20 rounded-xl pl-9 pr-8 py-2.5 text-sm text-white placeholder-white/40 font-medium focus:outline-none focus:ring-2 focus:ring-white/30"
+                placeholder="Số điện thoại hoặc tên..."
+                value={nameQuery}
+                onChange={(e) => { setNameQuery(e.target.value); setShowDropdown(true); setSelectedMember(null); setProfile(null); setProfileError(null); }}
+                onFocus={() => { if (nameQuery.trim() && !isPhoneMode) setShowDropdown(true); }}
+                onKeyDown={(e) => { if (e.key === "Enter" && isPhoneMode) handlePhoneSearch(); }}
+                data-testid="input-member-phone"
+                autoComplete="off"
+                inputMode="text"
+              />
+            </div>
+            {isPhoneMode && (
               <button
                 type="button"
-                onClick={() => { setNameQuery(""); setProfile(null); setSelectedMember(null); setProfileError(null); setShowDropdown(false); }}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-white/50 hover:text-white/90 text-lg leading-none"
-              >×</button>
+                onClick={handlePhoneSearch}
+                disabled={profileLoading || !nameQuery.trim()}
+                className="bg-primary hover:bg-primary/90 disabled:opacity-50 text-white px-4 rounded-xl font-semibold text-sm transition-colors flex items-center gap-1.5 shrink-0"
+              >
+                <Search size={14} />
+                Tra cứu
+              </button>
             )}
-            <input
-              ref={inputRef}
-              className="w-full bg-white/15 border border-white/20 rounded-xl pl-9 pr-9 py-2.5 text-sm text-white placeholder-white/40 font-medium focus:outline-none focus:ring-2 focus:ring-white/30"
-              placeholder={membersLoading ? "Đang tải danh sách..." : `Tìm tên trong ${allMembers.length} thành viên...`}
-              value={nameQuery}
-              onChange={(e) => { setNameQuery(e.target.value); setShowDropdown(true); setSelectedMember(null); setProfile(null); setProfileError(null); }}
-              onFocus={() => { if (nameQuery.trim()) setShowDropdown(true); }}
-              disabled={membersLoading}
-              data-testid="input-member-phone"
-              autoComplete="off"
-            />
           </div>
 
-          {showDropdown && filteredMembers.length > 0 && (
+          {!isPhoneMode && showDropdown && filteredMembers.length > 0 && (
             <div
               ref={dropdownRef}
               className="absolute left-0 right-0 top-full mt-1.5 bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden z-50 max-h-64 overflow-y-auto"
@@ -479,7 +497,7 @@ export default function MembershipPage() {
             </div>
           )}
 
-          {showDropdown && nameQuery.trim().length >= 1 && filteredMembers.length === 0 && !membersLoading && (
+          {!isPhoneMode && showDropdown && nameQuery.trim().length >= 1 && filteredMembers.length === 0 && !membersLoading && allMembers.length > 0 && (
             <div ref={dropdownRef} className="absolute left-0 right-0 top-full mt-1.5 bg-white rounded-2xl shadow-xl border border-gray-100 px-4 py-3 z-50">
               <p className="text-sm text-gray-500 text-center">Không tìm thấy tên <span className="font-semibold text-gray-700">"{nameQuery}"</span></p>
             </div>
