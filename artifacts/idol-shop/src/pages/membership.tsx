@@ -49,6 +49,22 @@ interface SheetOrder {
   notes: string;
 }
 
+interface AppOrder {
+  id: number;
+  orderCode: string;
+  items: string;
+  totalAmount: number;
+  status: string;
+  orderType: string;
+  trackingNumber: string | null;
+  shippingCarrier: string | null;
+  createdAt: string;
+}
+
+type UnifiedOrder =
+  | { source: "sheet"; sortKey: number; data: SheetOrder }
+  | { source: "app"; sortKey: number; data: AppOrder };
+
 interface SheetsBasicMember {
   name: string;
   phone: string;
@@ -309,6 +325,61 @@ function SheetOrderCard({ order }: { order: SheetOrder }) {
   );
 }
 
+const STATUS_MAP: Record<string, { label: string; color: string }> = {
+  pending:   { label: "Chờ xử lý",    color: "bg-amber-100 text-amber-700" },
+  confirmed: { label: "Đã xác nhận",  color: "bg-blue-100 text-blue-700" },
+  shipped:   { label: "Đang giao",    color: "bg-purple-100 text-purple-700" },
+  delivered: { label: "Đã giao",      color: "bg-green-100 text-green-700" },
+  cancelled: { label: "Đã hủy",       color: "bg-red-100 text-red-700" },
+};
+
+function AppOrderCard({ order }: { order: AppOrder }) {
+  const [expanded, setExpanded] = useState(false);
+  const st = STATUS_MAP[order.status] ?? { label: order.status, color: "bg-gray-100 text-gray-600" };
+  let itemsText = order.items;
+  try {
+    const parsed = JSON.parse(order.items);
+    if (Array.isArray(parsed)) {
+      itemsText = parsed.map((i: any) => `${i.name ?? i.productName ?? "SP"}${i.variant ? ` (${i.variant})` : ""} x${i.quantity ?? 1}`).join(", ");
+    }
+  } catch { /* keep raw */ }
+  return (
+    <div className="bg-card border border-border rounded-2xl overflow-hidden">
+      <button className="w-full p-4 flex items-start gap-3 text-left" onClick={() => setExpanded(!expanded)}>
+        <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
+          <Package size={16} className="text-primary" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="font-bold text-xs text-primary font-mono">{order.orderCode}</span>
+            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${st.color}`}>{st.label}</span>
+          </div>
+          <p className="text-sm font-medium mt-0.5 line-clamp-1">{itemsText}</p>
+          <p className="text-xs text-muted-foreground mt-0.5">{formatDate(order.createdAt)}</p>
+        </div>
+        <div className="flex flex-col items-end gap-1 shrink-0">
+          <span className="text-sm font-black text-primary">{order.totalAmount.toLocaleString("vi-VN")}đ</span>
+          {expanded ? <ChevronUp size={14} className="text-muted-foreground" /> : <ChevronDown size={14} className="text-muted-foreground" />}
+        </div>
+      </button>
+      {expanded && (
+        <div className="border-t border-border px-4 pb-4 pt-3 space-y-2 bg-muted/30">
+          {order.trackingNumber && (
+            <div className="flex items-center gap-2">
+              <Truck size={12} className="text-muted-foreground shrink-0" />
+              <span className="text-xs">{order.shippingCarrier ? `${order.shippingCarrier}: ` : ""}<span className="font-mono font-semibold">{order.trackingNumber}</span></span>
+            </div>
+          )}
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] text-muted-foreground font-semibold shrink-0">Loại</span>
+            <span className="text-xs capitalize">{order.orderType === "preorder" ? "Pre-order" : order.orderType}</span>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function MembershipPage() {
   const [nameQuery, setNameQuery] = useState("");
   const [showDropdown, setShowDropdown] = useState(false);
@@ -324,6 +395,7 @@ export default function MembershipPage() {
 
   const [shipping, setShipping] = useState<MemberShipping[]>([]);
   const [orders, setOrders] = useState<SheetOrder[]>([]);
+  const [appOrders, setAppOrders] = useState<AppOrder[]>([]);
 
   useEffect(() => {
     const base = getBaseUrl();
@@ -366,6 +438,7 @@ export default function MembershipPage() {
     setProfile(null);
     setShipping([]);
     setOrders([]);
+    setAppOrders([]);
     setProfileError(null);
     setProfileLoading(true);
     const base = getBaseUrl();
@@ -378,12 +451,14 @@ export default function MembershipPage() {
       if (profileResp.ok) {
         const profileData: MemberProfile = await profileResp.json();
         setProfile(profileData);
-        const [shippingResp, ordersResp] = await Promise.allSettled([
+        const [shippingResp, sheetsOrdersResp, appOrdersResp] = await Promise.allSettled([
           fetch(`${base}/api/sheets/member-shipping?code=${encodeURIComponent(profileData.customerCode)}&_t=${ts}`, { cache: "no-store" }),
           fetch(`${base}/api/sheets/member-orders?phone=${encodeURIComponent(phone)}&_t=${ts}`, { cache: "no-store" }),
+          fetch(`${base}/api/orders/by-phone?phone=${encodeURIComponent(phone)}&_t=${ts}`, { cache: "no-store" }),
         ]);
         if (shippingResp.status === "fulfilled" && shippingResp.value.ok) setShipping(await shippingResp.value.json());
-        if (ordersResp.status === "fulfilled" && ordersResp.value.ok) setOrders(await ordersResp.value.json());
+        if (sheetsOrdersResp.status === "fulfilled" && sheetsOrdersResp.value.ok) setOrders(await sheetsOrdersResp.value.json());
+        if (appOrdersResp.status === "fulfilled" && appOrdersResp.value.ok) setAppOrders(await appOrdersResp.value.json());
       } else if (profileResp.status === 404) {
         setProfileError("Không tìm thấy thành viên");
       } else {
@@ -676,54 +751,70 @@ export default function MembershipPage() {
               </div>
             )}
 
-            {orders.length > 0 && (() => {
-              const recent = [...orders].reverse().slice(0, 4);
+            {(() => {
+              const unified: UnifiedOrder[] = [
+                ...orders.map((o) => ({ source: "sheet" as const, sortKey: new Date(o.timestamp).getTime() || 0, data: o })),
+                ...appOrders.map((o) => ({ source: "app" as const, sortKey: new Date(o.createdAt).getTime() || 0, data: o })),
+              ].sort((a, b) => b.sortKey - a.sortKey);
+
+              if (unified.length === 0) return null;
+
+              const recent = unified.slice(0, 4);
+              const totalCount = unified.length;
+
               return (
-                <div className="bg-card border border-primary/15 rounded-2xl p-4">
-                  <div className="flex items-center gap-2 mb-3">
-                    <Package size={15} className="text-primary" />
-                    <h3 className="font-bold text-sm">Hàng Gần Nhất</h3>
-                    <Badge variant="secondary" className="text-[10px] ml-auto">{orders.length} đơn tổng</Badge>
-                  </div>
-                  <div className="space-y-2">
-                    {recent.map((order, i) => (
-                      <div key={i} className="flex items-start gap-3">
-                        <div className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${i === 0 ? "bg-primary" : "bg-muted-foreground/30"}`} />
-                        <div className="flex-1 min-w-0">
-                          <p className={`text-sm leading-snug ${i === 0 ? "font-bold text-foreground" : "font-medium text-muted-foreground"}`}>
-                            {order.products || "—"}
-                          </p>
-                          <div className="flex items-center gap-2 mt-0.5">
-                            <span className="text-[10px] text-muted-foreground">{formatDate(order.timestamp)}</span>
-                            {order.totalPrice && (
-                              <>
-                                <span className="text-muted-foreground/40 text-[10px]">·</span>
-                                <span className="text-[10px] font-bold text-primary">{order.totalPrice}</span>
-                              </>
-                            )}
+                <>
+                  <div className="bg-card border border-primary/15 rounded-2xl p-4">
+                    <div className="flex items-center gap-2 mb-3">
+                      <Package size={15} className="text-primary" />
+                      <h3 className="font-bold text-sm">Hàng Gần Nhất</h3>
+                      <Badge variant="secondary" className="text-[10px] ml-auto">{totalCount} đơn tổng</Badge>
+                    </div>
+                    <div className="space-y-2">
+                      {recent.map((u, i) => {
+                        const label = u.source === "app"
+                          ? (u.data as AppOrder).orderCode
+                          : (() => { try { return JSON.parse((u.data as SheetOrder).products)?.[0]?.name ?? (u.data as SheetOrder).products; } catch { return (u.data as SheetOrder).products; } })();
+                        const date = u.source === "app" ? (u.data as AppOrder).createdAt : (u.data as SheetOrder).timestamp;
+                        const price = u.source === "app"
+                          ? `${(u.data as AppOrder).totalAmount.toLocaleString("vi-VN")}đ`
+                          : (u.data as SheetOrder).totalPrice;
+                        return (
+                          <div key={i} className="flex items-start gap-3">
+                            <div className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${i === 0 ? "bg-primary" : "bg-muted-foreground/30"}`} />
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <p className={`text-sm leading-snug truncate ${i === 0 ? "font-bold text-foreground" : "font-medium text-muted-foreground"}`}>{label || "—"}</p>
+                                {u.source === "app" && <span className="text-[10px] px-1.5 py-0.5 bg-primary/10 text-primary rounded font-semibold shrink-0">App</span>}
+                              </div>
+                              <div className="flex items-center gap-2 mt-0.5">
+                                <span className="text-[10px] text-muted-foreground">{formatDate(date)}</span>
+                                {price && <><span className="text-muted-foreground/40 text-[10px]">·</span><span className="text-[10px] font-bold text-primary">{price}</span></>}
+                              </div>
+                            </div>
                           </div>
-                        </div>
-                      </div>
-                    ))}
+                        );
+                      })}
+                    </div>
                   </div>
-                </div>
+
+                  <div>
+                    <div className="flex items-center gap-2 mb-3">
+                      <ShoppingBag size={16} className="text-primary" />
+                      <h3 className="font-bold text-base">Lịch Sử Đơn Hàng</h3>
+                      <Badge variant="secondary" className="text-[10px]">{totalCount} đơn</Badge>
+                    </div>
+                    <div className="space-y-2">
+                      {unified.map((u, i) =>
+                        u.source === "sheet"
+                          ? <SheetOrderCard key={`s-${i}`} order={u.data as SheetOrder} />
+                          : <AppOrderCard key={`a-${i}`} order={u.data as AppOrder} />
+                      )}
+                    </div>
+                  </div>
+                </>
               );
             })()}
-
-            {orders.length > 0 && (
-              <div>
-                <div className="flex items-center gap-2 mb-3">
-                  <ShoppingBag size={16} className="text-primary" />
-                  <h3 className="font-bold text-base">Lịch Sử Đơn Hàng</h3>
-                  <Badge variant="secondary" className="text-[10px]">{orders.length} đơn</Badge>
-                </div>
-                <div className="space-y-2">
-                  {[...orders].reverse().map((order, i) => (
-                    <SheetOrderCard key={i} order={order} />
-                  ))}
-                </div>
-              </div>
-            )}
           </>
         )}
 
