@@ -377,7 +377,16 @@ function ProductsTab() {
             <div><Label>Mô tả</Label><Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={2} className="rounded-xl mt-1" /></div>
             <div className="grid grid-cols-2 gap-2">
               <div><Label>Giá (VND) *</Label><Input type="number" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} className="rounded-xl mt-1" data-testid="input-product-price" /></div>
-              <div><Label>Tồn kho</Label><Input type="number" value={form.stock} onChange={(e) => setForm({ ...form, stock: e.target.value })} className="rounded-xl mt-1" /></div>
+              {form.orderType === "preorder" ? (
+                <div>
+                  <Label className="text-muted-foreground">Tồn kho</Label>
+                  <div className="rounded-xl mt-1 h-9 border border-dashed border-border bg-muted/30 flex items-center justify-center">
+                    <span className="text-[10px] text-muted-foreground">Không cần — Pre-order</span>
+                  </div>
+                </div>
+              ) : (
+                <div><Label>Tồn kho</Label><Input type="number" value={form.stock} onChange={(e) => setForm({ ...form, stock: e.target.value })} className="rounded-xl mt-1" /></div>
+              )}
             </div>
             <div className="grid grid-cols-2 gap-2">
               <div>
