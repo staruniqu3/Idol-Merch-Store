@@ -113,9 +113,14 @@ function UrgencyBadge({ days }: { days: number | null }) {
 function PreorderModal({ item, onClose }: { item: PreorderItem; onClose: () => void }) {
   const days = getDaysLeft(item.deadline);
   const ended = days !== null && days < 0;
+  const isPickupOnly = !item.deadline && !!item.pickupDeadline;
   const start = item.startDate ? startOfDay(new Date(item.startDate)) : startOfDay(new Date(item.createdAt));
   const deadline = item.deadline ? startOfDay(new Date(item.deadline)) : null;
-  const pickupDay = item.pickupDate ? startOfDay(new Date(item.pickupDate)) : null;
+  const pickupDay = item.pickupDate
+    ? startOfDay(new Date(item.pickupDate))
+    : isPickupOnly && item.startDate
+      ? startOfDay(new Date(item.startDate))
+      : null;
   const pickupEndDay = item.pickupDeadline ? startOfDay(new Date(item.pickupDeadline)) : null;
   const today = startOfDay(new Date());
   const totalDays = deadline ? diffDays(deadline, start) : null;
@@ -387,7 +392,11 @@ export default function PreorderPage() {
                   const urgent = days_ !== null && days_ >= 0 && days_ <= 3;
                   const ac = getArtistColor(item.artist);
 
-                  const pickupDay = item.pickupDate ? startOfDay(new Date(item.pickupDate)) : null;
+                  const pickupDay = item.pickupDate
+                    ? startOfDay(new Date(item.pickupDate))
+                    : isPickupOnly && item.startDate
+                      ? startOfDay(new Date(item.startDate))
+                      : null;
                   const pickupEndDay = item.pickupDeadline ? startOfDay(new Date(item.pickupDeadline)) : null;
                   const pickupOffset = pickupDay ? diffDays(pickupDay, rangeStart) : null;
 
@@ -623,16 +632,16 @@ export default function PreorderPage() {
                           </span>
                         </div>
                       )}
-                      {item.pickupDate && (
+                      {(item.pickupDate || isPickupOnly) && (
                         <div className="flex items-start gap-1.5 text-xs">
                           <Package size={12} className="text-emerald-500 mt-0.5 shrink-0" />
                           <div>
-                            <span className="text-muted-foreground">Pickup: </span>
+                            <span className="text-muted-foreground">🛍️ Pickup: </span>
                             <span className="font-bold text-emerald-600">
-                              {new Date(item.pickupDate).toLocaleDateString("vi-VN", { day: "2-digit", month: "long", year: "numeric" })}
+                              {new Date(item.pickupDate ?? item.startDate ?? "").toLocaleDateString("vi-VN", { day: "2-digit", month: "long", year: "numeric" })}
                             </span>
                             {item.pickupDeadline && (
-                              <span className="text-emerald-600"> → {new Date(item.pickupDeadline).toLocaleDateString("vi-VN", { day: "2-digit", month: "long", year: "numeric" })}</span>
+                              <span className={`font-bold ${urgent ? "text-red-500" : "text-emerald-600"}`}> → deadline {new Date(item.pickupDeadline).toLocaleDateString("vi-VN", { day: "2-digit", month: "long", year: "numeric" })}</span>
                             )}
                           </div>
                         </div>
