@@ -963,10 +963,6 @@ function StatsTab() {
 }
 
 // ===================== Members =====================
-interface SheetMember {
-  customerCode: string; name: string; phone: string; tier: string; points: number;
-  birthday: string; address: string; facebookName: string;
-}
 
 function MemberShippingBadge({ phone }: { phone: string }) {
   const [carrier, setCarrier] = useState<string | null>(null);
@@ -987,60 +983,67 @@ function MemberShippingBadge({ phone }: { phone: string }) {
 }
 
 function MembersTab() {
-  const [members, setMembers] = useState<SheetMember[]>([]);
-  const [loading, setLoading] = useState(true);
   const addPoints = useAddPoints();
-  const { data: dbMembers } = useListMembers();
+  const { data: dbMembers, isLoading, refetch } = useListMembers();
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const [pointsOpen, setPointsOpen] = useState(false);
-  const [selectedPhone, setSelectedPhone] = useState<string>("");
+  const [selectedMemberId, setSelectedMemberId] = useState<number | null>(null);
   const [pointsAmount, setPointsAmount] = useState("");
   const [search, setSearch] = useState("");
 
-  const fetchMembers = () => {
-    setLoading(true);
-    fetch(`${getBaseUrl()}/api/sheets/all-members`)
-      .then((r) => r.json())
-      .then((data) => { setMembers(Array.isArray(data) ? data : []); setLoading(false); })
-      .catch(() => { setMembers([]); setLoading(false); });
-  };
-
-  useEffect(() => { fetchMembers(); }, []);
-
   const handleAddPoints = () => {
-    if (!selectedPhone || !pointsAmount) return;
-    const dbMember = dbMembers?.find((m) => m.phone.replace(/\D/g, "") === selectedPhone.replace(/\D/g, "") || m.phone === selectedPhone);
-    if (!dbMember) { toast({ title: "Không tìm thấy trong hệ thống", variant: "destructive" }); return; }
-    addPoints.mutate({ id: dbMember.id, data: { points: parseInt(pointsAmount), reason: null } }, {
-      onSuccess: () => { queryClient.invalidateQueries({ queryKey: getListMembersQueryKey() }); setPointsOpen(false); setPointsAmount(""); toast({ title: "Đã thêm điểm" }); },
+    if (!selectedMemberId || !pointsAmount) return;
+    addPoints.mutate({ id: selectedMemberId, data: { points: parseInt(pointsAmount), reason: null } }, {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getListMembersQueryKey() });
+        setPointsOpen(false);
+        setPointsAmount("");
+        toast({ title: "Đã thêm điểm" });
+      },
     });
   };
 
+  const members = dbMembers ?? [];
+
   const filtered = members.filter((m) =>
-    !search || m.name.toLowerCase().includes(search.toLowerCase()) || m.phone.includes(search) || m.customerCode.toLowerCase().includes(search.toLowerCase())
+    !search ||
+    m.name.toLowerCase().includes(search.toLowerCase()) ||
+    m.phone.includes(search) ||
+    (m.email ?? "").toLowerCase().includes(search.toLowerCase())
   );
 
   const tierEmoji = (tier: string) => {
-    const t = tier.toLowerCase();
-    if (t.includes("dragon") || t.includes("phoenix") || t.includes("infinite") || t.includes("solstice") || t.includes("patron") || t.includes("voyager")) return "👑";
-    if (t.includes("platinum") || t.includes("ruby")) return "💎";
-    if (t.includes("gold")) return "🥇";
+    const t = (tier ?? "").toLowerCase();
+    if (t.includes("dragon") || t.includes("phoenix") || t.includes("patron") || t.includes("vip")) return "👑";
+    if (t.includes("platinum") || t.includes("ruby") || t.includes("gold")) return "💎";
     if (t.includes("silver")) return "🥈";
+    if (t.includes("bronze")) return "🥉";
     return "🌟";
   };
+
+  const tierColor = (tier: string) => {
+    const t = (tier ?? "").toLowerCase();
+    if (t.includes("gold") || t.includes("vip") || t.includes("patron")) return "bg-amber-100 text-amber-800";
+    if (t.includes("platinum") || t.includes("ruby")) return "bg-purple-100 text-purple-800";
+    if (t.includes("silver")) return "bg-slate-100 text-slate-700";
+    if (t.includes("bronze")) return "bg-orange-100 text-orange-700";
+    return "bg-blue-50 text-blue-700";
+  };
+
+  const selectedMember = members.find((m) => m.id === selectedMemberId);
 
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
         <h3 className="font-bold">Thành Viên ({filtered.length})</h3>
-        <Button size="sm" variant="outline" className="rounded-xl text-xs" onClick={fetchMembers}>
+        <Button size="sm" variant="outline" className="rounded-xl text-xs" onClick={() => refetch()}>
           Làm mới
         </Button>
       </div>
 
       <Input
-        placeholder="Tìm theo tên, SĐT, mã KH..."
+        placeholder="Tìm theo tên, SĐT, email..."
         value={search}
         onChange={(e) => setSearch(e.target.value)}
         className="rounded-xl"
@@ -1051,53 +1054,60 @@ function MembersTab() {
         <DialogContent className="rounded-2xl">
           <DialogHeader><DialogTitle>Thêm điểm thủ công</DialogTitle></DialogHeader>
           <div className="space-y-3 mt-2">
-            <p className="text-sm font-semibold">{members.find((m) => m.phone === selectedPhone)?.name}</p>
+            <p className="text-sm font-semibold">{selectedMember?.name}</p>
+            <p className="text-xs text-muted-foreground">Điểm hiện tại: {(selectedMember?.points ?? 0).toLocaleString()} pts</p>
             <div><Label>Số điểm</Label><Input type="number" value={pointsAmount} onChange={(e) => setPointsAmount(e.target.value)} className="rounded-xl mt-1" data-testid="input-points-amount" /></div>
             <Button className="w-full rounded-xl" onClick={handleAddPoints} data-testid="button-save-points">Thêm điểm</Button>
           </div>
         </DialogContent>
       </Dialog>
 
-      {loading ? (
+      {isLoading ? (
         <div className="text-center py-8 text-muted-foreground text-sm">Đang tải...</div>
+      ) : filtered.length === 0 ? (
+        <div className="text-center py-12 text-muted-foreground text-sm">
+          {search ? "Không tìm thấy thành viên phù hợp" : "Chưa có thành viên nào đăng ký"}
+        </div>
       ) : (
-      <div className="space-y-2">
-        {filtered.map((m, idx) => (
-          <div key={idx} className="bg-card border border-border rounded-2xl p-3 flex items-center gap-3" data-testid={`admin-member-${m.customerCode || idx}`}>
-            <div className="w-10 h-10 bg-muted rounded-xl flex items-center justify-center shrink-0 font-black text-base text-muted-foreground">
-              {(m.name || "?").charAt(0).toUpperCase()}
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 flex-wrap">
-                <p className="font-bold text-sm truncate">{m.name}</p>
-                <span className="text-[11px]">{tierEmoji(m.tier)}</span>
-                {m.customerCode && <span className="text-[10px] bg-secondary/10 text-secondary px-1.5 py-0.5 rounded-full font-semibold">{m.customerCode}</span>}
+        <div className="space-y-2">
+          {filtered.map((m) => (
+            <div key={m.id} className="bg-card border border-border rounded-2xl p-3 flex items-center gap-3" data-testid={`admin-member-${m.id}`}>
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 font-black text-base text-white"
+                style={{ background: "linear-gradient(135deg, #e879a8 0%, #a855f7 100%)" }}>
+                {(m.name || "?").charAt(0).toUpperCase()}
               </div>
-              <p className="text-xs text-muted-foreground">{m.phone}</p>
-              {m.address && (
-                <p className="text-[11px] text-muted-foreground truncate">📍 {m.address}</p>
-              )}
-              <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                <div className="flex items-center gap-1">
-                  <Sparkles size={10} className="text-amber-500" />
-                  <span className="text-xs font-bold text-amber-600">{m.points.toLocaleString()} pts</span>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <p className="font-bold text-sm truncate">{m.name}</p>
+                  <span className="text-[11px]">{tierEmoji(m.tier)}</span>
+                  <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-semibold ${tierColor(m.tier)}`}>{m.tier}</span>
                 </div>
-                <Badge variant="secondary" className="text-[10px]">{m.tier}</Badge>
-                <MemberShippingBadge phone={m.phone} />
+                <p className="text-xs text-muted-foreground">{m.phone}</p>
+                {m.email && <p className="text-[11px] text-muted-foreground truncate">{m.email}</p>}
+                {m.notes && <p className="text-[11px] text-muted-foreground truncate">📝 {m.notes}</p>}
+                <div className="flex items-center gap-2 mt-1 flex-wrap">
+                  <div className="flex items-center gap-1">
+                    <Sparkles size={10} className="text-amber-500" />
+                    <span className="text-xs font-bold text-amber-600">{(m.points ?? 0).toLocaleString()} pts</span>
+                  </div>
+                  <MemberShippingBadge phone={m.phone} />
+                  <span className="text-[10px] text-muted-foreground">
+                    Tham gia {new Date(m.joinedAt).toLocaleDateString("vi-VN")}
+                  </span>
+                </div>
               </div>
+              <Button
+                variant="outline"
+                size="sm"
+                className="shrink-0 rounded-xl text-xs"
+                onClick={() => { setSelectedMemberId(m.id); setPointsOpen(true); }}
+                data-testid={`button-add-points-${m.id}`}
+              >
+                + Điểm
+              </Button>
             </div>
-            <Button
-              variant="outline"
-              size="sm"
-              className="shrink-0 rounded-xl text-xs"
-              onClick={() => { setSelectedPhone(m.phone); setPointsOpen(true); }}
-              data-testid={`button-add-points-${m.customerCode || idx}`}
-            >
-              + Điểm
-            </Button>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
       )}
     </div>
   );
