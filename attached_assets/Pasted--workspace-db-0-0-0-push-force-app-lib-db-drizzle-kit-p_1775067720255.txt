@@ -1,0 +1,104 @@
+> @workspace/db@0.0.0 push-force /app/lib/db
+> drizzle-kit push --force --config ./drizzle.config.ts
+Reading config file '/app/lib/db/drizzle.config.ts'
+Using 'pg' driver for database querying
+Starting Container
+[⣷] Pulling schema from database...
+    at /app/node_modules/.pnpm/pg-pool@3.13.0_pg@8.20.0/node_modules/pg-pool/index.js:45:11
+[✓] Pulling schema from database...
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async Object.query (/app/node_modules/.pnpm/drizzle-kit@0.31.9/node_modules/drizzle-kit/bin.cjs:80623:26)
+error: column "variants" cannot be cast automatically to type jsonb
+    at async pgPush (/app/node_modules/.pnpm/drizzle-kit@0.31.9/node_modules/drizzle-kit/bin.cjs:84485:13)
+    at async Object.handler (/app/node_modules/.pnpm/drizzle-kit@0.31.9/node_modules/drizzle-kit/bin.cjs:93943:9)
+    at async run (/app/node_modules/.pnpm/drizzle-kit@0.31.9/node_modules/drizzle-kit/bin.cjs:93189:7) {
+[⣯] Pulling schema from database...
+  length: 183,
+  severity: 'ERROR',
+[⣟] Pulling schema from database...
+  code: '42804',
+[⡿] Pulling schema from database...
+  detail: undefined,
+  hint: 'You might need to specify "USING variants::jsonb".',
+  position: undefined,
+  internalPosition: undefined,
+  internalQuery: undefined,
+  where: undefined,
+  schema: undefined,
+  table: undefined,
+  column: undefined,
+  dataType: undefined,
+  constraint: undefined,
+  file: 'tablecmds.c',
+  line: '14508',
+  routine: 'ATPrepAlterColumnType'
+}
+> @workspace/api-server@0.0.0 start /app/artifacts/api-server
+> node --enable-source-maps ./dist/index.mjs
+Server listening
+request completed
+request completed
+request completed
+request completed
+request completed
+request completed
+request completed
+request completed
+request errored
+Error: Failed query: select "id", "title", "description", "start_date", "deadline", "pickup_date", "pickup_deadline", "image_url", "artist", "is_active", "created_at" from "preorder_schedule" order by "preorder_schedule"."created_at"
+params: 
+    at NodePgPreparedQuery.queryWithCache (/app/node_modules/.pnpm/drizzle-orm@0.45.1_@types+pg@8.18.0_pg@8.20.0/node_modules/src/pg-core/session.ts:73:11)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async <anonymous> (/app/node_modules/.pnpm/drizzle-orm@0.45.1_@types+pg@8.18.0_pg@8.20.0/node_modules/src/node-postgres/session.ts:154:19)
+    at async <anonymous> (/app/artifacts/api-server/src/routes/preorder.ts:8:17)
+request errored
+request errored
+request errored
+Error: Failed query: select "id", "title", "description", "start_date", "deadline", "pickup_date", "pickup_deadline", "image_url", "artist", "is_active", "created_at" from "preorder_schedule" order by "preorder_schedule"."created_at"
+params: 
+    at NodePgPreparedQuery.queryWithCache (/app/node_modules/.pnpm/drizzle-orm@0.45.1_@types+pg@8.18.0_pg@8.20.0/node_modules/src/pg-core/session.ts:73:11)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async <anonymous> (/app/node_modules/.pnpm/drizzle-orm@0.45.1_@types+pg@8.18.0_pg@8.20.0/node_modules/src/node-postgres/session.ts:154:19)
+    at async <anonymous> (/app/artifacts/api-server/src/routes/preorder.ts:8:17)
+request completed
+request completed
+request completed
+request errored
+request completed
+request completed
+Error: Failed query: select "id", "member_id", "member_name", "member_phone", "items", "total_amount", "status", "order_type", "notes", "address", "shipping_carrier", "tracking_number", "shipping_fee", "points_earned", "created_at", "updated_at" from "orders"
+params: 
+    at NodePgPreparedQuery.queryWithCache (/app/node_modules/.pnpm/drizzle-orm@0.45.1_@types+pg@8.18.0_pg@8.20.0/node_modules/src/pg-core/session.ts:73:11)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async <anonymous> (/app/node_modules/.pnpm/drizzle-orm@0.45.1_@types+pg@8.18.0_pg@8.20.0/node_modules/src/node-postgres/session.ts:154:19)
+    at async <anonymous> (/app/artifacts/api-server/src/routes/orders.ts:34:21)
+request completed
+request completed
+request errored
+Error: Failed query: select "id", "member_id", "member_name", "member_phone", "items", "total_amount", "status", "order_type", "notes", "address", "shipping_carrier", "tracking_number", "shipping_fee", "points_earned", "created_at", "updated_at" from "orders"
+params: 
+    at NodePgPreparedQuery.queryWithCache (/app/node_modules/.pnpm/drizzle-orm@0.45.1_@types+pg@8.18.0_pg@8.20.0/node_modules/src/pg-core/session.ts:73:11)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async <anonymous> (/app/node_modules/.pnpm/drizzle-orm@0.45.1_@types+pg@8.18.0_pg@8.20.0/node_modules/src/node-postgres/session.ts:154:19)
+    at async <anonymous> (/app/artifacts/api-server/src/routes/orders.ts:34:21)
+request errored
+Error: Failed query: select "id", "title", "description", "start_date", "deadline", "pickup_date", "pickup_deadline", "image_url", "artist", "is_active", "created_at" from "preorder_schedule" order by "preorder_schedule"."created_at"
+params: 
+    at NodePgPreparedQuery.queryWithCache (/app/node_modules/.pnpm/drizzle-orm@0.45.1_@types+pg@8.18.0_pg@8.20.0/node_modules/src/pg-core/session.ts:73:11)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async <anonymous> (/app/node_modules/.pnpm/drizzle-orm@0.45.1_@types+pg@8.18.0_pg@8.20.0/node_modules/src/node-postgres/session.ts:154:19)
+    at async <anonymous> (/app/artifacts/api-server/src/routes/preorder.ts:8:17)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async <anonymous> (/app/node_modules/.pnpm/drizzle-orm@0.45.1_@types+pg@8.18.0_pg@8.20.0/node_modules/src/node-postgres/session.ts:154:19)
+    at async <anonymous> (/app/artifacts/api-server/src/routes/preorder.ts:15:18)
+request errored
+Error: Failed query: insert into "preorder_schedule" ("id", "title", "description", "start_date", "deadline", "pickup_date", "pickup_deadline", "image_url", "artist", "is_active", "created_at") values (default, $1, $2, $3, $4, $5, $6, $7, $8, $9, default) returning "id", "title", "description", "start_date", "deadline", "pickup_date", "pickup_deadline", "image_url", "artist", "is_active", "created_at"
+params: test,,2026-02-10,2026-04-20,,,,,true
+    at NodePgPreparedQuery.queryWithCache (/app/node_modules/.pnpm/drizzle-orm@0.45.1_@types+pg@8.18.0_pg@8.20.0/node_modules/src/pg-core/session.ts:73:11)
+request errored
+Error: Failed query: select "id", "title", "description", "start_date", "deadline", "pickup_date", "pickup_deadline", "image_url", "artist", "is_active", "created_at" from "preorder_schedule" order by "preorder_schedule"."created_at"
+params: 
+    at NodePgPreparedQuery.queryWithCache (/app/node_modules/.pnpm/drizzle-orm@0.45.1_@types+pg@8.18.0_pg@8.20.0/node_modules/src/pg-core/session.ts:73:11)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async <anonymous> (/app/node_modules/.pnpm/drizzle-orm@0.45.1_@types+pg@8.18.0_pg@8.20.0/node_modules/src/node-postgres/session.ts:154:19)
+    at async <anonymous> (/app/artifacts/api-server/src/routes/preorder.ts:8:17)
