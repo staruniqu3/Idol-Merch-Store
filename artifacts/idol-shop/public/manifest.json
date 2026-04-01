@@ -1,11 +1,11 @@
 {
   "name": "Idol Merch Shop",
   "short_name": "IdolShop",
-  "description": "A vibrant K-pop/idol fan merch ordering platform",
+  "description": "Cộng đồng fan merch Việt Nam - Pre-order, Vận chuyển, Membership",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#fdfbf9",
-  "theme_color": "#a855f7",
+  "background_color": "#1e3a6b",
+  "theme_color": "#1e3a6b",
   "icons": [
     {
       "src": "/favicon.svg",
