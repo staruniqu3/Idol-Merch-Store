@@ -452,76 +452,45 @@ export default function PreorderPage() {
                           onClick={() => setSelected(item)}
                         >
                           {hasPickupRange ? (() => {
-                            const barLeft = pickupOffset! * DAY_PX + DAY_PX / 2;
-                            const barWidth = Math.max(pickupBarDays * DAY_PX, DAY_PX);
-                            const diamondSize = 16;
-                            const barHeight = 8;
-                            const centerY = showPOBar ? 14 : 19;
+                            const tip = 14; // triangle tip width in px
+                            const barLeft = pickupOffset! * DAY_PX + 4;
+                            const barWidth = Math.max(pickupBarDays * DAY_PX - 8, DAY_PX - 4);
                             return (
-                              /* Diamond bar: ◆————————————————◆ */
+                              /* Arrow/chevron bar: ▷━━━━━━━━━━━━━━▷ with pointed triangle ends */
                               <div
-                                className="absolute cursor-pointer"
-                                style={{ left: barLeft, width: barWidth, top: 0, bottom: 0 }}
+                                className="absolute inset-y-1 cursor-pointer shadow-sm"
+                                style={{ left: barLeft, width: barWidth, overflow: "visible" }}
                                 onClick={() => setSelected(item)}
                               >
-                                {/* Track line */}
+                                {/* Background track */}
                                 <div
-                                  className="absolute rounded-sm overflow-hidden"
+                                  className="absolute inset-0"
                                   style={{
-                                    left: diamondSize / 2,
-                                    right: diamondSize / 2,
-                                    top: centerY - barHeight / 2,
-                                    height: barHeight,
                                     background: pickupBg,
-                                    border: `1px solid ${pickupBorder}`,
+                                    border: `1.5px solid ${pickupBorder}`,
+                                    clipPath: `polygon(0% 50%, ${tip}px 0%, calc(100% - ${tip}px) 0%, 100% 50%, calc(100% - ${tip}px) 100%, ${tip}px 100%)`,
                                   }}
-                                >
-                                  {/* Progress fill */}
-                                  <div
-                                    className="h-full transition-all"
-                                    style={{ width: `${pickupPct}%`, background: pickupFill }}
-                                  />
-                                </div>
-                                {/* Label inside track */}
+                                />
+                                {/* Progress fill */}
                                 <div
-                                  className="absolute flex items-center justify-center pointer-events-none"
+                                  className="absolute inset-0 transition-all"
                                   style={{
-                                    left: diamondSize / 2 + 2,
-                                    right: diamondSize / 2 + 2,
-                                    top: centerY - barHeight / 2,
-                                    height: barHeight,
+                                    width: `${pickupPct}%`,
+                                    background: pickupFill,
+                                    clipPath: `polygon(0% 50%, ${tip}px 0%, calc(100% - ${tip}px) 0%, 100% 50%, calc(100% - ${tip}px) 100%, ${tip}px 100%)`,
                                   }}
-                                >
-                                  <span className="text-[7px] font-black drop-shadow-sm text-white whitespace-nowrap overflow-hidden">
+                                />
+                                {/* Text label */}
+                                <div className="absolute inset-0 flex items-center px-5 gap-2 min-w-0 pointer-events-none">
+                                  {!showPOBar && item.artist && (
+                                    <span className="text-[9px] font-black shrink-0 drop-shadow" style={{ color: "#fff" }}>
+                                      {item.artist}
+                                    </span>
+                                  )}
+                                  <span className="text-[10px] font-bold truncate drop-shadow" style={{ color: "#fff" }}>
                                     {showPOBar ? "Pickup" : item.title}
                                   </span>
                                 </div>
-                                {/* Start diamond ◆ */}
-                                <div
-                                  className="absolute shadow-sm border-2"
-                                  style={{
-                                    width: diamondSize,
-                                    height: diamondSize,
-                                    left: 0,
-                                    top: centerY - diamondSize / 2,
-                                    transform: "rotate(45deg)",
-                                    background: pickupFill,
-                                    borderColor: "#fff",
-                                  }}
-                                />
-                                {/* End diamond ◆ */}
-                                <div
-                                  className="absolute shadow-sm border-2"
-                                  style={{
-                                    width: diamondSize,
-                                    height: diamondSize,
-                                    right: 0,
-                                    top: centerY - diamondSize / 2,
-                                    transform: "rotate(45deg)",
-                                    background: pickupFill,
-                                    borderColor: "#fff",
-                                  }}
-                                />
                               </div>
                             );
                           })() : (
