@@ -397,6 +397,13 @@ export default function ShopPage() {
                   Còn {product.stock}
                 </span>
               </div>
+              {product.tags && product.tags.length > 0 && (
+                <div className="flex flex-wrap gap-1 mt-1">
+                  {product.tags.map((t) => (
+                    <span key={t} className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/15">{t}</span>
+                  ))}
+                </div>
+              )}
             </div>
             <Button
               size="sm"

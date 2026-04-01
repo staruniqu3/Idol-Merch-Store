@@ -155,19 +155,19 @@ function ProductsTab() {
   const { toast } = useToast();
   const [open, setOpen] = useState(false);
   const [editId, setEditId] = useState<number | null>(null);
-  const [form, setForm] = useState({ name: "", description: "", price: "", category: "Kpop", stock: "0", isAvailable: true, orderType: "preorder", imageUrl: "" });
+  const [form, setForm] = useState({ name: "", description: "", price: "", category: "Kpop", stock: "0", isAvailable: true, orderType: "preorder", imageUrl: "", tags: [] as string[] });
 
-  const resetForm = () => setForm({ name: "", description: "", price: "", category: "Kpop", stock: "0", isAvailable: true, orderType: "preorder", imageUrl: "" });
+  const resetForm = () => setForm({ name: "", description: "", price: "", category: "Kpop", stock: "0", isAvailable: true, orderType: "preorder", imageUrl: "", tags: [] });
 
   const openEdit = (p: NonNullable<typeof products>[0]) => {
     setEditId(p.id);
-    setForm({ name: p.name, description: p.description ?? "", price: String(p.price), category: p.category, stock: String(p.stock), isAvailable: p.isAvailable, orderType: p.orderType, imageUrl: p.imageUrl ?? "" });
+    setForm({ name: p.name, description: p.description ?? "", price: String(p.price), category: p.category, stock: String(p.stock), isAvailable: p.isAvailable, orderType: p.orderType, imageUrl: p.imageUrl ?? "", tags: p.tags ?? [] });
     setOpen(true);
   };
 
   const handleSave = () => {
     if (!form.name || !form.price) { toast({ title: "Vui lòng nhập đủ thông tin", variant: "destructive" }); return; }
-    const data = { name: form.name, description: form.description || null, price: parseFloat(form.price), category: form.category, stock: parseInt(form.stock), isAvailable: form.isAvailable, orderType: form.orderType, imageUrl: form.imageUrl || null };
+    const data = { name: form.name, description: form.description || null, price: parseFloat(form.price), category: form.category, stock: parseInt(form.stock), isAvailable: form.isAvailable, orderType: form.orderType, imageUrl: form.imageUrl || null, tags: form.tags.length > 0 ? form.tags : null };
     if (editId) {
       updateProduct.mutate({ id: editId, data }, {
         onSuccess: () => { queryClient.invalidateQueries({ queryKey: getListProductsQueryKey() }); setOpen(false); resetForm(); setEditId(null); toast({ title: "Đã cập nhật sản phẩm" }); },
@@ -195,25 +195,35 @@ function ProductsTab() {
             <div>
               <Label>Tên sản phẩm *</Label>
               <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="rounded-xl mt-1" data-testid="input-product-name" />
+            </div>
+            <div>
+              <Label>Tags</Label>
               <div className="flex flex-wrap gap-1.5 mt-2">
                 {[
                   "Photocard Set", "Album Standard", "Album Special", "Lightstick",
                   "Plush", "Keychain", "Poster", "Slogan", "Wappen",
                   "PC Holder", "Standee", "Fan", "Acrylic", "Sticker Pack",
                   "Weverse Album", "Limited Edition", "Merch Bundle",
-                ].map((preset) => (
-                  <button
-                    key={preset}
-                    type="button"
-                    onClick={() => setForm((f) => ({
-                      ...f,
-                      name: f.name ? `${f.name.trimEnd()} - ${preset}` : preset,
-                    }))}
-                    className="text-[10px] font-semibold px-2 py-1 rounded-full bg-primary/10 text-primary hover:bg-primary/20 transition-colors border border-primary/15"
-                  >
-                    {preset}
-                  </button>
-                ))}
+                ].map((tag) => {
+                  const selected = form.tags.includes(tag);
+                  return (
+                    <button
+                      key={tag}
+                      type="button"
+                      onClick={() => setForm((f) => ({
+                        ...f,
+                        tags: selected ? f.tags.filter((t) => t !== tag) : [...f.tags, tag],
+                      }))}
+                      className={`text-[10px] font-semibold px-2 py-1 rounded-full transition-colors border ${
+                        selected
+                          ? "bg-primary text-primary-foreground border-primary"
+                          : "bg-primary/10 text-primary hover:bg-primary/20 border-primary/15"
+                      }`}
+                    >
+                      {tag}
+                    </button>
+                  );
+                })}
               </div>
             </div>
             <div><Label>Mô tả</Label><Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={2} className="rounded-xl mt-1" /></div>
@@ -267,6 +277,13 @@ function ProductsTab() {
                 <span className="text-[10px] bg-secondary/10 text-secondary px-1.5 py-0.5 rounded-full font-semibold">{p.orderType}</span>
                 {!p.isAvailable && <Badge variant="secondary" className="text-[10px] bg-red-50 text-red-600">Tắt</Badge>}
               </div>
+              {p.tags && p.tags.length > 0 && (
+                <div className="flex flex-wrap gap-1 mt-1">
+                  {p.tags.map((t) => (
+                    <span key={t} className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/15">{t}</span>
+                  ))}
+                </div>
+              )}
             </div>
             <div className="flex gap-1 shrink-0">
               <Button variant="ghost" size="icon" className="h-8 w-8 rounded-xl" onClick={() => openEdit(p)} data-testid={`button-edit-product-${p.id}`}><Pencil size={13} /></Button>

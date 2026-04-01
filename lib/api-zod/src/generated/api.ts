@@ -32,6 +32,7 @@ export const ListProductsResponseItem = zod.object({
   stock: zod.number(),
   isAvailable: zod.boolean(),
   orderType: zod.string().describe("preorder or pickup"),
+  tags: zod.array(zod.string()).nullish(),
   createdAt: zod.coerce.date(),
 });
 export const ListProductsResponse = zod.array(ListProductsResponseItem);
@@ -48,6 +49,7 @@ export const CreateProductBody = zod.object({
   stock: zod.number(),
   isAvailable: zod.boolean(),
   orderType: zod.string(),
+  tags: zod.array(zod.string()).nullish(),
 });
 
 /**
@@ -67,6 +69,7 @@ export const GetProductResponse = zod.object({
   stock: zod.number(),
   isAvailable: zod.boolean(),
   orderType: zod.string().describe("preorder or pickup"),
+  tags: zod.array(zod.string()).nullish(),
   createdAt: zod.coerce.date(),
 });
 
@@ -86,6 +89,7 @@ export const UpdateProductBody = zod.object({
   stock: zod.number().optional(),
   isAvailable: zod.boolean().optional(),
   orderType: zod.string().optional(),
+  tags: zod.array(zod.string()).nullish(),
 });
 
 export const UpdateProductResponse = zod.object({
@@ -98,6 +102,7 @@ export const UpdateProductResponse = zod.object({
   stock: zod.number(),
   isAvailable: zod.boolean(),
   orderType: zod.string().describe("preorder or pickup"),
+  tags: zod.array(zod.string()).nullish(),
   createdAt: zod.coerce.date(),
 });
 

@@ -12,6 +12,7 @@ export const productsTable = pgTable("products", {
   stock: integer("stock").notNull().default(0),
   isAvailable: boolean("is_available").notNull().default(true),
   orderType: text("order_type").notNull().default("preorder"),
+  tags: text("tags").array(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
