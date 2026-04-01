@@ -9,6 +9,10 @@ import MembershipPage from "@/pages/membership";
 import AdminPage from "@/pages/admin";
 import PreorderPage from "@/pages/preorder";
 import NotFound from "@/pages/not-found";
+import { useListShippingUpdates } from "@workspace/api-client-react";
+import { useEffect, useState } from "react";
+
+const SHIPPING_SEEN_KEY = "shipping_last_seen";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -25,11 +29,30 @@ const navItems = [
 
 function BottomNav() {
   const [location] = useLocation();
+  const { data: updates } = useListShippingUpdates();
+  const [unread, setUnread] = useState(0);
+
+  useEffect(() => {
+    if (!updates || updates.length === 0) { setUnread(0); return; }
+    const lastSeen = localStorage.getItem(SHIPPING_SEEN_KEY);
+    const lastSeenTime = lastSeen ? new Date(lastSeen).getTime() : 0;
+    const count = updates.filter((u) => new Date(u.createdAt).getTime() > lastSeenTime).length;
+    setUnread(count);
+  }, [updates]);
+
+  useEffect(() => {
+    if (location.startsWith("/shipping")) {
+      localStorage.setItem(SHIPPING_SEEN_KEY, new Date().toISOString());
+      setUnread(0);
+    }
+  }, [location]);
+
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 nav-gradient border-t border-white/10 safe-area-bottom" data-testid="bottom-nav">
       <div className="flex items-stretch max-w-lg mx-auto">
         {navItems.map(({ path, label, icon: Icon }) => {
           const isActive = path === "/" ? location === "/" : location.startsWith(path);
+          const badge = path === "/shipping" && unread > 0 ? unread : 0;
           return (
             <Link key={path} href={path} className="flex-1">
               <div
@@ -41,7 +64,14 @@ function BottomNav() {
                 {isActive && (
                   <div className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 bg-primary rounded-b-full" />
                 )}
-                <Icon size={20} strokeWidth={isActive ? 2.5 : 1.8} />
+                <div className="relative">
+                  <Icon size={20} strokeWidth={isActive ? 2.5 : 1.8} />
+                  {badge > 0 && (
+                    <span className="absolute -top-1.5 -right-2 min-w-[16px] h-4 px-1 rounded-full bg-red-500 text-white text-[9px] font-black flex items-center justify-center leading-none shadow-sm animate-bounce">
+                      {badge > 9 ? "9+" : `+${badge}`}
+                    </span>
+                  )}
+                </div>
                 <span className={`text-[10px] font-semibold leading-none tracking-wide ${isActive ? "text-primary" : ""}`}>
                   {label}
                 </span>
