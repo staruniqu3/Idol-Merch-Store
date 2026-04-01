@@ -391,25 +391,28 @@ export default function ShopPage() {
         {filtered.filter((p) => p.isAvailable).map((product) => (
           <div
             key={product.id}
-            className="bg-card rounded-xl border border-border px-3 py-2 flex items-center gap-2 shadow-sm"
+            className="bg-card rounded-2xl border border-border px-4 py-3 flex items-start gap-3 shadow-sm"
             data-testid={`card-product-${product.id}`}
           >
             <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-1.5 flex-wrap">
-                <Badge className={`text-[10px] border font-bold px-1.5 py-0 shrink-0 ${orderTypeBadgeClass[product.orderType] ?? ""}`} variant="outline">
+              {/* Row 1: badges */}
+              <div className="flex items-center gap-1.5 flex-wrap mb-1">
+                <Badge className={`text-[10px] border font-bold px-2 py-0 shrink-0 ${orderTypeBadgeClass[product.orderType] ?? ""}`} variant="outline">
                   {orderTypeLabel[product.orderType] ?? product.orderType}
                 </Badge>
                 {product.orderType !== "preorder" && product.stock <= 5 && product.stock > 0 && (
-                  <Badge className="text-[10px] bg-red-100 text-red-600 border-red-200 font-bold px-1.5 py-0 shrink-0" variant="outline">
+                  <Badge className="text-[10px] bg-red-100 text-red-600 border-red-200 font-bold px-2 py-0 shrink-0" variant="outline">
                     Gần hết
                   </Badge>
                 )}
-                <span className="text-xs font-bold leading-snug line-clamp-1 text-foreground">{product.name}</span>
               </div>
-              <div className="flex items-center gap-2 mt-0.5">
-                <span className="text-primary font-black text-sm">{formatPrice(product.price)}</span>
+              {/* Row 2: name */}
+              <p className="text-sm font-bold leading-snug text-foreground">{product.name}</p>
+              {/* Row 3: price + stock */}
+              <div className="flex items-center gap-2 mt-1">
+                <span className="text-primary font-black text-base">{formatPrice(product.price)}</span>
                 {product.orderType !== "preorder" && (
-                  <span className={`text-[11px] font-black px-1.5 py-0 rounded-md ${
+                  <span className={`text-[11px] font-bold px-2 py-0.5 rounded-lg ${
                     product.stock <= 5
                       ? "bg-red-100 text-red-600"
                       : product.stock <= 15
@@ -420,21 +423,23 @@ export default function ShopPage() {
                   </span>
                 )}
               </div>
+              {/* Row 4: tags */}
               {product.tags && product.tags.length > 0 && (
-                <div className="flex flex-wrap gap-1 mt-1">
+                <div className="flex flex-wrap gap-1 mt-2">
                   {product.tags.map((t) => (
-                    <span key={t} className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/15">{t}</span>
+                    <span key={t} className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-primary/15 text-primary border border-primary/25">{t}</span>
                   ))}
                 </div>
               )}
+              {/* Row 5: variants */}
               {product.variants && product.variants.length > 0 && (
-                <div className="flex flex-wrap gap-1 mt-1">
-                  <span className="text-[9px] text-muted-foreground font-medium">Biến thể:</span>
+                <div className="flex flex-wrap gap-1 mt-2 items-center">
+                  <span className="text-[10px] text-muted-foreground font-semibold shrink-0">Biến thể:</span>
                   {product.variants.map((v) => (
-                    <span key={v.name} className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-secondary/10 text-secondary-foreground border border-border">
+                    <span key={v.name} className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-muted text-foreground border border-border">
                       {v.name}
                       {v.priceAdjustment != null && v.priceAdjustment !== 0 && (
-                        <span className={`ml-0.5 ${v.priceAdjustment > 0 ? "text-emerald-600" : "text-destructive"}`}>
+                        <span className={`ml-0.5 font-bold ${v.priceAdjustment > 0 ? "text-emerald-600" : "text-destructive"}`}>
                           {v.priceAdjustment > 0 ? "+" : ""}{new Intl.NumberFormat("vi-VN").format(v.priceAdjustment)}₫
                         </span>
                       )}
@@ -445,7 +450,7 @@ export default function ShopPage() {
             </div>
             <Button
               size="sm"
-              className="shrink-0 rounded-xl font-bold px-3"
+              className="shrink-0 rounded-xl font-bold px-3 mt-0.5"
               disabled={!product.isAvailable || (product.orderType !== "preorder" && product.stock === 0)}
               onClick={() => addToCart(product)}
               data-testid={`button-add-cart-${product.id}`}
