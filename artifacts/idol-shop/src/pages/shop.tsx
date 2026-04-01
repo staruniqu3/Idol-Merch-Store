@@ -24,14 +24,7 @@ type CartItem = {
   imageUrl?: string | null;
 };
 
-const CATEGORIES = ["Tất cả", "Kpop", "GMMTV", "US UK", "Tạp Hoá"];
-
-const categoryLabels: Record<string, string> = {
-  "Kpop": "Kpop",
-  "GMMTV": "GMMTV",
-  "US UK": "US UK",
-  "Tạp Hoá": "Tạp Hoá",
-};
+const PRESET_CATEGORIES = ["Kpop", "GMMTV", "US UK", "Tạp Hoá"];
 
 const orderTypeLabel: Record<string, string> = {
   preorder: "Pre-order",
@@ -61,6 +54,11 @@ export default function ShopPage() {
   const createOrder = useCreateOrder();
   const queryClient = useQueryClient();
   const { toast } = useToast();
+
+  const categories = ["Tất cả", ...PRESET_CATEGORIES, ...(products ?? [])
+    .map((p) => p.category)
+    .filter((c, i, arr) => !PRESET_CATEGORIES.includes(c) && arr.indexOf(c) === i)
+  ];
 
   const filtered = products?.filter((p) =>
     selectedCategory === "Tất cả" ? true : p.category === selectedCategory
@@ -329,7 +327,7 @@ export default function ShopPage() {
         </div>
 
         <div className="flex gap-2 mt-4 overflow-x-auto pb-1 -mx-1 px-1">
-          {CATEGORIES.map((cat) => (
+          {categories.map((cat) => (
             <button
               key={cat}
               onClick={() => setSelectedCategory(cat)}
@@ -340,7 +338,7 @@ export default function ShopPage() {
               }`}
               data-testid={`filter-${cat}`}
             >
-              {cat === "Tất cả" ? cat : (categoryLabels[cat] ?? cat)}
+              {cat}
             </button>
           ))}
         </div>

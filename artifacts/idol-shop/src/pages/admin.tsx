@@ -157,6 +157,30 @@ function ProductsTab() {
   const [editId, setEditId] = useState<number | null>(null);
   const [form, setForm] = useState({ name: "", description: "", price: "", category: "Kpop", stock: "0", isAvailable: true, orderType: "preorder", imageUrl: "", tags: [] as string[] });
   const [customTagInput, setCustomTagInput] = useState("");
+  const [customCategoryInput, setCustomCategoryInput] = useState("");
+  const [customCategories, setCustomCategories] = useState<string[]>(() => {
+    try { return JSON.parse(localStorage.getItem("custom_categories") || "[]"); } catch { return []; }
+  });
+
+  const PRESET_CATEGORIES = ["Kpop", "GMMTV", "US UK", "Tạp Hoá"];
+  const allCategories = [...PRESET_CATEGORIES, ...customCategories];
+
+  const addCustomCategory = () => {
+    const cat = customCategoryInput.trim();
+    if (!cat || allCategories.includes(cat)) { setCustomCategoryInput(""); return; }
+    const updated = [...customCategories, cat];
+    setCustomCategories(updated);
+    localStorage.setItem("custom_categories", JSON.stringify(updated));
+    setForm((f) => ({ ...f, category: cat }));
+    setCustomCategoryInput("");
+  };
+
+  const removeCustomCategory = (cat: string) => {
+    const updated = customCategories.filter((c) => c !== cat);
+    setCustomCategories(updated);
+    localStorage.setItem("custom_categories", JSON.stringify(updated));
+    if (form.category === cat) setForm((f) => ({ ...f, category: PRESET_CATEGORIES[0] }));
+  };
 
   const PRESET_TAGS = [
     "Photocard Set", "Album Standard", "Album Special", "Lightstick",
@@ -269,9 +293,36 @@ function ProductsTab() {
                 <Select value={form.category} onValueChange={(v) => setForm({ ...form, category: v })}>
                   <SelectTrigger className="rounded-xl mt-1"><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    {["Kpop", "GMMTV", "US UK", "Tạp Hoá"].map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                    {allCategories.map((c) => (
+                      <SelectItem key={c} value={c}>
+                        <span className="flex items-center justify-between w-full gap-2">
+                          {c}
+                          {!PRESET_CATEGORIES.includes(c) && (
+                            <button
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); removeCustomCategory(c); }}
+                              className="ml-2 text-destructive hover:opacity-70 text-xs leading-none"
+                            >×</button>
+                          )}
+                        </span>
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
+                <div className="flex gap-1.5 mt-1.5">
+                  <Input
+                    value={customCategoryInput}
+                    onChange={(e) => setCustomCategoryInput(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addCustomCategory(); } }}
+                    placeholder="Thêm danh mục..."
+                    className="rounded-xl h-7 text-xs"
+                  />
+                  <button
+                    type="button"
+                    onClick={addCustomCategory}
+                    className="shrink-0 h-7 px-2.5 rounded-xl text-xs font-semibold bg-primary/10 text-primary hover:bg-primary/20 border border-primary/15 transition-colors"
+                  >+</button>
+                </div>
               </div>
               <div>
                 <Label>Loại</Label>
