@@ -184,6 +184,16 @@ function getTierConfig(tier: string) {
   };
 }
 
+function TierBadge({ tierKey, wide }: { tierKey: string; wide?: boolean }) {
+  const cfg = getTierConfig(tierKey);
+  return (
+    <div className={`${cfg.cardStyle} rounded-2xl flex flex-col items-center justify-center gap-0.5 ${wide ? "px-10 py-3" : "w-[104px] py-3"}`}>
+      <span className="text-lg leading-none">{cfg.emoji}</span>
+      <span className={`text-xs font-black leading-tight text-center ${cfg.textColor}`}>{cfg.label}</span>
+    </div>
+  );
+}
+
 function TierPreviewCard({ tierKey }: { tierKey: string }) {
   const cfg = getTierConfig(tierKey);
   const isElite = ELITE_TIERS.includes(tierKey);
@@ -595,28 +605,58 @@ export default function MembershipPage() {
         )}
 
         {!searchPhone && (
-          <div className="flex flex-col items-center justify-center py-10 text-muted-foreground gap-4">
-            <div className="w-20 h-20 rounded-3xl bg-muted flex items-center justify-center">
-              <Trophy size={36} strokeWidth={1.2} className="text-primary/40" />
+          <div className="flex flex-col items-center justify-center py-8 text-muted-foreground gap-3">
+            <div className="w-16 h-16 rounded-3xl bg-muted flex items-center justify-center">
+              <Trophy size={30} strokeWidth={1.2} className="text-primary/40" />
             </div>
             <div className="text-center">
               <h3 className="font-bold text-foreground text-base">Kiểm tra thẻ thành viên</h3>
               <p className="text-sm mt-1">Nhập số điện thoại để xem thông tin membership, voucher và mã vận đơn</p>
             </div>
 
-            <div className="w-full max-w-xs space-y-2">
-              <p className="text-[10px] text-center text-muted-foreground uppercase tracking-widest font-semibold mb-3">Hệ thống hạng thành viên</p>
-              <div className="grid grid-cols-2 gap-2">
-                {["newcomer","friend of store","muses","dreamer","ruby","platinum","priviledged"].map((k) => (
-                  <TierPreviewCard key={k} tierKey={k} />
-                ))}
+            {/* Tier chart */}
+            <div className="w-full max-w-sm mt-2">
+              <p className="text-[10px] text-center text-muted-foreground uppercase tracking-widest font-semibold mb-4">Hệ thống hạng thành viên</p>
+
+              {/* Heart layout: row1=2, row2=3, row3=1 */}
+              <div className="flex flex-col items-center gap-2">
+                {/* Row 1 — top 2 bumps */}
+                <div className="flex gap-2 justify-center">
+                  {["newcomer","friend of store"].map((k) => <TierBadge key={k} tierKey={k} />)}
+                </div>
+                {/* Row 2 — widest */}
+                <div className="flex gap-2 justify-center">
+                  {["muses","dreamer","ruby"].map((k) => <TierBadge key={k} tierKey={k} />)}
+                </div>
+                {/* Row 3 — heart point */}
+                <div className="flex gap-2 justify-center">
+                  {["platinum"].map((k) => <TierBadge key={k} tierKey={k} />)}
+                </div>
+
+                {/* Priviledged — centered alone */}
+                <div className="mt-1">
+                  <TierBadge tierKey="priviledged" wide />
+                </div>
               </div>
-              <div className="mt-3">
-                <p className="text-[10px] text-center text-muted-foreground uppercase tracking-widest font-semibold mb-2">✦ Hạng đặc biệt ẩn ✦</p>
-                <div className="grid grid-cols-2 gap-2">
-                  {["infinite","solstice","patron","voyager"].map((k) => (
-                    <TierPreviewCard key={k} tierKey={k} />
-                  ))}
+
+              {/* Hidden elite tiers — names only */}
+              <div className="mt-5">
+                <p className="text-[10px] text-center text-muted-foreground uppercase tracking-widest font-semibold mb-3">✦ Hạng đặc biệt ẩn ✦</p>
+                <div className="flex flex-col items-center gap-1.5">
+                  {(["infinite","solstice","patron","voyager"] as const).map((k) => {
+                    const cfg = getTierConfig(k);
+                    const isDragon = DRAGON_TIERS.includes(k);
+                    return (
+                      <div
+                        key={k}
+                        className={`relative overflow-hidden rounded-xl px-8 py-2 ${isDragon ? "tier-card-dragon" : "tier-card-phoenix"}`}
+                      >
+                        <span className={`relative z-10 text-sm font-black tracking-widest uppercase ${cfg.textColor}`}>
+                          {cfg.label}
+                        </span>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             </div>
