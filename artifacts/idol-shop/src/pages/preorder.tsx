@@ -6,7 +6,9 @@ interface PreorderItem {
   id: number;
   title: string;
   description: string | null;
+  startDate: string | null;
   deadline: string | null;
+  pickupDate: string | null;
   imageUrl: string | null;
   artist: string | null;
   isActive: boolean;
@@ -106,8 +108,9 @@ function UrgencyBadge({ days }: { days: number | null }) {
 function PreorderModal({ item, onClose }: { item: PreorderItem; onClose: () => void }) {
   const days = getDaysLeft(item.deadline);
   const ended = days !== null && days < 0;
-  const start = startOfDay(new Date(item.createdAt));
+  const start = item.startDate ? startOfDay(new Date(item.startDate)) : startOfDay(new Date(item.createdAt));
   const deadline = item.deadline ? startOfDay(new Date(item.deadline)) : null;
+  const pickupDay = item.pickupDate ? startOfDay(new Date(item.pickupDate)) : null;
   const today = startOfDay(new Date());
   const totalDays = deadline ? diffDays(deadline, start) : null;
   const elapsed = deadline ? Math.min(diffDays(today, start), totalDays ?? 0) : null;
@@ -157,10 +160,24 @@ function PreorderModal({ item, onClose }: { item: PreorderItem; onClose: () => v
                 />
               </div>
               <div className="flex justify-between text-[10px] text-muted-foreground mt-1.5">
-                <span>{start.toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit" })}</span>
+                <span>Bắt đầu: {start.toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit" })}</span>
                 <span className={`font-bold ${ended ? "text-gray-400" : days !== null && days <= 3 ? "text-red-500" : "text-primary"}`}>
                   Deadline: {deadline.toLocaleDateString("vi-VN", { day: "2-digit", month: "long", year: "numeric" })}
                 </span>
+              </div>
+            </div>
+          )}
+
+          {pickupDay && (
+            <div className="rounded-2xl p-4 bg-emerald-50 border border-emerald-100 flex items-center gap-3">
+              <div className="w-8 h-8 bg-emerald-500 rounded-xl flex items-center justify-center shrink-0">
+                <Package size={14} className="text-white" />
+              </div>
+              <div>
+                <p className="text-xs font-bold text-emerald-700 uppercase tracking-wide">Lịch Pickup</p>
+                <p className="text-sm font-bold text-emerald-800 mt-0.5">
+                  {pickupDay.toLocaleDateString("vi-VN", { weekday: "long", day: "2-digit", month: "long", year: "numeric" })}
+                </p>
               </div>
             </div>
           )}
@@ -338,16 +355,20 @@ export default function PreorderPage() {
                 />
 
                 {filtered.map((item, idx) => {
-                  const itemStart = startOfDay(new Date(item.createdAt));
+                  const itemStart = item.startDate ? startOfDay(new Date(item.startDate)) : startOfDay(new Date(item.createdAt));
                   const itemEnd = item.deadline ? startOfDay(new Date(item.deadline)) : addDays(today, 30);
                   const startOffset = diffDays(itemStart, rangeStart);
-                  const durationDays = diffDays(itemEnd, itemStart) + 1;
+                  const durationDays = Math.max(diffDays(itemEnd, itemStart) + 1, 1);
                   const elapsed = Math.max(0, Math.min(durationDays, diffDays(today, itemStart) + 1));
                   const pct = durationDays > 0 ? (elapsed / durationDays) * 100 : 100;
                   const days_ = getDaysLeft(item.deadline);
                   const ended = days_ !== null && days_ < 0;
                   const urgent = days_ !== null && days_ >= 0 && days_ <= 3;
                   const ac = getArtistColor(item.artist);
+
+                  // Pickup segment
+                  const pickupStart = item.pickupDate ? startOfDay(new Date(item.pickupDate)) : null;
+                  const pickupOffset = pickupStart ? diffDays(pickupStart, rangeStart) : null;
 
                   const barBg = ended
                     ? "rgba(200,200,200,0.25)"
@@ -371,6 +392,7 @@ export default function PreorderPage() {
                       className="relative flex items-center"
                       style={{ height: 44, marginTop: idx === 0 ? 6 : 2 }}
                     >
+                      {/* PO bar */}
                       <div
                         className="absolute inset-y-1 rounded-full overflow-hidden cursor-pointer shadow-sm group"
                         style={{
@@ -405,6 +427,26 @@ export default function PreorderPage() {
                           </span>
                         </div>
                       </div>
+                      {/* Pickup segment marker */}
+                      {pickupOffset !== null && (
+                        <div
+                          className="absolute flex flex-col items-center cursor-pointer z-20"
+                          style={{ left: pickupOffset * DAY_PX + DAY_PX / 2 - 9, top: 2 }}
+                          onClick={() => setSelected(item)}
+                          title={`Pickup: ${item.pickupDate}`}
+                        >
+                          <div
+                            className="w-[18px] h-[18px] rotate-45 border-2 shadow"
+                            style={{
+                              background: ac ? ac.fill : "hsl(var(--primary))",
+                              borderColor: "#fff",
+                            }}
+                          />
+                          <span className="text-[7px] font-black mt-0.5 whitespace-nowrap" style={{ color: ac ? ac.fill : "hsl(var(--primary))" }}>
+                            Pickup
+                          </span>
+                        </div>
+                      )}
                     </div>
                   );
                 })}
@@ -420,7 +462,7 @@ export default function PreorderPage() {
               const days_ = getDaysLeft(item.deadline);
               const ended = days_ !== null && days_ < 0;
               const urgent = days_ !== null && days_ >= 0 && days_ <= 3;
-              const itemStart = startOfDay(new Date(item.createdAt));
+              const itemStart = item.startDate ? startOfDay(new Date(item.startDate)) : startOfDay(new Date(item.createdAt));
               const itemEnd = item.deadline ? startOfDay(new Date(item.deadline)) : null;
               const totalD = itemEnd ? diffDays(itemEnd, itemStart) : null;
               const elapsedD = itemEnd ? Math.max(0, Math.min(totalD ?? 0, diffDays(today, itemStart) + 1)) : null;
@@ -481,17 +523,35 @@ export default function PreorderPage() {
                     </div>
                   </button>
 
-                  {isExpanded && (item.description || item.deadline) && (
+                  {isExpanded && (item.description || item.startDate || item.deadline || item.pickupDate) && (
                     <div className="border-t border-border px-4 pb-4 pt-3 space-y-2 bg-muted/30">
                       {item.description && (
                         <p className="text-sm text-muted-foreground leading-relaxed">{item.description}</p>
                       )}
+                      {item.startDate && (
+                        <div className="flex items-center gap-1.5 text-xs">
+                          <Clock size={12} className="text-muted-foreground" />
+                          <span className="text-muted-foreground">Bắt đầu PO:</span>
+                          <span className="font-bold text-foreground">
+                            {new Date(item.startDate).toLocaleDateString("vi-VN", { day: "2-digit", month: "long", year: "numeric" })}
+                          </span>
+                        </div>
+                      )}
                       {item.deadline && (
                         <div className="flex items-center gap-1.5 text-xs">
                           <Clock size={12} className="text-muted-foreground" />
-                          <span className="text-muted-foreground">Deadline:</span>
+                          <span className="text-muted-foreground">Deadline PO:</span>
                           <span className={`font-bold ${urgent ? "text-red-500" : "text-foreground"}`}>
                             {new Date(item.deadline).toLocaleDateString("vi-VN", { weekday: "long", day: "2-digit", month: "long", year: "numeric" })}
+                          </span>
+                        </div>
+                      )}
+                      {item.pickupDate && (
+                        <div className="flex items-center gap-1.5 text-xs">
+                          <Package size={12} className="text-emerald-500" />
+                          <span className="text-muted-foreground">Lịch pickup:</span>
+                          <span className="font-bold text-emerald-600">
+                            {new Date(item.pickupDate).toLocaleDateString("vi-VN", { weekday: "long", day: "2-digit", month: "long", year: "numeric" })}
                           </span>
                         </div>
                       )}
