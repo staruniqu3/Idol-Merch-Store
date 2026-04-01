@@ -344,21 +344,20 @@ export default function ShopPage() {
         </div>
       </div>
 
-      <div className="px-4 py-4 grid grid-cols-2 gap-3">
+      <div className="px-4 py-3 space-y-2 pb-24">
         {isLoading &&
-          Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="bg-card rounded-2xl overflow-hidden border border-border">
-              <Skeleton className="w-full aspect-square" />
-              <div className="p-3 space-y-2">
+          Array.from({ length: 8 }).map((_, i) => (
+            <div key={i} className="bg-card rounded-2xl border border-border p-3 flex items-center gap-3">
+              <div className="flex-1 space-y-2">
                 <Skeleton className="h-4 w-3/4" />
-                <Skeleton className="h-3 w-1/2" />
-                <Skeleton className="h-8 w-full rounded-xl" />
+                <Skeleton className="h-3 w-1/3" />
               </div>
+              <Skeleton className="h-8 w-20 rounded-xl" />
             </div>
           ))}
 
-        {!isLoading && filtered.length === 0 && (
-          <div className="col-span-2 flex flex-col items-center justify-center py-16 text-muted-foreground gap-3">
+        {!isLoading && filtered.filter((p) => p.isAvailable).length === 0 && (
+          <div className="flex flex-col items-center justify-center py-16 text-muted-foreground gap-3">
             <div className="w-20 h-20 rounded-3xl bg-muted flex items-center justify-center">
               <Package size={36} strokeWidth={1.2} />
             </div>
@@ -369,40 +368,35 @@ export default function ShopPage() {
         {filtered.filter((p) => p.isAvailable).map((product) => (
           <div
             key={product.id}
-            className="bg-card rounded-2xl overflow-hidden border border-border flex flex-col shadow-sm card-hover"
+            className="bg-card rounded-2xl border border-border p-3 flex items-center gap-3 shadow-sm"
             data-testid={`card-product-${product.id}`}
           >
-            <div className="aspect-square bg-muted flex items-center justify-center relative overflow-hidden">
-              {product.imageUrl ? (
-                <img src={product.imageUrl} alt={product.name} className="w-full h-full object-cover" />
-              ) : (
-                <Package size={48} strokeWidth={0.8} className="text-muted-foreground/30" />
-              )}
-              <Badge className={`absolute top-2 left-2 text-[10px] border font-bold ${orderTypeBadgeClass[product.orderType] ?? ""}`} variant="outline">
-                {orderTypeLabel[product.orderType] ?? product.orderType}
-              </Badge>
-              {product.stock <= 5 && product.stock > 0 && (
-                <Badge className="absolute top-2 right-2 text-[10px] bg-red-100 text-red-600 border-red-200 font-bold" variant="outline">
-                  Gần hết
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-1.5 flex-wrap mb-0.5">
+                <Badge className={`text-[10px] border font-bold px-1.5 py-0 ${orderTypeBadgeClass[product.orderType] ?? ""}`} variant="outline">
+                  {orderTypeLabel[product.orderType] ?? product.orderType}
                 </Badge>
-              )}
-            </div>
-            <div className="p-3 flex-1 flex flex-col gap-2">
-              <p className="text-sm font-bold leading-snug line-clamp-2">{product.name}</p>
-              <div className="flex items-center justify-between mt-auto">
-                <span className="text-primary font-black text-base">{formatPrice(product.price)}</span>
-                <span className="text-[10px] text-muted-foreground font-semibold">Còn {product.stock}</span>
+                {product.stock <= 5 && product.stock > 0 && (
+                  <Badge className="text-[10px] bg-red-100 text-red-600 border-red-200 font-bold px-1.5 py-0" variant="outline">
+                    Gần hết
+                  </Badge>
+                )}
               </div>
-              <Button
-                size="sm"
-                className="w-full rounded-xl font-bold"
-                disabled={!product.isAvailable || product.stock === 0}
-                onClick={() => addToCart(product)}
-                data-testid={`button-add-cart-${product.id}`}
-              >
-                {product.isAvailable && product.stock > 0 ? "Thêm vào giỏ" : "Hết hàng"}
-              </Button>
+              <p className="text-sm font-bold leading-snug line-clamp-2">{product.name}</p>
+              <div className="flex items-center gap-2 mt-1">
+                <span className="text-primary font-black text-sm">{formatPrice(product.price)}</span>
+                <span className="text-[10px] text-muted-foreground">Còn {product.stock}</span>
+              </div>
             </div>
+            <Button
+              size="sm"
+              className="shrink-0 rounded-xl font-bold px-3"
+              disabled={!product.isAvailable || product.stock === 0}
+              onClick={() => addToCart(product)}
+              data-testid={`button-add-cart-${product.id}`}
+            >
+              {product.stock === 0 ? "Hết" : <><Plus size={13} className="mr-1" />Thêm</>}
+            </Button>
           </div>
         ))}
       </div>
