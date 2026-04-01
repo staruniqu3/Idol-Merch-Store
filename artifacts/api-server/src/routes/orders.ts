@@ -11,14 +11,21 @@ import {
   UpdateOrderBody,
   UpdateOrderResponse,
   GetOrderSummaryResponse,
+  TrackingLookupQuery,
+  TrackingLookupResponse,
 } from "@workspace/api-zod";
 
 const router: IRouter = Router();
+
+function formatOrderCode(id: number) {
+  return `TCD${String(id).padStart(7, "0")}`;
+}
 
 function mapOrder(o: typeof ordersTable.$inferSelect) {
   return {
     ...o,
     totalAmount: parseFloat(o.totalAmount),
+    shippingFee: o.shippingFee ? parseFloat(o.shippingFee) : null,
     memberId: o.memberId ?? null,
   };
 }
@@ -168,6 +175,25 @@ router.patch("/orders/:id", async (req, res): Promise<void> => {
   }
 
   res.json(UpdateOrderResponse.parse(mapOrder(order)));
+});
+
+router.get("/tracking", async (req, res): Promise<void> => {
+  const query = TrackingLookupQuery.safeParse(req.query);
+  if (!query.success) {
+    res.status(400).json({ error: "Vui lòng nhập số điện thoại" });
+    return;
+  }
+  const orders = await db.select().from(ordersTable).where(eq(ordersTable.memberPhone, query.data.phone));
+  const result = orders.map((o) => ({
+    orderCode: formatOrderCode(o.id),
+    trackingNumber: o.trackingNumber ?? null,
+    shippingCarrier: o.shippingCarrier ?? null,
+    shippingFee: o.shippingFee ? parseFloat(o.shippingFee) : null,
+    status: o.status,
+    orderType: o.orderType,
+    orderDate: o.createdAt,
+  }));
+  res.json(TrackingLookupResponse.parse(result));
 });
 
 router.delete("/orders/cleanup", async (_req, res): Promise<void> => {

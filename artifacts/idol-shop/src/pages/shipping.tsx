@@ -179,6 +179,29 @@ function ShippingModal({ update, onClose }: { update: Update; onClose: () => voi
   );
 }
 
+type TrackingResult = {
+  orderCode: string;
+  trackingNumber?: string | null;
+  shippingCarrier?: string | null;
+  shippingFee?: number | null;
+  status: string;
+  orderType: string;
+  orderDate: string;
+};
+
+const orderStatusLabels: Record<string, string> = {
+  awaiting: "Chờ xác nhận",
+  confirmed: "Đã xác nhận",
+  pending: "Đang xử lý",
+  shipped: "Đã giao ĐVVC",
+  delivered: "Đã giao",
+  cancelled: "Đã huỷ",
+};
+
+function formatVND(n: number) {
+  return new Intl.NumberFormat("vi-VN").format(n) + "đ";
+}
+
 export default function ShippingPage() {
   const { data: updates, isLoading: updatesLoading } = useListShippingUpdates();
   const [selected, setSelected] = useState<Update | null>(null);
@@ -186,6 +209,29 @@ export default function ShippingPage() {
   const [sheetLoading, setSheetLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [activeFilter, setActiveFilter] = useState<string>("all");
+  const [lookupPhone, setLookupPhone] = useState("");
+  const [lookupResults, setLookupResults] = useState<TrackingResult[] | null>(null);
+  const [lookupLoading, setLookupLoading] = useState(false);
+  const [lookupError, setLookupError] = useState("");
+
+  const handleTrackingLookup = async () => {
+    if (!lookupPhone.trim()) return;
+    setLookupLoading(true);
+    setLookupError("");
+    setLookupResults(null);
+    try {
+      const base = getBaseUrl();
+      const res = await fetch(`${base}/api/tracking?phone=${encodeURIComponent(lookupPhone.trim())}`);
+      if (!res.ok) { setLookupError("Có lỗi xảy ra, vui lòng thử lại"); return; }
+      const data = await res.json();
+      if (!Array.isArray(data) || data.length === 0) {
+        setLookupError("Không tìm thấy đơn hàng nào với số điện thoại này");
+      } else {
+        setLookupResults(data);
+      }
+    } catch { setLookupError("Có lỗi xảy ra, vui lòng thử lại"); }
+    finally { setLookupLoading(false); }
+  };
 
   useEffect(() => {
     const base = getBaseUrl();
@@ -271,6 +317,77 @@ export default function ShippingPage() {
       </div>
 
       <div className="px-4 py-4 -mt-2 space-y-5 pb-28">
+
+        {/* Phone-based tracking lookup */}
+        <div>
+          <div className="flex items-center gap-2 mb-3">
+            <Search size={14} className="text-primary" />
+            <h2 className="text-sm font-bold text-foreground">Tra cứu vận đơn</h2>
+            <Badge variant="secondary" className="text-[10px]">theo số điện thoại</Badge>
+          </div>
+          <div className="bg-card border border-border rounded-2xl p-3 space-y-3">
+            <p className="text-[11px] text-muted-foreground">Nhập số điện thoại đặt hàng để tra cứu mã vận đơn — thông tin cá nhân không được hiển thị.</p>
+            <div className="flex gap-2">
+              <input
+                className="flex-1 bg-muted border border-border rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                placeholder="0912 345 678"
+                value={lookupPhone}
+                onChange={(e) => setLookupPhone(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") handleTrackingLookup(); }}
+                type="tel"
+              />
+              <button
+                onClick={handleTrackingLookup}
+                disabled={lookupLoading || !lookupPhone.trim()}
+                className="shrink-0 px-4 py-2 rounded-xl bg-primary text-primary-foreground text-sm font-bold disabled:opacity-50 hover:opacity-90 transition-opacity"
+              >
+                {lookupLoading ? "..." : "Tra cứu"}
+              </button>
+            </div>
+            {lookupError && (
+              <p className="text-xs text-destructive font-medium">{lookupError}</p>
+            )}
+            {lookupResults && lookupResults.length > 0 && (
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <Hash size={12} className="text-primary" />
+                  <span className="text-xs font-bold text-foreground">Mã vận đơn</span>
+                  <Badge variant="secondary" className="text-[10px]">theo dõi vận chuyển</Badge>
+                  <span className="text-[10px] text-muted-foreground ml-auto">{lookupResults.length} mã</span>
+                </div>
+                {lookupResults.map((r, i) => {
+                  const hasTracking = !!r.trackingNumber;
+                  return (
+                    <div key={i} className="bg-muted/60 rounded-xl p-3 space-y-1.5">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="w-2 h-2 rounded-full bg-primary shrink-0" />
+                        <span className="font-mono font-bold text-sm">{r.orderCode}</span>
+                        <Badge variant="outline" className="text-[9px] ml-auto">{orderStatusLabels[r.status] ?? r.status}</Badge>
+                      </div>
+                      {hasTracking ? (
+                        <>
+                          <p className="font-mono text-xs text-primary font-bold pl-4">{r.trackingNumber}</p>
+                          <div className="flex flex-wrap gap-1.5 pl-4">
+                            {r.shippingCarrier && (
+                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-secondary/20 text-secondary-foreground border border-border uppercase tracking-wide">
+                                {r.shippingCarrier}
+                              </span>
+                            )}
+                            {r.shippingFee != null && (
+                              <span className="text-[10px] font-semibold text-muted-foreground">{formatVND(r.shippingFee)}</span>
+                            )}
+                          </div>
+                        </>
+                      ) : (
+                        <p className="text-[11px] text-muted-foreground pl-4 italic">Chưa có mã vận đơn — shop sẽ cập nhật sớm</p>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
 
         {/* Google Sheet tracking section */}
         <div>

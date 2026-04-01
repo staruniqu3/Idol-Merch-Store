@@ -460,6 +460,60 @@ function OrderAddressInfo({ phone }: { phone: string }) {
   );
 }
 
+type OrderItem = { id: number; trackingNumber?: string | null; shippingCarrier?: string | null; shippingFee?: number | null; status: string };
+
+function TrackingFieldsEditor({ orderId, order }: { orderId: number; order: OrderItem }) {
+  const updateOrder = useUpdateOrder();
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const [tracking, setTracking] = useState(order.trackingNumber ?? "");
+  const [carrier, setCarrier] = useState(order.shippingCarrier ?? "");
+  const [fee, setFee] = useState(order.shippingFee != null ? String(order.shippingFee) : "");
+
+  const CARRIERS = ["Shopee Express", "GHN", "GHTK", "J&T Express", "Viettel Post", "Vietnam Post", "Ninja Van", "DHL", "FedEx"];
+
+  const handleSave = () => {
+    updateOrder.mutate({ id: orderId, data: {
+      trackingNumber: tracking.trim() || null,
+      shippingCarrier: carrier.trim() || null,
+      shippingFee: fee.trim() ? parseFloat(fee) : null,
+    }}, {
+      onSuccess: () => { queryClient.invalidateQueries({ queryKey: getListOrdersQueryKey() }); toast({ title: "Đã lưu thông tin vận đơn" }); },
+    });
+  };
+
+  return (
+    <div className="space-y-2 border-t border-border pt-3">
+      <Label className="text-xs font-bold">Thông tin vận đơn</Label>
+      <div className="grid grid-cols-2 gap-2">
+        <div>
+          <Label className="text-[10px] text-muted-foreground">Mã vận đơn</Label>
+          <Input value={tracking} onChange={(e) => setTracking(e.target.value)} placeholder="SPXVN..." className="rounded-xl h-8 text-xs mt-0.5 font-mono" />
+        </div>
+        <div>
+          <Label className="text-[10px] text-muted-foreground">Phí vận chuyển (đ)</Label>
+          <Input value={fee} onChange={(e) => setFee(e.target.value)} type="number" placeholder="50000" className="rounded-xl h-8 text-xs mt-0.5" />
+        </div>
+      </div>
+      <div>
+        <Label className="text-[10px] text-muted-foreground">Đơn vị vận chuyển</Label>
+        <div className="flex gap-1.5 mt-1 flex-wrap">
+          {CARRIERS.map((c) => (
+            <button key={c} type="button" onClick={() => setCarrier(c === carrier ? "" : c)}
+              className={`text-[10px] px-2 py-1 rounded-full border transition-colors font-semibold ${carrier === c ? "bg-primary text-primary-foreground border-primary" : "bg-muted text-muted-foreground border-border hover:border-primary/40"}`}>
+              {c}
+            </button>
+          ))}
+        </div>
+        <Input value={carrier} onChange={(e) => setCarrier(e.target.value)} placeholder="Tên ĐVVC khác..." className="rounded-xl h-8 text-xs mt-1.5" />
+      </div>
+      <Button size="sm" onClick={handleSave} className="w-full rounded-xl font-bold" disabled={updateOrder.isPending}>
+        Lưu thông tin vận đơn
+      </Button>
+    </div>
+  );
+}
+
 function OrdersTab() {
   const { data: orders } = useListOrders();
   const updateOrder = useUpdateOrder();
@@ -509,6 +563,12 @@ function OrdersTab() {
                   </div>
                   <OrderAddressInfo phone={order.memberPhone} />
                   {order.notes && <p className="text-xs bg-amber-50 border border-amber-100 rounded-xl p-2 text-amber-700">📝 {order.notes}</p>}
+                  <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground">
+                    <span>Mã đơn: <span className="font-bold text-foreground font-mono">TCD{String(order.id).padStart(7, "0")}</span></span>
+                    {order.trackingNumber && (
+                      <span>Mã vận đơn: <span className="font-bold text-foreground font-mono">{order.trackingNumber}</span></span>
+                    )}
+                  </div>
                   <div>
                     <Label className="text-xs">Cập nhật trạng thái</Label>
                     <Select value={order.status} onValueChange={(v) => {
@@ -522,6 +582,7 @@ function OrdersTab() {
                       </SelectContent>
                     </Select>
                   </div>
+                  <TrackingFieldsEditor orderId={order.id} order={order} />
                 </div>
               )}
             </div>

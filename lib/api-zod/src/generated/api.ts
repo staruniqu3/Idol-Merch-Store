@@ -144,6 +144,9 @@ export const ListOrdersResponseItem = zod.object({
     .describe("pending, confirmed, shipped, delivered, cancelled"),
   orderType: zod.string().describe("preorder or pickup"),
   notes: zod.string().nullish(),
+  shippingCarrier: zod.string().nullish(),
+  trackingNumber: zod.string().nullish(),
+  shippingFee: zod.number().nullish(),
   pointsEarned: zod.number(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
@@ -182,6 +185,9 @@ export const GetOrderResponse = zod.object({
     .describe("pending, confirmed, shipped, delivered, cancelled"),
   orderType: zod.string().describe("preorder or pickup"),
   notes: zod.string().nullish(),
+  shippingCarrier: zod.string().nullish(),
+  trackingNumber: zod.string().nullish(),
+  shippingFee: zod.number().nullish(),
   pointsEarned: zod.number(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
@@ -197,6 +203,9 @@ export const UpdateOrderParams = zod.object({
 export const UpdateOrderBody = zod.object({
   status: zod.string().optional(),
   notes: zod.string().nullish(),
+  shippingCarrier: zod.string().nullish(),
+  trackingNumber: zod.string().nullish(),
+  shippingFee: zod.number().nullish(),
 });
 
 export const UpdateOrderResponse = zod.object({
@@ -211,6 +220,9 @@ export const UpdateOrderResponse = zod.object({
     .describe("pending, confirmed, shipped, delivered, cancelled"),
   orderType: zod.string().describe("preorder or pickup"),
   notes: zod.string().nullish(),
+  shippingCarrier: zod.string().nullish(),
+  trackingNumber: zod.string().nullish(),
+  shippingFee: zod.number().nullish(),
   pointsEarned: zod.number(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
@@ -227,6 +239,24 @@ export const GetOrderSummaryResponse = zod.object({
   totalRevenue: zod.number(),
   totalMembers: zod.number(),
 });
+
+/**
+ * @summary Tracking lookup by phone (public – no personal data)
+ */
+export const TrackingLookupQuery = zod.object({
+  phone: zod.string().min(1),
+});
+
+export const TrackingLookupItem = zod.object({
+  orderCode: zod.string(),
+  trackingNumber: zod.string().nullish(),
+  shippingCarrier: zod.string().nullish(),
+  shippingFee: zod.number().nullish(),
+  status: zod.string(),
+  orderType: zod.string(),
+  orderDate: zod.coerce.date(),
+});
+export const TrackingLookupResponse = zod.array(TrackingLookupItem);
 
 /**
  * @summary List shipping schedule updates

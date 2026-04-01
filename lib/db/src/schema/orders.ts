@@ -14,6 +14,8 @@ export const ordersTable = pgTable("orders", {
   notes: text("notes"),
   address: text("address"),
   shippingCarrier: text("shipping_carrier"),
+  trackingNumber: text("tracking_number"),
+  shippingFee: numeric("shipping_fee", { precision: 10, scale: 2 }),
   pointsEarned: integer("points_earned").notNull().default(0),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
