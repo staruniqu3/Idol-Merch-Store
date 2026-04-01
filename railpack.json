@@ -1,6 +1,6 @@
 {
   "build": {
-    "cmd": "pnpm install --frozen-lockfile && pnpm --filter @workspace/api-server run build"
+    "cmd": "pnpm install --no-frozen-lockfile && pnpm --filter @workspace/api-server run build"
   },
   "start": {
     "cmd": "pnpm --filter @workspace/api-server run start"
