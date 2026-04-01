@@ -103,14 +103,28 @@ export default function ShopPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="hero-gradient px-4 pt-10 pb-4 text-white">
+      <div className="hero-gradient px-4 pt-8 pb-4 text-white">
         <div className="flex items-center justify-between">
-          <div>
-            <div className="flex items-center gap-2">
-              <Sparkles size={16} className="text-pink-300" />
-              <h1 className="text-xl font-black">Idol Merch Shop</h1>
+          <div className="flex items-center gap-3">
+            <div className="relative shrink-0">
+              <div className="w-12 h-12 rounded-full overflow-hidden ring-2 ring-white/30 shadow-lg">
+                <img
+                  src="/logo-tiem-chu-du.jpg"
+                  alt="Tiệm Chu Du"
+                  className="w-full h-full object-cover"
+                  style={{ mixBlendMode: "screen", transform: "scale(1.1)" }}
+                />
+              </div>
+              <div className="absolute -bottom-0.5 -right-0.5 w-4 h-4 bg-primary rounded-full border-2 border-white/40 flex items-center justify-center">
+                <Sparkles size={8} className="text-white" />
+              </div>
             </div>
-            <p className="text-xs opacity-70 mt-0.5">Hàng chính hãng · Uy tín</p>
+            <div>
+              <h1 className="text-xl font-black leading-tight tracking-tight">
+                Tiệm Chu Du
+              </h1>
+              <p className="text-[10px] font-bold opacity-50 uppercase tracking-[0.15em]">Merchandise · K-pop · J-pop</p>
+            </div>
           </div>
           <Sheet open={cartOpen} onOpenChange={setCartOpen}>
             <SheetTrigger asChild>
