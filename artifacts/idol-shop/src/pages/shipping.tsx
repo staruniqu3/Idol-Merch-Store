@@ -268,10 +268,7 @@ export default function ShippingPage() {
                         <div className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${cfg.dot}`} />
                         <div className="min-w-0">
                           <div className="flex items-center gap-2 flex-wrap mb-0.5">
-                            {s.name && (
-                              <span className="text-sm font-bold">{s.name}</span>
-                            )}
-                            <span className="text-[10px] text-muted-foreground font-mono">{s.customerCode}</span>
+                            <span className="text-sm font-bold font-mono">{s.customerCode}</span>
                           </div>
                           <p className={`text-xs font-bold font-mono ${cfg.color}`}>{s.trackingCode}</p>
                           <div className="flex items-center gap-2 mt-1 flex-wrap">
