@@ -36,12 +36,12 @@ function formatDate(d: string) {
   return new Date(d).toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric" });
 }
 
-const statusOptions = ["pending", "confirmed", "shipped", "delivered", "cancelled"];
+const statusOptions = ["awaiting", "pending", "confirmed", "shipped", "delivered", "cancelled"];
 const statusLabels: Record<string, string> = {
-  pending: "Đã nhập thông tin", confirmed: "Đã chuyển khoản", shipped: "Đang giao", delivered: "Đã giao", cancelled: "Đã hủy",
+  awaiting: "Chờ xác nhận", pending: "Đã nhập thông tin", confirmed: "Đã chuyển khoản", shipped: "Đang giao", delivered: "Đã giao", cancelled: "Đã hủy",
 };
 const statusColors: Record<string, string> = {
-  pending: "bg-amber-100 text-amber-700", confirmed: "bg-blue-100 text-blue-700",
+  awaiting: "bg-gray-100 text-gray-600", pending: "bg-amber-100 text-amber-700", confirmed: "bg-blue-100 text-blue-700",
   shipped: "bg-purple-100 text-purple-700", delivered: "bg-emerald-100 text-emerald-700",
   cancelled: "bg-red-100 text-red-700",
 };
@@ -623,6 +623,24 @@ interface SheetMember {
   birthday: string; address: string; facebookName: string;
 }
 
+function MemberShippingBadge({ phone }: { phone: string }) {
+  const [carrier, setCarrier] = useState<string | null>(null);
+  const base = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
+  useEffect(() => {
+    fetch(`${base}/api/sheets/member-orders?phone=${encodeURIComponent(phone)}`)
+      .then((r) => r.ok ? r.json() : [])
+      .then((orders: any[]) => {
+        const last = orders.filter((o) => o.shippingMethod).pop();
+        if (last?.shippingMethod) setCarrier(last.shippingMethod);
+      })
+      .catch(() => {});
+  }, [phone]);
+  if (!carrier) return null;
+  return (
+    <span className="text-[10px] px-1.5 py-0.5 rounded-full font-bold bg-indigo-100 text-indigo-700">🚚 {carrier}</span>
+  );
+}
+
 function MembersTab() {
   const [members, setMembers] = useState<SheetMember[]>([]);
   const [loading, setLoading] = useState(true);
@@ -711,12 +729,16 @@ function MembersTab() {
                 {m.customerCode && <span className="text-[10px] bg-secondary/10 text-secondary px-1.5 py-0.5 rounded-full font-semibold">{m.customerCode}</span>}
               </div>
               <p className="text-xs text-muted-foreground">{m.phone}</p>
+              {m.address && (
+                <p className="text-[11px] text-muted-foreground truncate">📍 {m.address}</p>
+              )}
               <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                 <div className="flex items-center gap-1">
                   <Sparkles size={10} className="text-amber-500" />
                   <span className="text-xs font-bold text-amber-600">{m.points.toLocaleString()} pts</span>
                 </div>
                 <Badge variant="secondary" className="text-[10px]">{m.tier}</Badge>
+                <MemberShippingBadge phone={m.phone} />
               </div>
             </div>
             <Button

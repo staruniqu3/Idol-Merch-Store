@@ -122,6 +122,7 @@ export default function ShopPage() {
       {
         onSuccess: () => {
           queryClient.invalidateQueries({ queryKey: getListOrdersQueryKey() });
+          queryClient.invalidateQueries({ queryKey: getListProductsQueryKey() });
           autoAddPoints(phone.trim(), cartTotal);
           setStep("payment");
         },

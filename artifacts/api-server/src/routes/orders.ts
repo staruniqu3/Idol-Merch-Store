@@ -74,10 +74,22 @@ router.post("/orders", async (req, res): Promise<void> => {
     .values({
       ...parsed.data,
       totalAmount: String(parsed.data.totalAmount),
-      status: "pending",
+      status: "awaiting",
       pointsEarned,
     })
     .returning();
+
+  // Deduct stock immediately for non-preorder products
+  type OrderItem = { productId: number; quantity: number };
+  let orderItems: OrderItem[] = [];
+  try { orderItems = JSON.parse(parsed.data.items); } catch {}
+  for (const item of orderItems) {
+    if (!item.productId || !item.quantity) continue;
+    const [product] = await db.select().from(productsTable).where(eq(productsTable.id, item.productId));
+    if (!product || product.orderType === "preorder") continue;
+    const newStock = Math.max(0, product.stock - item.quantity);
+    await db.update(productsTable).set({ stock: newStock }).where(eq(productsTable.id, item.productId));
+  }
 
   if (parsed.data.memberId && pointsEarned > 0) {
     const [existing] = await db.select().from(membersTable).where(eq(membersTable.id, parsed.data.memberId));
@@ -141,9 +153,8 @@ router.patch("/orders/:id", async (req, res): Promise<void> => {
     return;
   }
 
-  // Auto-decrement stock when order is confirmed for the first time
-  // Only deduct stock for non-preorder products (pickup / instock)
-  if (parsed.data.status === "confirmed" && existing.status !== "confirmed") {
+  // Restore stock when order is cancelled (stock was already deducted at creation)
+  if (parsed.data.status === "cancelled" && existing.status !== "cancelled") {
     type OrderItem = { productId: number; quantity: number };
     let items: OrderItem[] = [];
     try { items = JSON.parse(existing.items); } catch {}
@@ -152,8 +163,7 @@ router.patch("/orders/:id", async (req, res): Promise<void> => {
       if (!item.productId || !item.quantity) continue;
       const [product] = await db.select().from(productsTable).where(eq(productsTable.id, item.productId));
       if (!product || product.orderType === "preorder") continue;
-      const newStock = Math.max(0, product.stock - item.quantity);
-      await db.update(productsTable).set({ stock: newStock }).where(eq(productsTable.id, item.productId));
+      await db.update(productsTable).set({ stock: product.stock + item.quantity }).where(eq(productsTable.id, item.productId));
     }
   }
 
