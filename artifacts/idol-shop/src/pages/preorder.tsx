@@ -430,9 +430,21 @@ export default function PreorderPage() {
                       ? "rgba(239,68,68,0.3)"
                       : ac ? `${ac.fill}55` : "hsl(var(--primary)/0.25)";
 
-                  const pickupFill = "#10B981";
-                  const pickupBg = "rgba(16,185,129,0.13)";
-                  const pickupBorder = "rgba(16,185,129,0.35)";
+                  const pickupFill = ended
+                    ? "#9CA3AF"
+                    : urgent
+                      ? "#F87171"
+                      : ac ? ac.fill : "hsl(var(--primary))";
+                  const pickupBg = ended
+                    ? "rgba(200,200,200,0.18)"
+                    : urgent
+                      ? "rgba(239,68,68,0.12)"
+                      : ac ? ac.bg : "rgba(var(--primary),0.10)";
+                  const pickupBorder = ended
+                    ? "rgba(156,163,175,0.35)"
+                    : urgent
+                      ? "rgba(239,68,68,0.28)"
+                      : ac ? `${ac.fill}66` : "hsl(var(--primary)/0.3)";
 
                   return (
                     <div key={item.id} style={{ marginTop: idx === 0 ? 6 : 2 }}>
