@@ -399,7 +399,7 @@ export default function ShopPage() {
                 <Badge className={`text-[10px] border font-bold px-1.5 py-0 shrink-0 ${orderTypeBadgeClass[product.orderType] ?? ""}`} variant="outline">
                   {orderTypeLabel[product.orderType] ?? product.orderType}
                 </Badge>
-                {product.stock <= 5 && product.stock > 0 && (
+                {product.orderType !== "preorder" && product.stock <= 5 && product.stock > 0 && (
                   <Badge className="text-[10px] bg-red-100 text-red-600 border-red-200 font-bold px-1.5 py-0 shrink-0" variant="outline">
                     Gần hết
                   </Badge>
@@ -408,15 +408,17 @@ export default function ShopPage() {
               </div>
               <div className="flex items-center gap-2 mt-0.5">
                 <span className="text-primary font-black text-sm">{formatPrice(product.price)}</span>
-                <span className={`text-[11px] font-black px-1.5 py-0 rounded-md ${
-                  product.stock <= 5
-                    ? "bg-red-100 text-red-600"
-                    : product.stock <= 15
-                      ? "bg-amber-100 text-amber-700"
-                      : "bg-emerald-100 text-emerald-700"
-                }`}>
-                  Còn {product.stock}
-                </span>
+                {product.orderType !== "preorder" && (
+                  <span className={`text-[11px] font-black px-1.5 py-0 rounded-md ${
+                    product.stock <= 5
+                      ? "bg-red-100 text-red-600"
+                      : product.stock <= 15
+                        ? "bg-amber-100 text-amber-700"
+                        : "bg-emerald-100 text-emerald-700"
+                  }`}>
+                    Còn {product.stock}
+                  </span>
+                )}
               </div>
               {product.tags && product.tags.length > 0 && (
                 <div className="flex flex-wrap gap-1 mt-1">
@@ -444,11 +446,11 @@ export default function ShopPage() {
             <Button
               size="sm"
               className="shrink-0 rounded-xl font-bold px-3"
-              disabled={!product.isAvailable || product.stock === 0}
+              disabled={!product.isAvailable || (product.orderType !== "preorder" && product.stock === 0)}
               onClick={() => addToCart(product)}
               data-testid={`button-add-cart-${product.id}`}
             >
-              {product.stock === 0 ? "Hết" : <><Plus size={13} className="mr-1" />Thêm</>}
+              {product.orderType !== "preorder" && product.stock === 0 ? "Hết" : <><Plus size={13} className="mr-1" />Thêm</>}
             </Button>
           </div>
         ))}
