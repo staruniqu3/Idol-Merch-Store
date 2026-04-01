@@ -219,7 +219,7 @@ export default function ShippingPage() {
     setLookupResults(null);
     try {
       const base = getBaseUrl();
-      const res = await fetch(`${base}/api/tracking?phone=${encodeURIComponent(lookupPhone.trim())}`);
+      const res = await fetch(`${base}/api/tracking?phone=${encodeURIComponent(lookupPhone.trim())}&_t=${Date.now()}`, { cache: "no-store" });
       if (!res.ok) { setLookupError("Có lỗi xảy ra, vui lòng thử lại"); return; }
       const data = await res.json();
       if (!Array.isArray(data) || data.length === 0) {
@@ -233,8 +233,8 @@ export default function ShippingPage() {
 
   useEffect(() => {
     const base = getBaseUrl();
-    fetch(`${base}/api/sheets/all-shipping`)
-      .then((r) => r.json())
+    fetch(`${base}/api/sheets/all-shipping?_t=${Date.now()}`, { cache: "no-store" })
+      .then((r) => r.ok ? r.json() : [])
       .then((data) => { setSheetData(Array.isArray(data) ? data : []); setSheetLoading(false); })
       .catch(() => setSheetLoading(false));
   }, []);

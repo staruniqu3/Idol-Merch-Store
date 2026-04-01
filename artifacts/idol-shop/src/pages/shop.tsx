@@ -107,7 +107,7 @@ export default function ShopPage() {
     const pts = Math.floor(totalAmount / 10000);
     if (pts <= 0) return;
     try {
-      const res = await fetch(`${base}/api/members/lookup?phone=${encodeURIComponent(memberPhone)}`);
+      const res = await fetch(`${base}/api/members/lookup?phone=${encodeURIComponent(memberPhone)}&_t=${Date.now()}`, { cache: "no-store" });
       if (!res.ok) return;
       const member = await res.json();
       if (!member?.id) return;

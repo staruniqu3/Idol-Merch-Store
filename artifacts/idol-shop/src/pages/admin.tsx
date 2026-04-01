@@ -485,7 +485,7 @@ function OrderAddressInfo({ phone }: { phone: string }) {
   const [address, setAddress] = useState<string | null>(null);
   const base = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
   useEffect(() => {
-    fetch(`${base}/api/sheets/member-profile?phone=${encodeURIComponent(phone)}`)
+    fetch(`${base}/api/sheets/member-profile?phone=${encodeURIComponent(phone)}&_t=${Date.now()}`, { cache: "no-store" })
       .then((r) => r.ok ? r.json() : null)
       .then((data) => { if (data?.address) setAddress(data.address); })
       .catch(() => {});

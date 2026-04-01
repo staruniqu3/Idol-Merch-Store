@@ -216,9 +216,9 @@ export default function PreorderPage() {
   useEffect(() => {
     const base = getBaseUrl();
     setIsLoading(true);
-    fetch(`${base}/api/preorder-schedule`)
-      .then((r) => r.json())
-      .then((data) => { setItems(data); setIsLoading(false); })
+    fetch(`${base}/api/preorder-schedule?_t=${Date.now()}`, { cache: "no-store" })
+      .then((r) => r.ok ? r.json() : [])
+      .then((data) => { if (Array.isArray(data)) setItems(data); setIsLoading(false); })
       .catch(() => setIsLoading(false));
   }, []);
 
