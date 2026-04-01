@@ -6,7 +6,7 @@ const router: IRouter = Router();
 
 router.get("/preorder-schedule", async (_req, res): Promise<void> => {
   const items = await db.select().from(preorderScheduleTable).orderBy(preorderScheduleTable.createdAt);
-  res.json(items);
+  res.json(items.map((i) => ({ ...i, isActive: i.isActive ?? true })));
 });
 
 router.post("/preorder-schedule", async (req, res): Promise<void> => {

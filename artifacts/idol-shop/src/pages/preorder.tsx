@@ -223,7 +223,7 @@ export default function PreorderPage() {
   }, []);
 
   const filtered = items
-    .filter((i) => filter === "all" || i.isActive)
+    .filter((i) => filter === "all" || i.isActive !== false)
     .sort((a, b) => {
       if (!a.deadline && !b.deadline) return 0;
       if (!a.deadline) return 1;
