@@ -207,8 +207,6 @@ export default function ShippingPage() {
   const [selected, setSelected] = useState<Update | null>(null);
   const [sheetData, setSheetData] = useState<SheetShipping[]>([]);
   const [sheetLoading, setSheetLoading] = useState(true);
-  const [search, setSearch] = useState("");
-  const [activeFilter, setActiveFilter] = useState<string>("all");
   const [lookupPhone, setLookupPhone] = useState("");
   const [lookupResults, setLookupResults] = useState<TrackingResult[] | null>(null);
   const [lookupLoading, setLookupLoading] = useState(false);
@@ -243,17 +241,7 @@ export default function ShippingPage() {
 
   const sorted = updates ? [...updates].reverse() : [];
 
-  const carriers = [...new Set(sheetData.map((s) => s.carrier).filter(Boolean))];
-
-  const filteredSheet = sheetData.filter((s) => {
-    const q = search.toLowerCase();
-    const matchSearch = !q ||
-      s.name.toLowerCase().includes(q) ||
-      s.trackingCode.toLowerCase().includes(q) ||
-      s.customerCode.toLowerCase().includes(q);
-    const matchCarrier = activeFilter === "all" || s.carrier === activeFilter;
-    return matchSearch && matchCarrier;
-  });
+  const filteredSheet = sheetData;
 
   const totalTracking = sheetData.length;
   const deliveredCount = sheetData.filter((s) => s.status.toLowerCase().includes("đã giao")).length;
@@ -284,35 +272,6 @@ export default function ShippingPage() {
           </div>
         </div>
 
-        <div className="relative">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-white/40" />
-          <input
-            className="w-full bg-white/15 border border-white/20 rounded-xl pl-9 pr-3 py-2 text-sm text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-white/30"
-            placeholder="Tìm tên, mã đơn, mã KH..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-        </div>
-
-        {carriers.length > 0 && (
-          <div className="flex gap-2 mt-2 overflow-x-auto pb-1">
-            <button
-              onClick={() => setActiveFilter("all")}
-              className={`shrink-0 text-[11px] font-bold px-3 py-1.5 rounded-full transition-all ${activeFilter === "all" ? "bg-white text-foreground" : "bg-white/15 text-white/80"}`}
-            >
-              Tất cả
-            </button>
-            {carriers.map((c) => (
-              <button
-                key={c}
-                onClick={() => setActiveFilter(c)}
-                className={`shrink-0 text-[11px] font-bold px-3 py-1.5 rounded-full transition-all ${activeFilter === c ? "bg-white text-foreground" : "bg-white/15 text-white/80"}`}
-              >
-                {c}
-              </button>
-            ))}
-          </div>
-        )}
       </div>
 
       <div className="px-4 py-4 -mt-2 space-y-5 pb-28">
