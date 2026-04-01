@@ -717,6 +717,7 @@ function PreorderTab() {
   const [items, setItems] = useState<PreorderItem[]>([]);
   const [open, setOpen] = useState(false);
   const [editId, setEditId] = useState<number | null>(null);
+  const [scheduleMode, setScheduleMode] = useState<"po" | "pickup">("po");
   const [form, setForm] = useState({ title: "", description: "", startDate: "", deadline: "", pickupDate: "", pickupDeadline: "", artist: "", imageUrl: "", isActive: true });
   const { toast } = useToast();
 
@@ -729,17 +730,29 @@ function PreorderTab() {
 
   useEffect(() => { fetchItems(); }, []);
 
-  const resetForm = () => setForm({ title: "", description: "", startDate: "", deadline: "", pickupDate: "", pickupDeadline: "", artist: "", imageUrl: "", isActive: true });
+  const resetForm = () => { setForm({ title: "", description: "", startDate: "", deadline: "", pickupDate: "", pickupDeadline: "", artist: "", imageUrl: "", isActive: true }); setScheduleMode("po"); };
 
   const openEdit = (item: PreorderItem) => {
     setEditId(item.id);
+    const mode = (item.pickupDate || item.pickupDeadline) ? "pickup" : "po";
+    setScheduleMode(mode);
     setForm({ title: item.title, description: item.description ?? "", startDate: item.startDate ?? "", deadline: item.deadline ?? "", pickupDate: item.pickupDate ?? "", pickupDeadline: item.pickupDeadline ?? "", artist: item.artist ?? "", imageUrl: item.imageUrl ?? "", isActive: item.isActive });
     setOpen(true);
   };
 
   const handleSave = async () => {
     if (!form.title) { toast({ title: "Nhập tiêu đề", variant: "destructive" }); return; }
-    const body = { title: form.title, description: form.description || null, startDate: form.startDate || null, deadline: form.deadline || null, pickupDate: form.pickupDate || null, pickupDeadline: form.pickupDeadline || null, artist: form.artist || null, imageUrl: form.imageUrl || null, isActive: form.isActive };
+    const body = {
+      title: form.title,
+      description: form.description || null,
+      startDate: form.startDate || null,
+      deadline: scheduleMode === "po" ? (form.deadline || null) : null,
+      pickupDate: scheduleMode === "pickup" ? (form.pickupDate || null) : null,
+      pickupDeadline: scheduleMode === "pickup" ? (form.pickupDeadline || null) : null,
+      artist: form.artist || null,
+      imageUrl: form.imageUrl || null,
+      isActive: form.isActive,
+    };
     const url = editId ? `${getBaseUrl()}/api/preorder-schedule/${editId}` : `${getBaseUrl()}/api/preorder-schedule`;
     const method = editId ? "PATCH" : "POST";
     await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
@@ -768,14 +781,41 @@ function PreorderTab() {
             <div><Label>Tiêu đề *</Label><Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} className="rounded-xl mt-1" /></div>
             <div><Label>Nghệ sĩ / Nhóm</Label><Input value={form.artist} onChange={(e) => setForm({ ...form, artist: e.target.value })} placeholder="BTS, aespa, NewJeans..." className="rounded-xl mt-1" /></div>
             <div><Label>Mô tả</Label><Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={2} className="rounded-xl mt-1" /></div>
+
+            <div>
+              <Label className="mb-1.5 block">Loại lịch</Label>
+              <div className="flex rounded-xl border overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => setScheduleMode("po")}
+                  className={`flex-1 py-2 text-sm font-medium transition-colors ${scheduleMode === "po" ? "bg-primary text-white" : "bg-muted text-muted-foreground hover:bg-muted/70"}`}
+                >
+                  📅 Deadline đặt hàng
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setScheduleMode("pickup")}
+                  className={`flex-1 py-2 text-sm font-medium transition-colors ${scheduleMode === "pickup" ? "bg-emerald-600 text-white" : "bg-muted text-muted-foreground hover:bg-muted/70"}`}
+                >
+                  📦 Lịch nhận hàng
+                </button>
+              </div>
+            </div>
+
             <div className="grid grid-cols-2 gap-2">
               <div><Label>Bắt đầu PO</Label><Input type="date" value={form.startDate} onChange={(e) => setForm({ ...form, startDate: e.target.value })} className="rounded-xl mt-1" /></div>
-              <div><Label>Deadline PO</Label><Input type="date" value={form.deadline} onChange={(e) => setForm({ ...form, deadline: e.target.value })} className="rounded-xl mt-1" /></div>
+              {scheduleMode === "po" && (
+                <div><Label>Deadline PO</Label><Input type="date" value={form.deadline} onChange={(e) => setForm({ ...form, deadline: e.target.value })} className="rounded-xl mt-1" /></div>
+              )}
             </div>
-            <div className="grid grid-cols-2 gap-2">
-              <div><Label>Bắt đầu Pickup</Label><Input type="date" value={form.pickupDate} onChange={(e) => setForm({ ...form, pickupDate: e.target.value })} className="rounded-xl mt-1" /></div>
-              <div><Label>Deadline Pickup</Label><Input type="date" value={form.pickupDeadline} onChange={(e) => setForm({ ...form, pickupDeadline: e.target.value })} className="rounded-xl mt-1" /></div>
-            </div>
+
+            {scheduleMode === "pickup" && (
+              <div className="grid grid-cols-2 gap-2 p-3 bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-900 rounded-xl">
+                <div><Label className="text-emerald-700 dark:text-emerald-400">Ngày bắt đầu nhận</Label><Input type="date" value={form.pickupDate} onChange={(e) => setForm({ ...form, pickupDate: e.target.value })} className="rounded-xl mt-1" /></div>
+                <div><Label className="text-emerald-700 dark:text-emerald-400">Ngày kết thúc nhận</Label><Input type="date" value={form.pickupDeadline} onChange={(e) => setForm({ ...form, pickupDeadline: e.target.value })} className="rounded-xl mt-1" /></div>
+              </div>
+            )}
+
             <div><Label>URL ảnh</Label><Input value={form.imageUrl} onChange={(e) => setForm({ ...form, imageUrl: e.target.value })} placeholder="https://..." className="rounded-xl mt-1" /></div>
             <div className="flex items-center gap-3 py-1">
               <Switch checked={form.isActive} onCheckedChange={(v) => setForm({ ...form, isActive: v })} id="isActive" />
