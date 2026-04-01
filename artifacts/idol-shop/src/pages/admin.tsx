@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   useListProducts, getListProductsQueryKey, useCreateProduct, useUpdateProduct, useDeleteProduct,
@@ -982,41 +982,99 @@ function MemberShippingBadge({ phone }: { phone: string }) {
   );
 }
 
+interface MergedMember {
+  key: string;
+  name: string;
+  phone: string;
+  tier: string;
+  points: number;
+  customerCode?: string;
+  address?: string;
+  email?: string;
+  notes?: string;
+  joinedAt?: string;
+  dbId?: number;
+  fromSheets: boolean;
+}
+
 function MembersTab() {
   const addPoints = useAddPoints();
-  const { data: dbMembers, isLoading, refetch } = useListMembers();
+  const { data: dbMembers, refetch: refetchDb } = useListMembers();
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const [sheetMembers, setSheetMembers] = useState<any[]>([]);
+  const [sheetsLoading, setSheetsLoading] = useState(true);
   const [pointsOpen, setPointsOpen] = useState(false);
-  const [selectedMemberId, setSelectedMemberId] = useState<number | null>(null);
+  const [selectedKey, setSelectedKey] = useState<string>("");
   const [pointsAmount, setPointsAmount] = useState("");
   const [search, setSearch] = useState("");
+  const base = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
 
-  const handleAddPoints = () => {
-    if (!selectedMemberId || !pointsAmount) return;
-    addPoints.mutate({ id: selectedMemberId, data: { points: parseInt(pointsAmount), reason: null } }, {
-      onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: getListMembersQueryKey() });
-        setPointsOpen(false);
-        setPointsAmount("");
-        toast({ title: "Đã thêm điểm" });
-      },
-    });
+  const fetchSheets = () => {
+    setSheetsLoading(true);
+    fetch(`${base}/api/sheets/all-members`)
+      .then((r) => r.ok ? r.json() : [])
+      .then((data) => { setSheetMembers(Array.isArray(data) ? data : []); setSheetsLoading(false); })
+      .catch(() => { setSheetMembers([]); setSheetsLoading(false); });
   };
 
-  const members = dbMembers ?? [];
+  useEffect(() => { fetchSheets(); }, []);
 
-  const filtered = members.filter((m) =>
+  const normalizePhone = (p: string) => (p ?? "").replace(/\D/g, "");
+
+  // Merge: Sheets members as primary, fill in DB extras, append DB-only members
+  const merged: MergedMember[] = useMemo(() => {
+    const result: MergedMember[] = sheetMembers.map((s) => {
+      const db = dbMembers?.find((d) => normalizePhone(d.phone) === normalizePhone(s.phone));
+      return {
+        key: `sheet-${s.phone}`,
+        name: s.name ?? "",
+        phone: s.phone ?? "",
+        tier: s.tier ?? "Newcomers",
+        points: db?.points ?? s.points ?? 0,
+        customerCode: s.customerCode,
+        address: s.address,
+        email: db?.email ?? undefined,
+        notes: db?.notes ?? undefined,
+        joinedAt: db?.joinedAt,
+        dbId: db?.id,
+        fromSheets: true,
+      };
+    });
+    // Append DB-only members not in Sheets
+    (dbMembers ?? []).forEach((d) => {
+      const already = sheetMembers.some((s) => normalizePhone(s.phone) === normalizePhone(d.phone));
+      if (!already) {
+        result.push({
+          key: `db-${d.id}`,
+          name: d.name,
+          phone: d.phone,
+          tier: d.tier ?? "bronze",
+          points: d.points ?? 0,
+          email: d.email ?? undefined,
+          notes: d.notes ?? undefined,
+          joinedAt: d.joinedAt,
+          dbId: d.id,
+          fromSheets: false,
+        });
+      }
+    });
+    return result;
+  }, [sheetMembers, dbMembers]);
+
+  const filtered = merged.filter((m) =>
     !search ||
     m.name.toLowerCase().includes(search.toLowerCase()) ||
     m.phone.includes(search) ||
+    (m.customerCode ?? "").toLowerCase().includes(search.toLowerCase()) ||
     (m.email ?? "").toLowerCase().includes(search.toLowerCase())
   );
 
   const tierEmoji = (tier: string) => {
     const t = (tier ?? "").toLowerCase();
-    if (t.includes("dragon") || t.includes("phoenix") || t.includes("patron") || t.includes("vip")) return "👑";
-    if (t.includes("platinum") || t.includes("ruby") || t.includes("gold")) return "💎";
+    if (t.includes("dragon") || t.includes("phoenix") || t.includes("patron") || t.includes("vip") || t.includes("infinite") || t.includes("solstice")) return "👑";
+    if (t.includes("platinum") || t.includes("ruby")) return "💎";
+    if (t.includes("gold")) return "🥇";
     if (t.includes("silver")) return "🥈";
     if (t.includes("bronze")) return "🥉";
     return "🌟";
@@ -1024,26 +1082,47 @@ function MembersTab() {
 
   const tierColor = (tier: string) => {
     const t = (tier ?? "").toLowerCase();
-    if (t.includes("gold") || t.includes("vip") || t.includes("patron")) return "bg-amber-100 text-amber-800";
-    if (t.includes("platinum") || t.includes("ruby")) return "bg-purple-100 text-purple-800";
+    if (t.includes("gold") || t.includes("vip") || t.includes("patron") || t.includes("dragon") || t.includes("phoenix")) return "bg-amber-100 text-amber-800";
+    if (t.includes("platinum") || t.includes("ruby") || t.includes("infinite") || t.includes("solstice")) return "bg-purple-100 text-purple-800";
     if (t.includes("silver")) return "bg-slate-100 text-slate-700";
     if (t.includes("bronze")) return "bg-orange-100 text-orange-700";
     return "bg-blue-50 text-blue-700";
   };
 
-  const selectedMember = members.find((m) => m.id === selectedMemberId);
+  const handleAddPoints = () => {
+    if (!selectedKey || !pointsAmount) return;
+    const member = merged.find((m) => m.key === selectedKey);
+    if (!member?.dbId) {
+      toast({ title: "Thành viên này chưa có tài khoản trong hệ thống", variant: "destructive" });
+      return;
+    }
+    addPoints.mutate({ id: member.dbId, data: { points: parseInt(pointsAmount), reason: null } }, {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getListMembersQueryKey() });
+        refetchDb();
+        setPointsOpen(false);
+        setPointsAmount("");
+        toast({ title: "Đã thêm điểm" });
+      },
+    });
+  };
+
+  const selectedMember = merged.find((m) => m.key === selectedKey);
+  const isLoading = sheetsLoading;
+
+  const handleRefresh = () => { fetchSheets(); refetchDb(); };
 
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
         <h3 className="font-bold">Thành Viên ({filtered.length})</h3>
-        <Button size="sm" variant="outline" className="rounded-xl text-xs" onClick={() => refetch()}>
+        <Button size="sm" variant="outline" className="rounded-xl text-xs" onClick={handleRefresh}>
           Làm mới
         </Button>
       </div>
 
       <Input
-        placeholder="Tìm theo tên, SĐT, email..."
+        placeholder="Tìm theo tên, SĐT, mã KH..."
         value={search}
         onChange={(e) => setSearch(e.target.value)}
         className="rounded-xl"
@@ -1066,12 +1145,12 @@ function MembersTab() {
         <div className="text-center py-8 text-muted-foreground text-sm">Đang tải...</div>
       ) : filtered.length === 0 ? (
         <div className="text-center py-12 text-muted-foreground text-sm">
-          {search ? "Không tìm thấy thành viên phù hợp" : "Chưa có thành viên nào đăng ký"}
+          {search ? "Không tìm thấy thành viên phù hợp" : "Chưa có thành viên nào"}
         </div>
       ) : (
         <div className="space-y-2">
           {filtered.map((m) => (
-            <div key={m.id} className="bg-card border border-border rounded-2xl p-3 flex items-center gap-3" data-testid={`admin-member-${m.id}`}>
+            <div key={m.key} className="bg-card border border-border rounded-2xl p-3 flex items-center gap-3" data-testid={`admin-member-${m.customerCode ?? m.key}`}>
               <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 font-black text-base text-white"
                 style={{ background: "linear-gradient(135deg, #e879a8 0%, #a855f7 100%)" }}>
                 {(m.name || "?").charAt(0).toUpperCase()}
@@ -1081,8 +1160,10 @@ function MembersTab() {
                   <p className="font-bold text-sm truncate">{m.name}</p>
                   <span className="text-[11px]">{tierEmoji(m.tier)}</span>
                   <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-semibold ${tierColor(m.tier)}`}>{m.tier}</span>
+                  {m.customerCode && <span className="text-[10px] bg-secondary/10 text-secondary px-1.5 py-0.5 rounded-full font-semibold">{m.customerCode}</span>}
                 </div>
                 <p className="text-xs text-muted-foreground">{m.phone}</p>
+                {m.address && <p className="text-[11px] text-muted-foreground truncate">📍 {m.address}</p>}
                 {m.email && <p className="text-[11px] text-muted-foreground truncate">{m.email}</p>}
                 {m.notes && <p className="text-[11px] text-muted-foreground truncate">📝 {m.notes}</p>}
                 <div className="flex items-center gap-2 mt-1 flex-wrap">
@@ -1091,17 +1172,19 @@ function MembersTab() {
                     <span className="text-xs font-bold text-amber-600">{(m.points ?? 0).toLocaleString()} pts</span>
                   </div>
                   <MemberShippingBadge phone={m.phone} />
-                  <span className="text-[10px] text-muted-foreground">
-                    Tham gia {new Date(m.joinedAt).toLocaleDateString("vi-VN")}
-                  </span>
+                  {m.joinedAt && (
+                    <span className="text-[10px] text-muted-foreground">
+                      Tham gia {new Date(m.joinedAt).toLocaleDateString("vi-VN")}
+                    </span>
+                  )}
                 </div>
               </div>
               <Button
                 variant="outline"
                 size="sm"
                 className="shrink-0 rounded-xl text-xs"
-                onClick={() => { setSelectedMemberId(m.id); setPointsOpen(true); }}
-                data-testid={`button-add-points-${m.id}`}
+                onClick={() => { setSelectedKey(m.key); setPointsOpen(true); }}
+                data-testid={`button-add-points-${m.customerCode ?? m.key}`}
               >
                 + Điểm
               </Button>
