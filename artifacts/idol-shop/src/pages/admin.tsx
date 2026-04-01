@@ -721,7 +721,10 @@ function PreorderTab() {
   const { toast } = useToast();
 
   const fetchItems = () => {
-    fetch(`${getBaseUrl()}/api/preorder-schedule`).then((r) => r.json()).then(setItems).catch(() => {});
+    fetch(`${getBaseUrl()}/api/preorder-schedule`, { cache: "no-store" })
+      .then((r) => r.ok ? r.json() : [])
+      .then((data) => { if (Array.isArray(data)) setItems(data); })
+      .catch(() => {});
   };
 
   useEffect(() => { fetchItems(); }, []);
@@ -1012,9 +1015,13 @@ function MembersTab() {
 
   const fetchSheets = () => {
     setSheetsLoading(true);
-    fetch(`${base}/api/sheets/all-members`)
+    fetch(`${base}/api/sheets/all-members`, { cache: "no-store" })
       .then((r) => r.ok ? r.json() : [])
-      .then((data) => { setSheetMembers(Array.isArray(data) ? data : []); setSheetsLoading(false); })
+      .then((data) => {
+        const rows = Array.isArray(data) ? data.filter((m: any) => m.name || m.phone) : [];
+        setSheetMembers(rows);
+        setSheetsLoading(false);
+      })
       .catch(() => { setSheetMembers([]); setSheetsLoading(false); });
   };
 
@@ -1024,10 +1031,10 @@ function MembersTab() {
 
   // Merge: Sheets members as primary, fill in DB extras, append DB-only members
   const merged: MergedMember[] = useMemo(() => {
-    const result: MergedMember[] = sheetMembers.map((s) => {
+    const result: MergedMember[] = sheetMembers.map((s, idx) => {
       const db = dbMembers?.find((d) => normalizePhone(d.phone) === normalizePhone(s.phone));
       return {
-        key: `sheet-${s.phone}`,
+        key: s.phone ? `sheet-${s.phone}` : `sheet-idx-${idx}`,
         name: s.name ?? "",
         phone: s.phone ?? "",
         tier: s.tier ?? "Newcomers",
