@@ -207,16 +207,26 @@ function ProductsTab() {
   };
 
   const handleSave = () => {
-    if (!form.name || !form.price) { toast({ title: "Vui lòng nhập đủ thông tin", variant: "destructive" }); return; }
-    const data = { name: form.name, description: form.description || null, price: parseFloat(form.price), category: form.category, stock: parseInt(form.stock), isAvailable: form.isAvailable, orderType: form.orderType, imageUrl: form.imageUrl || null, tags: form.tags.length > 0 ? form.tags : null, variants: form.variants.length > 0 ? form.variants : null };
-    if (editId) {
-      updateProduct.mutate({ id: editId, data }, {
-        onSuccess: () => { queryClient.invalidateQueries({ queryKey: getListProductsQueryKey() }); setOpen(false); resetForm(); setEditId(null); toast({ title: "Đã cập nhật sản phẩm" }); },
-      });
-    } else {
-      createProduct.mutate({ data }, {
-        onSuccess: () => { queryClient.invalidateQueries({ queryKey: getListProductsQueryKey() }); setOpen(false); resetForm(); toast({ title: "Đã thêm sản phẩm mới" }); },
-      });
+    try {
+      if (!form.name || !form.price) { toast({ title: "Vui lòng nhập đủ thông tin", variant: "destructive" }); return; }
+      const price = parseFloat(form.price);
+      const stock = parseInt(form.stock) || 0;
+      if (isNaN(price)) { toast({ title: "Giá không hợp lệ", variant: "destructive" }); return; }
+      const cleanVariants = form.variants.map((v) => ({ name: v.name, ...(v.priceAdjustment != null && !isNaN(v.priceAdjustment) ? { priceAdjustment: v.priceAdjustment } : {}) }));
+      const data = { name: form.name, description: form.description || null, price, category: form.category, stock, isAvailable: form.isAvailable, orderType: form.orderType, imageUrl: form.imageUrl || null, tags: form.tags.length > 0 ? form.tags : null, variants: cleanVariants.length > 0 ? cleanVariants : null };
+      if (editId) {
+        updateProduct.mutate({ id: editId, data }, {
+          onSuccess: () => { queryClient.invalidateQueries({ queryKey: getListProductsQueryKey() }); setOpen(false); resetForm(); setEditId(null); toast({ title: "Đã cập nhật sản phẩm" }); },
+          onError: (err: unknown) => { toast({ title: "Lỗi khi lưu sản phẩm", description: err instanceof Error ? err.message : "Vui lòng thử lại", variant: "destructive" }); },
+        });
+      } else {
+        createProduct.mutate({ data }, {
+          onSuccess: () => { queryClient.invalidateQueries({ queryKey: getListProductsQueryKey() }); setOpen(false); resetForm(); toast({ title: "Đã thêm sản phẩm mới" }); },
+          onError: (err: unknown) => { toast({ title: "Lỗi khi thêm sản phẩm", description: err instanceof Error ? err.message : "Vui lòng thử lại", variant: "destructive" }); },
+        });
+      }
+    } catch (err) {
+      toast({ title: "Lỗi không xác định", description: err instanceof Error ? err.message : String(err), variant: "destructive" });
     }
   };
 
