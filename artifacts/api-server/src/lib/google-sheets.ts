@@ -53,8 +53,9 @@ export async function getGoogleSheetsClient() {
   return google.sheets({ version: "v4", auth: oauth2Client });
 }
 
-export const MEMBERSHIP_SHEET_ID = "1byi1bcsjzjREU-7_1qdkHhtUXi4ts3FCNfZoyKI3OtQ";
-export const MEMBERSHIP_SHEET_NAME = "Form Responses 1";
+// ─── Orders Sheet (old) ───────────────────────────────────────────────────────
+export const ORDERS_SHEET_ID = "1byi1bcsjzjREU-7_1qdkHhtUXi4ts3FCNfZoyKI3OtQ";
+export const ORDERS_SHEET_NAME = "Form Responses 1";
 
 export interface SheetOrder {
   timestamp: string;
@@ -71,8 +72,8 @@ export interface SheetOrder {
 export async function getMemberOrdersByPhone(phone: string): Promise<SheetOrder[]> {
   const sheets = await getGoogleSheetsClient();
   const resp = await sheets.spreadsheets.values.get({
-    spreadsheetId: MEMBERSHIP_SHEET_ID,
-    range: `${MEMBERSHIP_SHEET_NAME}!A:P`,
+    spreadsheetId: ORDERS_SHEET_ID,
+    range: `${ORDERS_SHEET_NAME}!A:P`,
   });
 
   const rows = resp.data.values ?? [];
@@ -97,5 +98,101 @@ export async function getMemberOrdersByPhone(phone: string): Promise<SheetOrder[
       totalPrice: row[10] ?? "",
       shippingMethod: row[14] ?? "",
       notes: row[15] ?? "",
+    }));
+}
+
+// ─── Membership Sheet (new) ───────────────────────────────────────────────────
+// Sheet1: STT | MÃ KH | TÊN KH | SĐT | NGÀY SINH | ĐỊA CHỈ | ĐIỂM | HẠNG |
+//         ĐIỂM TÍCH LUỸ TRONG NĂM | QUY ĐỔI ĐIỂM | VOUCHERS ƯU ĐÃI |
+//         VOUCHERS ĐÃ SỬ DỤNG | VOUCHER CÒN LẠI | FACEBOOK NAME | FB/IG LINK
+// Sheet2: MÃ KH | MÃ VẬN ĐƠN | ĐƠN VỊ VC | TÌNH TRẠNG | CƯỚC PHÍ VC
+
+export const MEMBERSHIP_SHEET_ID = "1bYqNlXEojkK0-y3a814lhs4mMPe3eQ5sg1db_vF2rFw";
+
+export interface MemberProfile {
+  stt: string;
+  customerCode: string;
+  name: string;
+  phone: string;
+  birthday: string;
+  address: string;
+  points: number;
+  tier: string;
+  yearPoints: number;
+  redeemedPoints: number;
+  vouchersGranted: number;
+  vouchersUsed: number;
+  vouchersRemaining: number;
+  facebookName: string;
+  facebookLink: string;
+}
+
+export interface MemberShipping {
+  customerCode: string;
+  trackingCode: string;
+  carrier: string;
+  status: string;
+  shippingFee: string;
+}
+
+const normalizePhone = (p: string) => p.replace(/\D/g, "").replace(/^0/, "84");
+
+export async function getMemberProfile(phone: string): Promise<MemberProfile | null> {
+  const sheets = await getGoogleSheetsClient();
+  const resp = await sheets.spreadsheets.values.get({
+    spreadsheetId: MEMBERSHIP_SHEET_ID,
+    range: "Sheet1!A:O",
+  });
+
+  const rows = resp.data.values ?? [];
+  if (rows.length < 2) return null;
+
+  const searchPhone = normalizePhone(phone);
+
+  const row = rows.slice(1).find((r) => {
+    const rowPhone = normalizePhone(r[3] ?? "");
+    return rowPhone === searchPhone || (r[3] ?? "").trim() === phone.trim();
+  });
+
+  if (!row) return null;
+
+  return {
+    stt: row[0] ?? "",
+    customerCode: row[1] ?? "",
+    name: row[2] ?? "",
+    phone: row[3] ?? "",
+    birthday: row[4] ?? "",
+    address: row[5] ?? "",
+    points: parseFloat(row[6] ?? "0") || 0,
+    tier: row[7] ?? "Newcomers",
+    yearPoints: parseFloat(row[8] ?? "0") || 0,
+    redeemedPoints: parseFloat(row[9] ?? "0") || 0,
+    vouchersGranted: parseInt(row[10] ?? "0") || 0,
+    vouchersUsed: parseInt(row[11] ?? "0") || 0,
+    vouchersRemaining: parseInt(row[12] ?? "0") || 0,
+    facebookName: row[13] ?? "",
+    facebookLink: row[14] ?? "",
+  };
+}
+
+export async function getMemberShipping(customerCode: string): Promise<MemberShipping[]> {
+  const sheets = await getGoogleSheetsClient();
+  const resp = await sheets.spreadsheets.values.get({
+    spreadsheetId: MEMBERSHIP_SHEET_ID,
+    range: "Sheet2!A:E",
+  });
+
+  const rows = resp.data.values ?? [];
+  if (rows.length < 2) return [];
+
+  return rows
+    .slice(1)
+    .filter((r) => (r[0] ?? "").trim() === customerCode.trim() && r[1])
+    .map((r) => ({
+      customerCode: r[0] ?? "",
+      trackingCode: r[1] ?? "",
+      carrier: r[2] ?? "",
+      status: r[3] ?? "",
+      shippingFee: r[4] ?? "",
     }));
 }
