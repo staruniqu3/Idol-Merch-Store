@@ -73,14 +73,15 @@ export default function ShopPage() {
   const cartCount = cart.reduce((s, i) => s + i.quantity, 0);
   const cartTotal = cart.reduce((s, i) => s + i.price * i.quantity, 0);
 
-  const doAddToCart = (product: typeof filtered[0], variant?: string) => {
-    const key = cartKey(product.id, variant);
+  const doAddToCart = (product: typeof filtered[0], variantName?: string, variantPrice?: number) => {
+    const key = cartKey(product.id, variantName);
+    const finalPrice = variantPrice ?? product.price;
     setCart((prev) => {
       const existing = prev.find((i) => cartKey(i.productId, i.variant) === key);
       if (existing) return prev.map((i) => cartKey(i.productId, i.variant) === key ? { ...i, quantity: i.quantity + 1 } : i);
-      return [...prev, { productId: product.id, name: product.name, price: product.price, quantity: 1, orderType: product.orderType, imageUrl: product.imageUrl, variant }];
+      return [...prev, { productId: product.id, name: product.name, price: finalPrice, quantity: 1, orderType: product.orderType, imageUrl: product.imageUrl, variant: variantName }];
     });
-    toast({ title: "Đã thêm vào giỏ hàng", description: variant ? `${product.name} (${variant})` : product.name });
+    toast({ title: "Đã thêm vào giỏ hàng", description: variantName ? `${product.name} (${variantName})` : product.name });
   };
 
   const addToCart = (product: typeof filtered[0]) => {
@@ -428,7 +429,14 @@ export default function ShopPage() {
                 <div className="flex flex-wrap gap-1 mt-1">
                   <span className="text-[9px] text-muted-foreground font-medium">Biến thể:</span>
                   {product.variants.map((v) => (
-                    <span key={v} className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-secondary/10 text-secondary-foreground border border-border">{v}</span>
+                    <span key={v.name} className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-secondary/10 text-secondary-foreground border border-border">
+                      {v.name}
+                      {v.priceAdjustment != null && v.priceAdjustment !== 0 && (
+                        <span className={`ml-0.5 ${v.priceAdjustment > 0 ? "text-emerald-600" : "text-destructive"}`}>
+                          {v.priceAdjustment > 0 ? "+" : ""}{new Intl.NumberFormat("vi-VN").format(v.priceAdjustment)}₫
+                        </span>
+                      )}
+                    </span>
                   ))}
                 </div>
               )}
@@ -454,20 +462,37 @@ export default function ShopPage() {
           </DialogHeader>
           {variantPickerProduct && (
             <div className="space-y-3">
-              <p className="text-sm text-muted-foreground font-medium line-clamp-2">{variantPickerProduct.name}</p>
+              <div>
+                <p className="text-sm font-bold line-clamp-2">{variantPickerProduct.name}</p>
+                <p className="text-xs text-primary font-black mt-0.5">{formatPrice(variantPickerProduct.price)} (giá gốc)</p>
+              </div>
               <div className="flex flex-wrap gap-2">
-                {variantPickerProduct.variants?.map((v) => (
-                  <button
-                    key={v}
-                    onClick={() => {
-                      doAddToCart(variantPickerProduct, v);
-                      setVariantPickerProduct(null);
-                    }}
-                    className="px-4 py-2 rounded-xl text-sm font-bold border-2 border-primary/20 bg-primary/5 text-primary hover:bg-primary/15 hover:border-primary/40 active:scale-95 transition-all"
-                  >
-                    {v}
-                  </button>
-                ))}
+                {variantPickerProduct.variants?.map((v) => {
+                  const finalPrice = variantPickerProduct.price + (v.priceAdjustment ?? 0);
+                  const hasAdj = v.priceAdjustment != null && v.priceAdjustment !== 0;
+                  return (
+                    <button
+                      key={v.name}
+                      onClick={() => {
+                        doAddToCart(variantPickerProduct, v.name, finalPrice);
+                        setVariantPickerProduct(null);
+                      }}
+                      className="flex flex-col items-center px-4 py-2.5 rounded-xl border-2 border-primary/20 bg-primary/5 text-primary hover:bg-primary/15 hover:border-primary/40 active:scale-95 transition-all"
+                    >
+                      <span className="text-sm font-bold">{v.name}</span>
+                      {hasAdj ? (
+                        <span className="text-[10px] font-semibold opacity-80">
+                          {formatPrice(finalPrice)}
+                          <span className={`ml-1 ${(v.priceAdjustment ?? 0) > 0 ? "text-emerald-600" : "text-destructive"}`}>
+                            ({(v.priceAdjustment ?? 0) > 0 ? "+" : ""}{new Intl.NumberFormat("vi-VN").format(v.priceAdjustment ?? 0)}₫)
+                          </span>
+                        </span>
+                      ) : (
+                        <span className="text-[10px] font-semibold opacity-60">{formatPrice(finalPrice)}</span>
+                      )}
+                    </button>
+                  );
+                })}
               </div>
             </div>
           )}

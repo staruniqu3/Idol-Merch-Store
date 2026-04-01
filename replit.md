@@ -57,7 +57,7 @@ artifacts-monorepo/
 
 ## Database Tables
 
-- `products` - Merch items (name, price, category, stock, isAvailable, orderType)
+- `products` - Merch items (name, price, category, stock, isAvailable, orderType, tags text[], variants jsonb [{name, priceAdjustment?}])
 - `members` - Fan members (name, phone, points, tier: bronze/silver/gold/platinum)
 - `orders` - Customer orders (items JSON, status, pointsEarned)
 - `shipping_updates` - Shipping timeline posts

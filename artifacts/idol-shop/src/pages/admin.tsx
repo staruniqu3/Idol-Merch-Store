@@ -155,9 +155,10 @@ function ProductsTab() {
   const { toast } = useToast();
   const [open, setOpen] = useState(false);
   const [editId, setEditId] = useState<number | null>(null);
-  const [form, setForm] = useState({ name: "", description: "", price: "", category: "Kpop", stock: "0", isAvailable: true, orderType: "preorder", imageUrl: "", tags: [] as string[], variants: [] as string[] });
+  type VariantDraft = { name: string; priceAdjustment?: number };
+  const [form, setForm] = useState({ name: "", description: "", price: "", category: "Kpop", stock: "0", isAvailable: true, orderType: "preorder", imageUrl: "", tags: [] as string[], variants: [] as VariantDraft[] });
   const [customTagInput, setCustomTagInput] = useState("");
-  const [customVariantInput, setCustomVariantInput] = useState("");
+  const [customVariantInput, setCustomVariantInput] = useState({ name: "", priceAdjustment: "" });
   const [customCategoryInput, setCustomCategoryInput] = useState("");
   const [customCategories, setCustomCategories] = useState<string[]>(() => {
     try { return JSON.parse(localStorage.getItem("custom_categories") || "[]"); } catch { return []; }
@@ -190,7 +191,7 @@ function ProductsTab() {
     "Weverse Album", "Limited Edition", "Merch Bundle",
   ];
 
-  const resetForm = () => { setForm({ name: "", description: "", price: "", category: "Kpop", stock: "0", isAvailable: true, orderType: "preorder", imageUrl: "", tags: [], variants: [] }); setCustomTagInput(""); setCustomVariantInput(""); };
+  const resetForm = () => { setForm({ name: "", description: "", price: "", category: "Kpop", stock: "0", isAvailable: true, orderType: "preorder", imageUrl: "", tags: [], variants: [] }); setCustomTagInput(""); setCustomVariantInput({ name: "", priceAdjustment: "" }); };
 
   const addCustomTag = () => {
     const tag = customTagInput.trim();
@@ -285,38 +286,56 @@ function ProductsTab() {
             </div>
             <div>
               <Label>Biến thể</Label>
-              <p className="text-[10px] text-muted-foreground mt-0.5 mb-2">Ví dụ: Muvmuv, Lunar, Size S, Màu hồng...</p>
+              <p className="text-[10px] text-muted-foreground mt-0.5 mb-2">Ví dụ: Muvmuv, Lunar, Size S... Giá điều chỉnh để trống = dùng giá gốc</p>
               {form.variants.length > 0 && (
                 <div className="flex flex-wrap gap-1.5 mb-2">
-                  {form.variants.map((v) => (
-                    <span key={v} className="flex items-center gap-0.5 text-[10px] font-semibold px-2 py-1 rounded-full bg-secondary/15 text-secondary-foreground border border-border">
-                      {v}
-                      <button type="button" onClick={() => setForm((f) => ({ ...f, variants: f.variants.filter((x) => x !== v) }))} className="ml-0.5 hover:opacity-70 text-muted-foreground">×</button>
+                  {form.variants.map((v, idx) => (
+                    <span key={idx} className="flex items-center gap-0.5 text-[10px] font-semibold px-2 py-1 rounded-full bg-secondary/15 text-secondary-foreground border border-border">
+                      {v.name}
+                      {v.priceAdjustment != null && v.priceAdjustment !== 0 && (
+                        <span className={`ml-0.5 ${v.priceAdjustment > 0 ? "text-emerald-600" : "text-destructive"}`}>
+                          {v.priceAdjustment > 0 ? "+" : ""}{new Intl.NumberFormat("vi-VN").format(v.priceAdjustment)}₫
+                        </span>
+                      )}
+                      <button type="button" onClick={() => setForm((f) => ({ ...f, variants: f.variants.filter((_, i) => i !== idx) }))} className="ml-0.5 hover:opacity-70 text-muted-foreground">×</button>
                     </span>
                   ))}
                 </div>
               )}
               <div className="flex gap-1.5">
                 <Input
-                  value={customVariantInput}
-                  onChange={(e) => setCustomVariantInput(e.target.value)}
+                  value={customVariantInput.name}
+                  onChange={(e) => setCustomVariantInput((s) => ({ ...s, name: e.target.value }))}
                   onKeyDown={(e) => {
                     if (e.key === "Enter") {
                       e.preventDefault();
-                      const v = customVariantInput.trim();
-                      if (v && !form.variants.includes(v)) setForm((f) => ({ ...f, variants: [...f.variants, v] }));
-                      setCustomVariantInput("");
+                      const name = customVariantInput.name.trim();
+                      if (!name) return;
+                      const adj = customVariantInput.priceAdjustment.trim();
+                      const priceAdjustment = adj ? parseFloat(adj) : undefined;
+                      setForm((f) => ({ ...f, variants: [...f.variants, { name, priceAdjustment }] }));
+                      setCustomVariantInput({ name: "", priceAdjustment: "" });
                     }
                   }}
                   placeholder="Tên biến thể..."
-                  className="rounded-xl h-8 text-xs"
+                  className="rounded-xl h-8 text-xs flex-1"
+                />
+                <Input
+                  value={customVariantInput.priceAdjustment}
+                  onChange={(e) => setCustomVariantInput((s) => ({ ...s, priceAdjustment: e.target.value }))}
+                  placeholder="± Giá (tùy chọn)"
+                  type="number"
+                  className="rounded-xl h-8 text-xs w-32"
                 />
                 <button
                   type="button"
                   onClick={() => {
-                    const v = customVariantInput.trim();
-                    if (v && !form.variants.includes(v)) setForm((f) => ({ ...f, variants: [...f.variants, v] }));
-                    setCustomVariantInput("");
+                    const name = customVariantInput.name.trim();
+                    if (!name) return;
+                    const adj = customVariantInput.priceAdjustment.trim();
+                    const priceAdjustment = adj ? parseFloat(adj) : undefined;
+                    setForm((f) => ({ ...f, variants: [...f.variants, { name, priceAdjustment }] }));
+                    setCustomVariantInput({ name: "", priceAdjustment: "" });
                   }}
                   className="shrink-0 h-8 px-3 rounded-xl text-xs font-semibold bg-secondary/10 text-secondary-foreground hover:bg-secondary/20 border border-border transition-colors"
                 >

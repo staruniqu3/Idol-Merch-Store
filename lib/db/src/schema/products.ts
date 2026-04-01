@@ -1,4 +1,4 @@
-import { pgTable, text, serial, timestamp, numeric, integer, boolean } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, timestamp, numeric, integer, boolean, jsonb } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
@@ -13,7 +13,7 @@ export const productsTable = pgTable("products", {
   isAvailable: boolean("is_available").notNull().default(true),
   orderType: text("order_type").notNull().default("preorder"),
   tags: text("tags").array(),
-  variants: text("variants").array(),
+  variants: jsonb("variants").$type<Array<{ name: string; priceAdjustment?: number }>>(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
