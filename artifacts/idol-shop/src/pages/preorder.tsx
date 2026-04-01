@@ -58,6 +58,10 @@ const ARTIST_COLORS: Record<string, { fill: string; bg: string; text: string }> 
   "illit":        { fill: "#EC4899", bg: "rgba(236,72,153,0.18)",  text: "#fff" },
   "xdinary heroes": { fill: "#DC2626", bg: "rgba(220,38,38,0.15)", text: "#fff" },
   "day6":         { fill: "#0891B2", bg: "rgba(8,145,178,0.18)",   text: "#fff" },
+  "namtanfilm":   { fill: "#0D9488", bg: "rgba(13,148,136,0.18)",  text: "#fff" },
+  "namtan film":  { fill: "#0D9488", bg: "rgba(13,148,136,0.18)",  text: "#fff" },
+  "namtan":       { fill: "#0D9488", bg: "rgba(13,148,136,0.18)",  text: "#fff" },
+  "jennie":       { fill: "#E02020", bg: "rgba(224,32,32,0.15)",   text: "#fff" },
 };
 
 function getArtistColor(artist: string | null) {
