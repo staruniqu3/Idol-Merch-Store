@@ -49,47 +49,126 @@ interface SheetOrder {
   notes: string;
 }
 
+const ELITE_TIERS = ["infinite", "solstice", "patron", "voyager"];
+const DRAGON_TIERS = ["infinite", "solstice"];
+const PHOENIX_TIERS = ["patron", "voyager"];
+
 const tierConfig: Record<string, {
   label: string;
   emoji: string;
   gradient: string;
   textColor: string;
   bg: string;
+  cardStyle?: string;
+  elite?: boolean;
 }> = {
+  "newcomer": {
+    label: "Newcomer",
+    emoji: "🌸",
+    gradient: "from-pink-400 via-rose-400 to-pink-500",
+    textColor: "text-pink-50",
+    bg: "bg-pink-100 text-pink-700",
+    cardStyle: "bg-gradient-to-br from-pink-400 via-rose-400 to-pink-500",
+  },
   "newcomers": {
-    label: "Newcomers",
-    emoji: "⭐",
-    gradient: "from-[#1e3a6b] via-[#2d5191] to-[#4a7cc9]",
-    textColor: "text-blue-100",
-    bg: "bg-blue-50 text-blue-700",
+    label: "Newcomer",
+    emoji: "🌸",
+    gradient: "from-pink-400 via-rose-400 to-pink-500",
+    textColor: "text-pink-50",
+    bg: "bg-pink-100 text-pink-700",
+    cardStyle: "bg-gradient-to-br from-pink-400 via-rose-400 to-pink-500",
   },
-  "bronze": {
-    label: "Bronze",
-    emoji: "🥉",
-    gradient: "from-orange-700 via-orange-600 to-amber-500",
-    textColor: "text-orange-100",
-    bg: "bg-orange-50 text-orange-700",
+  "friend of store": {
+    label: "Friend of Store",
+    emoji: "🌿",
+    gradient: "from-emerald-500 via-green-500 to-teal-500",
+    textColor: "text-emerald-50",
+    bg: "bg-emerald-100 text-emerald-700",
+    cardStyle: "bg-gradient-to-br from-emerald-500 via-green-500 to-teal-500",
   },
-  "silver": {
-    label: "Silver",
-    emoji: "🥈",
-    gradient: "from-slate-600 via-slate-500 to-gray-400",
-    textColor: "text-slate-100",
-    bg: "bg-slate-100 text-slate-600",
+  "muses": {
+    label: "Muses",
+    emoji: "🔮",
+    gradient: "from-violet-600 via-purple-600 to-indigo-500",
+    textColor: "text-violet-50",
+    bg: "bg-violet-100 text-violet-700",
+    cardStyle: "bg-gradient-to-br from-violet-600 via-purple-600 to-indigo-500",
   },
-  "gold": {
-    label: "Gold",
-    emoji: "🥇",
-    gradient: "from-yellow-600 via-amber-500 to-yellow-400",
-    textColor: "text-yellow-100",
-    bg: "bg-amber-50 text-amber-700",
+  "dreamer": {
+    label: "Dreamer",
+    emoji: "🩵",
+    gradient: "from-sky-400 via-cyan-400 to-blue-400",
+    textColor: "text-sky-50",
+    bg: "bg-sky-100 text-sky-700",
+    cardStyle: "bg-gradient-to-br from-sky-400 via-cyan-400 to-blue-400",
+  },
+  "ruby": {
+    label: "Ruby",
+    emoji: "🥂",
+    gradient: "from-[#c8a96e] via-[#e8d5a3] to-[#b8955a]",
+    textColor: "text-[#3d2800]",
+    bg: "bg-amber-100 text-amber-800",
+    cardStyle: "bg-gradient-to-br from-[#c8a96e] via-[#e8d5a3] to-[#b8955a]",
   },
   "platinum": {
     label: "Platinum",
-    emoji: "💎",
-    gradient: "from-violet-700 via-purple-600 to-fuchsia-500",
-    textColor: "text-violet-100",
-    bg: "bg-violet-50 text-violet-700",
+    emoji: "🩶",
+    gradient: "from-slate-400 via-gray-400 to-slate-500",
+    textColor: "text-slate-50",
+    bg: "bg-slate-100 text-slate-600",
+    cardStyle: "bg-gradient-to-br from-slate-400 via-gray-400 to-slate-500",
+  },
+  "priviledged": {
+    label: "Priviledged",
+    emoji: "🖤",
+    gradient: "from-gray-900 via-gray-800 to-gray-900",
+    textColor: "text-gray-100",
+    bg: "bg-gray-900 text-gray-100",
+    cardStyle: "bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900",
+  },
+  "privileged": {
+    label: "Priviledged",
+    emoji: "🖤",
+    gradient: "from-gray-900 via-gray-800 to-gray-900",
+    textColor: "text-gray-100",
+    bg: "bg-gray-900 text-gray-100",
+    cardStyle: "bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900",
+  },
+  "infinite": {
+    label: "Infinite",
+    emoji: "🐉",
+    gradient: "from-gray-950 via-gray-900 to-black",
+    textColor: "text-amber-200",
+    bg: "bg-black text-amber-300",
+    cardStyle: "tier-card-dragon",
+    elite: true,
+  },
+  "solstice": {
+    label: "Solstice",
+    emoji: "🐲",
+    gradient: "from-gray-950 via-gray-900 to-black",
+    textColor: "text-amber-200",
+    bg: "bg-black text-amber-300",
+    cardStyle: "tier-card-dragon",
+    elite: true,
+  },
+  "patron": {
+    label: "Patron",
+    emoji: "🦅",
+    gradient: "from-gray-950 via-gray-900 to-black",
+    textColor: "text-rose-200",
+    bg: "bg-black text-rose-300",
+    cardStyle: "tier-card-phoenix",
+    elite: true,
+  },
+  "voyager": {
+    label: "Voyager",
+    emoji: "🦚",
+    gradient: "from-gray-950 via-gray-900 to-black",
+    textColor: "text-rose-200",
+    bg: "bg-black text-rose-300",
+    cardStyle: "tier-card-phoenix",
+    elite: true,
   },
 };
 
@@ -98,10 +177,37 @@ function getTierConfig(tier: string) {
   return tierConfig[key] ?? {
     label: tier,
     emoji: "⭐",
-    gradient: "from-[#1e3a6b] via-[#2d5191] to-[#4a7cc9]",
-    textColor: "text-blue-100",
-    bg: "bg-blue-50 text-blue-700",
+    gradient: "from-pink-400 via-rose-400 to-pink-500",
+    textColor: "text-pink-50",
+    bg: "bg-pink-100 text-pink-700",
+    cardStyle: "bg-gradient-to-br from-pink-400 via-rose-400 to-pink-500",
   };
+}
+
+function TierPreviewCard({ tierKey }: { tierKey: string }) {
+  const cfg = getTierConfig(tierKey);
+  const isElite = ELITE_TIERS.includes(tierKey);
+  const isDragon = DRAGON_TIERS.includes(tierKey);
+  const isPhoenix = PHOENIX_TIERS.includes(tierKey);
+
+  if (isElite) {
+    return (
+      <div className={`relative overflow-hidden rounded-2xl p-3 text-center ${isDragon ? "tier-card-dragon" : "tier-card-phoenix"}`}>
+        <div className="relative z-10">
+          <span className="text-2xl drop-shadow-lg">{cfg.emoji}</span>
+          <p className={`text-xs font-bold mt-1 ${cfg.textColor}`}>{cfg.label}</p>
+          <p className={`text-[9px] opacity-70 ${cfg.textColor}`}>{isDragon ? "Hạng rồng" : "Hạng phượng"}</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className={`rounded-2xl p-3 text-center ${cfg.cardStyle}`}>
+      <span className="text-2xl">{cfg.emoji}</span>
+      <p className={`text-xs font-bold mt-1 ${cfg.textColor}`}>{cfg.label}</p>
+    </div>
+  );
 }
 
 function formatDate(d: string) {
@@ -293,7 +399,7 @@ export default function MembershipPage() {
         {!profileLoading && profile && tier && (
           <>
             <div
-              className={`bg-gradient-to-br ${tier.gradient} rounded-2xl p-5 text-white shadow-lg relative overflow-hidden`}
+              className={`${tier.elite ? (DRAGON_TIERS.includes(profile.tier.toLowerCase().trim()) ? "tier-card-dragon" : "tier-card-phoenix") : `bg-gradient-to-br ${tier.gradient}`} rounded-2xl p-5 shadow-xl relative overflow-hidden`}
               data-testid="member-card"
             >
               <div className="absolute top-0 right-0 w-32 h-32 rounded-full bg-white/5 -translate-y-8 translate-x-8" />
@@ -498,19 +604,21 @@ export default function MembershipPage() {
               <p className="text-sm mt-1">Nhập số điện thoại để xem thông tin membership, voucher và mã vận đơn</p>
             </div>
 
-            <div className="grid grid-cols-2 gap-3 w-full max-w-xs">
-              {[
-                { tier: "Newcomers", emoji: "⭐", desc: "Thành viên mới" },
-                { tier: "Bronze", emoji: "🥉", desc: "Hạng đồng" },
-                { tier: "Silver", emoji: "🥈", desc: "Hạng bạc" },
-                { tier: "Platinum", emoji: "💎", desc: "Hạng kim cương" },
-              ].map((t) => (
-                <div key={t.tier} className="bg-card border border-border rounded-2xl p-3 text-center">
-                  <span className="text-2xl">{t.emoji}</span>
-                  <p className="text-xs font-bold mt-1">{t.tier}</p>
-                  <p className="text-[10px] text-muted-foreground">{t.desc}</p>
+            <div className="w-full max-w-xs space-y-2">
+              <p className="text-[10px] text-center text-muted-foreground uppercase tracking-widest font-semibold mb-3">Hệ thống hạng thành viên</p>
+              <div className="grid grid-cols-2 gap-2">
+                {["newcomer","friend of store","muses","dreamer","ruby","platinum","priviledged"].map((k) => (
+                  <TierPreviewCard key={k} tierKey={k} />
+                ))}
+              </div>
+              <div className="mt-3">
+                <p className="text-[10px] text-center text-muted-foreground uppercase tracking-widest font-semibold mb-2">✦ Hạng đặc biệt ẩn ✦</p>
+                <div className="grid grid-cols-2 gap-2">
+                  {["infinite","solstice","patron","voyager"].map((k) => (
+                    <TierPreviewCard key={k} tierKey={k} />
+                  ))}
                 </div>
-              ))}
+              </div>
             </div>
           </div>
         )}

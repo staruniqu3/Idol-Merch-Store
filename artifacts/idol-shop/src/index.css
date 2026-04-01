@@ -256,4 +256,73 @@
 
   .no-default-hover-elevate {}
   .no-default-active-elevate {}
+
+  /* ── Elite tier card backgrounds ───────────────────────── */
+  .tier-card-dragon {
+    background: linear-gradient(
+      135deg,
+      #0a0500 0%, #1a0900 15%, #3d1a00 30%,
+      #0a0500 45%, #2a1000 60%, #1a0800 75%,
+      #3d1a00 88%, #0a0500 100%
+    );
+    background-size: 300% 300%;
+    animation: dragonFlow 5s ease-in-out infinite alternate;
+    color: #fde68a;
+    position: relative;
+  }
+
+  .tier-card-dragon::before {
+    content: "";
+    position: absolute; inset: 0; border-radius: inherit;
+    background: radial-gradient(ellipse 70% 60% at 20% 80%, rgba(200,100,0,0.45) 0%, transparent 55%),
+                radial-gradient(ellipse 55% 50% at 80% 20%, rgba(255,140,0,0.3) 0%, transparent 50%);
+    animation: dragonGlow 3s ease-in-out infinite alternate;
+    pointer-events: none;
+  }
+
+  @keyframes dragonFlow {
+    0%   { background-position: 0% 0%; }
+    50%  { background-position: 100% 50%; }
+    100% { background-position: 0% 100%; }
+  }
+
+  @keyframes dragonGlow {
+    0%   { opacity: 0.7; }
+    50%  { opacity: 1; }
+    100% { opacity: 0.6; }
+  }
+
+  .tier-card-phoenix {
+    background: linear-gradient(
+      135deg,
+      #0a0005 0%, #1a0010 15%, #3d0025 30%,
+      #0a0005 45%, #2a0018 60%, #1a000c 75%,
+      #3d0020 88%, #0a0005 100%
+    );
+    background-size: 300% 300%;
+    animation: phoenixFlow 5s ease-in-out infinite alternate;
+    color: #fecdd3;
+    position: relative;
+  }
+
+  .tier-card-phoenix::before {
+    content: "";
+    position: absolute; inset: 0; border-radius: inherit;
+    background: radial-gradient(ellipse 70% 60% at 20% 80%, rgba(220,20,60,0.45) 0%, transparent 55%),
+                radial-gradient(ellipse 55% 50% at 80% 20%, rgba(200,10,80,0.35) 0%, transparent 50%);
+    animation: phoenixGlow 3s ease-in-out infinite alternate;
+    pointer-events: none;
+  }
+
+  @keyframes phoenixFlow {
+    0%   { background-position: 0% 0%; }
+    50%  { background-position: 100% 50%; }
+    100% { background-position: 0% 100%; }
+  }
+
+  @keyframes phoenixGlow {
+    0%   { opacity: 0.7; }
+    50%  { opacity: 1; }
+    100% { opacity: 0.6; }
+  }
 }
