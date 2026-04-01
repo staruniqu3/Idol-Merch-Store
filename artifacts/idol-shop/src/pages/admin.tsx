@@ -238,6 +238,7 @@ function ProductsTab() {
                   <SelectContent>
                     <SelectItem value="preorder">Pre-order</SelectItem>
                     <SelectItem value="pickup">Pickup</SelectItem>
+                    <SelectItem value="instock">Hàng sẵn</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
