@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "Idol Merch Shop"
+version = "1.0.0"
+id = "artifacts/idol-shop"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 20477
+
+[services.development]
+run = "pnpm --filter @workspace/idol-shop run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/idol-shop", "run", "build" ]
+publicDir = "artifacts/idol-shop/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "20477"
+BASE_PATH = "/"
