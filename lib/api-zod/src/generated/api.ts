@@ -10,6 +10,7 @@ import * as zod from "zod";
 export const VariantOption = zod.object({
   name: zod.string(),
   priceAdjustment: zod.number().nullish(),
+  stock: zod.number().nullish(),
 });
 export type VariantOptionType = zod.infer<typeof VariantOption>;
 

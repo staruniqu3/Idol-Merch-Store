@@ -13,7 +13,7 @@ export const productsTable = pgTable("products", {
   isAvailable: boolean("is_available").notNull().default(true),
   orderType: text("order_type").notNull().default("preorder"),
   tags: text("tags").array(),
-  variants: jsonb("variants").$type<Array<{ name: string; priceAdjustment?: number }>>(),
+  variants: jsonb("variants").$type<Array<{ name: string; priceAdjustment?: number; stock?: number }>>(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

@@ -435,16 +435,23 @@ export default function ShopPage() {
               {product.variants && product.variants.length > 0 && (
                 <div className="flex flex-wrap gap-1 mt-2 items-center">
                   <span className="text-[10px] text-muted-foreground font-semibold shrink-0">Biến thể:</span>
-                  {product.variants.map((v) => (
-                    <span key={v.name} className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-muted text-foreground border border-border">
-                      {v.name}
-                      {v.priceAdjustment != null && v.priceAdjustment !== 0 && (
-                        <span className={`ml-0.5 font-bold ${v.priceAdjustment > 0 ? "text-emerald-600" : "text-destructive"}`}>
-                          {v.priceAdjustment > 0 ? "+" : ""}{new Intl.NumberFormat("vi-VN").format(v.priceAdjustment)}₫
-                        </span>
-                      )}
-                    </span>
-                  ))}
+                  {product.variants.map((v) => {
+                    const soldOut = v.stock != null && v.stock === 0;
+                    return (
+                      <span key={v.name} className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${soldOut ? "bg-red-50 text-red-400 border-red-200 line-through opacity-60" : "bg-muted text-foreground border-border"}`}>
+                        {v.name}
+                        {v.priceAdjustment != null && v.priceAdjustment !== 0 && !soldOut && (
+                          <span className={`ml-0.5 font-bold ${v.priceAdjustment > 0 ? "text-emerald-600" : "text-destructive"}`}>
+                            {v.priceAdjustment > 0 ? "+" : ""}{new Intl.NumberFormat("vi-VN").format(v.priceAdjustment)}₫
+                          </span>
+                        )}
+                        {soldOut && <span className="ml-0.5">hết</span>}
+                        {v.stock != null && v.stock > 0 && v.stock <= 5 && (
+                          <span className="ml-0.5 text-orange-500 font-black">({v.stock})</span>
+                        )}
+                      </span>
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -477,17 +484,23 @@ export default function ShopPage() {
                 {variantPickerProduct.variants?.map((v) => {
                   const finalPrice = variantPickerProduct.price + (v.priceAdjustment ?? 0);
                   const hasAdj = v.priceAdjustment != null && v.priceAdjustment !== 0;
+                  const soldOut = v.stock != null && v.stock === 0;
+                  const lowStock = v.stock != null && v.stock > 0 && v.stock <= 5;
                   return (
                     <button
                       key={v.name}
+                      disabled={soldOut}
                       onClick={() => {
+                        if (soldOut) return;
                         doAddToCart(variantPickerProduct, v.name, finalPrice);
                         setVariantPickerProduct(null);
                       }}
-                      className="flex flex-col items-center px-4 py-2.5 rounded-xl border-2 border-primary/20 bg-primary/5 text-primary hover:bg-primary/15 hover:border-primary/40 active:scale-95 transition-all"
+                      className={`flex flex-col items-center px-4 py-2.5 rounded-xl border-2 transition-all ${soldOut ? "border-border bg-muted/40 text-muted-foreground opacity-50 cursor-not-allowed" : "border-primary/20 bg-primary/5 text-primary hover:bg-primary/15 hover:border-primary/40 active:scale-95"}`}
                     >
-                      <span className="text-sm font-bold">{v.name}</span>
-                      {hasAdj ? (
+                      <span className={`text-sm font-bold ${soldOut ? "line-through" : ""}`}>{v.name}</span>
+                      {soldOut ? (
+                        <span className="text-[10px] font-semibold text-red-400">Hết hàng</span>
+                      ) : hasAdj ? (
                         <span className="text-[10px] font-semibold opacity-80">
                           {formatPrice(finalPrice)}
                           <span className={`ml-1 ${(v.priceAdjustment ?? 0) > 0 ? "text-emerald-600" : "text-destructive"}`}>
@@ -497,6 +510,7 @@ export default function ShopPage() {
                       ) : (
                         <span className="text-[10px] font-semibold opacity-60">{formatPrice(finalPrice)}</span>
                       )}
+                      {lowStock && <span className="text-[9px] font-black text-orange-500 mt-0.5">còn {v.stock}</span>}
                     </button>
                   );
                 })}

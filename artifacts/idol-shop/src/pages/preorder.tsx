@@ -65,13 +65,27 @@ const ARTIST_COLORS: Record<string, { fill: string; bg: string; text: string }> 
   "jennie":       { fill: "#E02020", bg: "rgba(224,32,32,0.15)",   text: "#fff" },
 };
 
+function hashArtistColor(artist: string): { fill: string; bg: string; text: string } {
+  let hash = 5381;
+  for (let i = 0; i < artist.length; i++) {
+    hash = ((hash << 5) + hash) + artist.charCodeAt(i);
+    hash = hash & hash;
+  }
+  const h = Math.abs(hash) % 360;
+  const s = 55 + (Math.abs(hash >> 8) % 25);
+  const l = 42 + (Math.abs(hash >> 16) % 14);
+  const fill = `hsl(${h},${s}%,${l}%)`;
+  const bg = `hsla(${h},${s}%,${l}%,0.15)`;
+  return { fill, bg, text: "#fff" };
+}
+
 function getArtistColor(artist: string | null) {
   if (!artist) return null;
   const key = artist.toLowerCase().replace(/\s+/g, " ").trim();
   return (
     ARTIST_COLORS[key] ??
     ARTIST_COLORS[key.replace(/\s/g, "")] ??
-    null
+    hashArtistColor(artist)
   );
 }
 

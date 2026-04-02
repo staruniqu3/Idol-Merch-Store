@@ -155,10 +155,10 @@ function ProductsTab() {
   const { toast } = useToast();
   const [open, setOpen] = useState(false);
   const [editId, setEditId] = useState<number | null>(null);
-  type VariantDraft = { name: string; priceAdjustment?: number };
+  type VariantDraft = { name: string; priceAdjustment?: number; stock?: number };
   const [form, setForm] = useState({ name: "", description: "", price: "", category: "Kpop", stock: "0", isAvailable: true, orderType: "preorder", imageUrl: "", tags: [] as string[], variants: [] as VariantDraft[] });
   const [customTagInput, setCustomTagInput] = useState("");
-  const [customVariantInput, setCustomVariantInput] = useState({ name: "", priceAdjustment: "" });
+  const [customVariantInput, setCustomVariantInput] = useState({ name: "", priceAdjustment: "", stock: "" });
   const [customCategoryInput, setCustomCategoryInput] = useState("");
   const [customCategories, setCustomCategories] = useState<string[]>(() => {
     try { return JSON.parse(localStorage.getItem("custom_categories") || "[]"); } catch { return []; }
@@ -191,7 +191,7 @@ function ProductsTab() {
     "Weverse Album", "Limited Edition", "Merch Bundle",
   ];
 
-  const resetForm = () => { setForm({ name: "", description: "", price: "", category: "Kpop", stock: "0", isAvailable: true, orderType: "preorder", imageUrl: "", tags: [], variants: [] }); setCustomTagInput(""); setCustomVariantInput({ name: "", priceAdjustment: "" }); };
+  const resetForm = () => { setForm({ name: "", description: "", price: "", category: "Kpop", stock: "0", isAvailable: true, orderType: "preorder", imageUrl: "", tags: [], variants: [] }); setCustomTagInput(""); setCustomVariantInput({ name: "", priceAdjustment: "", stock: "" }); };
 
   const addCustomTag = () => {
     const tag = customTagInput.trim();
@@ -210,9 +210,16 @@ function ProductsTab() {
     try {
       if (!form.name || !form.price) { toast({ title: "Vui lòng nhập đủ thông tin", variant: "destructive" }); return; }
       const price = parseFloat(form.price);
-      const stock = parseInt(form.stock) || 0;
       if (isNaN(price)) { toast({ title: "Giá không hợp lệ", variant: "destructive" }); return; }
-      const cleanVariants = form.variants.map((v) => ({ name: v.name, ...(v.priceAdjustment != null && !isNaN(v.priceAdjustment) ? { priceAdjustment: v.priceAdjustment } : {}) }));
+      const cleanVariants = form.variants.map((v) => ({
+        name: v.name,
+        ...(v.priceAdjustment != null && !isNaN(v.priceAdjustment) ? { priceAdjustment: v.priceAdjustment } : {}),
+        ...(v.stock != null && !isNaN(v.stock) ? { stock: v.stock } : {}),
+      }));
+      const hasVariantStock = cleanVariants.length > 0 && cleanVariants.every((v) => v.stock != null);
+      const stock = hasVariantStock
+        ? cleanVariants.reduce((s, v) => s + (v.stock ?? 0), 0)
+        : parseInt(form.stock) || 0;
       const data = { name: form.name, description: form.description || null, price, category: form.category, stock, isAvailable: form.isAvailable, orderType: form.orderType, imageUrl: form.imageUrl || null, tags: form.tags.length > 0 ? form.tags : null, variants: cleanVariants.length > 0 ? cleanVariants : null };
       if (editId) {
         updateProduct.mutate({ id: editId, data }, {
@@ -300,35 +307,47 @@ function ProductsTab() {
                 <p className="text-[10px] text-muted-foreground mt-0.5">Muvmuv, Lunar, Size S... — Giá điều chỉnh để trống = dùng giá gốc</p>
               </div>
               {form.variants.length > 0 && (
-                <div className="flex flex-wrap gap-1.5">
+                <div className="space-y-1.5">
                   {form.variants.map((v, idx) => {
                     const hasAdj = v.priceAdjustment != null && v.priceAdjustment !== 0;
                     const isPositive = (v.priceAdjustment ?? 0) > 0;
                     return (
-                      <span
-                        key={idx}
-                        className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full border transition-all ${
-                          hasAdj
-                            ? isPositive
-                              ? "bg-emerald-50 border-emerald-200 text-emerald-800"
-                              : "bg-red-50 border-red-200 text-red-800"
-                            : "bg-violet-50 border-violet-200 text-violet-800"
-                        }`}
-                      >
-                        {v.name}
-                        {hasAdj && (
-                          <span className={`font-bold ${isPositive ? "text-emerald-600" : "text-red-600"}`}>
-                            {isPositive ? "+" : ""}{new Intl.NumberFormat("vi-VN").format(v.priceAdjustment!)}₫
-                          </span>
-                        )}
+                      <div key={idx} className="flex items-center gap-2 bg-background rounded-xl px-3 py-1.5 border border-border">
+                        <div className="flex-1 min-w-0 flex items-center gap-1.5 flex-wrap">
+                          <span className="text-[11px] font-bold text-foreground">{v.name}</span>
+                          {hasAdj && (
+                            <span className={`text-[10px] font-bold ${isPositive ? "text-emerald-600" : "text-red-600"}`}>
+                              {isPositive ? "+" : ""}{new Intl.NumberFormat("vi-VN").format(v.priceAdjustment!)}₫
+                            </span>
+                          )}
+                          {v.stock != null && (
+                            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-primary/10 text-primary">kho: {v.stock}</span>
+                          )}
+                        </div>
+                        <Input
+                          type="number"
+                          min="0"
+                          value={v.stock != null ? String(v.stock) : ""}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setForm((f) => ({
+                              ...f,
+                              variants: f.variants.map((vv, i) =>
+                                i === idx ? { ...vv, stock: val === "" ? undefined : parseInt(val) } : vv
+                              ),
+                            }));
+                          }}
+                          placeholder="Kho"
+                          className="rounded-lg h-7 text-xs w-16 bg-muted/50 shrink-0"
+                        />
                         <button
                           type="button"
                           onClick={() => setForm((f) => ({ ...f, variants: f.variants.filter((_, i) => i !== idx) }))}
-                          className="ml-0.5 w-3.5 h-3.5 rounded-full flex items-center justify-center hover:bg-black/10 transition-colors text-current opacity-60 hover:opacity-100"
+                          className="w-5 h-5 rounded-full flex items-center justify-center hover:bg-red-100 text-muted-foreground hover:text-red-600 transition-colors shrink-0 text-base leading-none"
                         >
                           ×
                         </button>
-                      </span>
+                      </div>
                     );
                   })}
                 </div>
@@ -344,8 +363,10 @@ function ProductsTab() {
                       if (!name) return;
                       const adj = customVariantInput.priceAdjustment.trim();
                       const priceAdjustment = adj ? parseFloat(adj) : undefined;
-                      setForm((f) => ({ ...f, variants: [...f.variants, { name, priceAdjustment }] }));
-                      setCustomVariantInput({ name: "", priceAdjustment: "" });
+                      const stk = customVariantInput.stock.trim();
+                      const stock = stk ? parseInt(stk) : undefined;
+                      setForm((f) => ({ ...f, variants: [...f.variants, { name, priceAdjustment, stock }] }));
+                      setCustomVariantInput({ name: "", priceAdjustment: "", stock: "" });
                     }
                   }}
                   placeholder="Tên biến thể..."
@@ -356,7 +377,15 @@ function ProductsTab() {
                   onChange={(e) => setCustomVariantInput((s) => ({ ...s, priceAdjustment: e.target.value }))}
                   placeholder="± Giá"
                   type="number"
-                  className="rounded-xl h-8 text-xs w-24 bg-background"
+                  className="rounded-xl h-8 text-xs w-20 bg-background"
+                />
+                <Input
+                  value={customVariantInput.stock}
+                  onChange={(e) => setCustomVariantInput((s) => ({ ...s, stock: e.target.value }))}
+                  placeholder="Kho"
+                  type="number"
+                  min="0"
+                  className="rounded-xl h-8 text-xs w-16 bg-background"
                 />
                 <button
                   type="button"
@@ -365,8 +394,10 @@ function ProductsTab() {
                     if (!name) return;
                     const adj = customVariantInput.priceAdjustment.trim();
                     const priceAdjustment = adj ? parseFloat(adj) : undefined;
-                    setForm((f) => ({ ...f, variants: [...f.variants, { name, priceAdjustment }] }));
-                    setCustomVariantInput({ name: "", priceAdjustment: "" });
+                    const stk = customVariantInput.stock.trim();
+                    const stock = stk ? parseInt(stk) : undefined;
+                    setForm((f) => ({ ...f, variants: [...f.variants, { name, priceAdjustment, stock }] }));
+                    setCustomVariantInput({ name: "", priceAdjustment: "", stock: "" });
                   }}
                   className="shrink-0 h-8 px-3 rounded-xl text-xs font-bold bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
                 >
@@ -375,19 +406,33 @@ function ProductsTab() {
               </div>
             </div>
             <div><Label>Mô tả</Label><Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={2} className="rounded-xl mt-1" /></div>
-            <div className="grid grid-cols-2 gap-2">
-              <div><Label>Giá (VND) *</Label><Input type="number" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} className="rounded-xl mt-1" data-testid="input-product-price" /></div>
-              {form.orderType === "preorder" ? (
-                <div>
-                  <Label className="text-muted-foreground">Tồn kho</Label>
-                  <div className="rounded-xl mt-1 h-9 border border-dashed border-border bg-muted/30 flex items-center justify-center">
-                    <span className="text-[10px] text-muted-foreground">Không cần — Pre-order</span>
-                  </div>
+            {(() => {
+              const hasVariantStock = form.variants.length > 0 && form.variants.every((v) => v.stock != null && !isNaN(v.stock as number));
+              const autoStock = hasVariantStock ? form.variants.reduce((s, v) => s + (v.stock ?? 0), 0) : null;
+              return (
+                <div className="grid grid-cols-2 gap-2">
+                  <div><Label>Giá (VND) *</Label><Input type="number" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} className="rounded-xl mt-1" data-testid="input-product-price" /></div>
+                  {form.orderType === "preorder" ? (
+                    <div>
+                      <Label className="text-muted-foreground">Tồn kho</Label>
+                      <div className="rounded-xl mt-1 h-9 border border-dashed border-border bg-muted/30 flex items-center justify-center">
+                        <span className="text-[10px] text-muted-foreground">Không cần — Pre-order</span>
+                      </div>
+                    </div>
+                  ) : autoStock !== null ? (
+                    <div>
+                      <Label>Tồn kho tổng</Label>
+                      <div className="rounded-xl mt-1 h-9 border border-primary/30 bg-primary/5 flex items-center justify-between px-3">
+                        <span className="text-sm font-black text-primary">{autoStock}</span>
+                        <span className="text-[10px] text-primary/60 font-semibold">tự động từ biến thể</span>
+                      </div>
+                    </div>
+                  ) : (
+                    <div><Label>Tồn kho</Label><Input type="number" value={form.stock} onChange={(e) => setForm({ ...form, stock: e.target.value })} className="rounded-xl mt-1" /></div>
+                  )}
                 </div>
-              ) : (
-                <div><Label>Tồn kho</Label><Input type="number" value={form.stock} onChange={(e) => setForm({ ...form, stock: e.target.value })} className="rounded-xl mt-1" /></div>
-              )}
-            </div>
+              );
+            })()}
             <div className="grid grid-cols-2 gap-2">
               <div>
                 <Label>Danh mục</Label>
