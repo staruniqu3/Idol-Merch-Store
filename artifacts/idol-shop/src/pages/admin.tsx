@@ -211,12 +211,13 @@ function ProductsTab() {
       if (!form.name || !form.price) { toast({ title: "Vui lòng nhập đủ thông tin", variant: "destructive" }); return; }
       const price = parseFloat(form.price);
       if (isNaN(price)) { toast({ title: "Giá không hợp lệ", variant: "destructive" }); return; }
+      const isPreorder = form.orderType === "preorder";
       const cleanVariants = form.variants.map((v) => ({
         name: v.name,
         ...(v.priceAdjustment != null && !isNaN(v.priceAdjustment) ? { priceAdjustment: v.priceAdjustment } : {}),
-        ...(v.stock != null && !isNaN(v.stock) ? { stock: v.stock } : {}),
+        ...(!isPreorder && v.stock != null && !isNaN(v.stock) ? { stock: v.stock } : {}),
       }));
-      const hasVariantStock = cleanVariants.length > 0 && cleanVariants.every((v) => v.stock != null);
+      const hasVariantStock = !isPreorder && cleanVariants.length > 0 && cleanVariants.every((v) => v.stock != null);
       const stock = hasVariantStock
         ? cleanVariants.reduce((s, v) => s + (v.stock ?? 0), 0)
         : parseInt(form.stock) || 0;
@@ -324,22 +325,24 @@ function ProductsTab() {
                             <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-primary/10 text-primary">kho: {v.stock}</span>
                           )}
                         </div>
-                        <Input
-                          type="number"
-                          min="0"
-                          value={v.stock != null ? String(v.stock) : ""}
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            setForm((f) => ({
-                              ...f,
-                              variants: f.variants.map((vv, i) =>
-                                i === idx ? { ...vv, stock: val === "" ? undefined : parseInt(val) } : vv
-                              ),
-                            }));
-                          }}
-                          placeholder="Kho"
-                          className="rounded-lg h-7 text-xs w-16 bg-muted/50 shrink-0"
-                        />
+                        {form.orderType !== "preorder" && (
+                          <Input
+                            type="number"
+                            min="0"
+                            value={v.stock != null ? String(v.stock) : ""}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              setForm((f) => ({
+                                ...f,
+                                variants: f.variants.map((vv, i) =>
+                                  i === idx ? { ...vv, stock: val === "" ? undefined : parseInt(val) } : vv
+                                ),
+                              }));
+                            }}
+                            placeholder="Kho"
+                            className="rounded-lg h-7 text-xs w-16 bg-muted/50 shrink-0"
+                          />
+                        )}
                         <button
                           type="button"
                           onClick={() => setForm((f) => ({ ...f, variants: f.variants.filter((_, i) => i !== idx) }))}
@@ -379,14 +382,16 @@ function ProductsTab() {
                   type="number"
                   className="rounded-xl h-8 text-xs w-20 bg-background"
                 />
-                <Input
-                  value={customVariantInput.stock}
-                  onChange={(e) => setCustomVariantInput((s) => ({ ...s, stock: e.target.value }))}
-                  placeholder="Kho"
-                  type="number"
-                  min="0"
-                  className="rounded-xl h-8 text-xs w-16 bg-background"
-                />
+                {form.orderType !== "preorder" && (
+                  <Input
+                    value={customVariantInput.stock}
+                    onChange={(e) => setCustomVariantInput((s) => ({ ...s, stock: e.target.value }))}
+                    placeholder="Kho"
+                    type="number"
+                    min="0"
+                    className="rounded-xl h-8 text-xs w-16 bg-background"
+                  />
+                )}
                 <button
                   type="button"
                   onClick={() => {
@@ -407,7 +412,7 @@ function ProductsTab() {
             </div>
             <div><Label>Mô tả</Label><Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={2} className="rounded-xl mt-1" /></div>
             {(() => {
-              const hasVariantStock = form.variants.length > 0 && form.variants.every((v) => v.stock != null && !isNaN(v.stock as number));
+              const hasVariantStock = form.orderType !== "preorder" && form.variants.length > 0 && form.variants.every((v) => v.stock != null && !isNaN(v.stock as number));
               const autoStock = hasVariantStock ? form.variants.reduce((s, v) => s + (v.stock ?? 0), 0) : null;
               return (
                 <div className="grid grid-cols-2 gap-2">

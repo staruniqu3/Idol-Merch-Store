@@ -436,7 +436,9 @@ export default function ShopPage() {
                 <div className="flex flex-wrap gap-1 mt-2 items-center">
                   <span className="text-[10px] text-muted-foreground font-semibold shrink-0">Biến thể:</span>
                   {product.variants.map((v) => {
-                    const soldOut = v.stock != null && v.stock === 0;
+                    const trackStock = product.orderType !== "preorder";
+                    const soldOut = trackStock && v.stock != null && v.stock === 0;
+                    const lowStock = trackStock && v.stock != null && v.stock > 0 && v.stock <= 5;
                     return (
                       <span key={v.name} className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${soldOut ? "bg-red-50 text-red-400 border-red-200 line-through opacity-60" : "bg-muted text-foreground border-border"}`}>
                         {v.name}
@@ -446,7 +448,7 @@ export default function ShopPage() {
                           </span>
                         )}
                         {soldOut && <span className="ml-0.5">hết</span>}
-                        {v.stock != null && v.stock > 0 && v.stock <= 5 && (
+                        {lowStock && (
                           <span className="ml-0.5 text-orange-500 font-black">({v.stock})</span>
                         )}
                       </span>
@@ -484,8 +486,9 @@ export default function ShopPage() {
                 {variantPickerProduct.variants?.map((v) => {
                   const finalPrice = variantPickerProduct.price + (v.priceAdjustment ?? 0);
                   const hasAdj = v.priceAdjustment != null && v.priceAdjustment !== 0;
-                  const soldOut = v.stock != null && v.stock === 0;
-                  const lowStock = v.stock != null && v.stock > 0 && v.stock <= 5;
+                  const trackStock = variantPickerProduct.orderType !== "preorder";
+                  const soldOut = trackStock && v.stock != null && v.stock === 0;
+                  const lowStock = trackStock && v.stock != null && v.stock > 0 && v.stock <= 5;
                   return (
                     <button
                       key={v.name}
