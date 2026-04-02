@@ -17,4 +17,6 @@ export interface UpdateProductBody {
   stock?: number;
   isAvailable?: boolean;
   orderType?: string;
+  /** @nullable */
+  orderLabel?: string | null;
 }

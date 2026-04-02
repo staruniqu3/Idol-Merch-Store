@@ -9,7 +9,7 @@ import * as zod from "zod";
 
 export const VariantOption = zod.object({
   name: zod.string(),
-  priceAdjustment: zod.number().nullish(),
+  price: zod.number().nullish(),
   stock: zod.number().nullish(),
 });
 export type VariantOptionType = zod.infer<typeof VariantOption>;
@@ -39,6 +39,7 @@ export const ListProductsResponseItem = zod.object({
   stock: zod.number(),
   isAvailable: zod.boolean(),
   orderType: zod.string().describe("preorder or pickup"),
+  orderLabel: zod.string().nullish(),
   tags: zod.array(zod.string()).nullish(),
   variants: zod.array(VariantOption).nullish(),
   createdAt: zod.coerce.date(),
@@ -57,6 +58,7 @@ export const CreateProductBody = zod.object({
   stock: zod.number(),
   isAvailable: zod.boolean(),
   orderType: zod.string(),
+  orderLabel: zod.string().nullish(),
   tags: zod.array(zod.string()).nullish(),
   variants: zod.array(VariantOption).nullish(),
 });
@@ -78,6 +80,7 @@ export const GetProductResponse = zod.object({
   stock: zod.number(),
   isAvailable: zod.boolean(),
   orderType: zod.string().describe("preorder or pickup"),
+  orderLabel: zod.string().nullish(),
   tags: zod.array(zod.string()).nullish(),
   variants: zod.array(VariantOption).nullish(),
   createdAt: zod.coerce.date(),
@@ -99,6 +102,7 @@ export const UpdateProductBody = zod.object({
   stock: zod.number().optional(),
   isAvailable: zod.boolean().optional(),
   orderType: zod.string().optional(),
+  orderLabel: zod.string().nullish(),
   tags: zod.array(zod.string()).nullish(),
   variants: zod.array(VariantOption).nullish(),
 });
@@ -113,6 +117,7 @@ export const UpdateProductResponse = zod.object({
   stock: zod.number(),
   isAvailable: zod.boolean(),
   orderType: zod.string().describe("preorder or pickup"),
+  orderLabel: zod.string().nullish(),
   tags: zod.array(zod.string()).nullish(),
   variants: zod.array(VariantOption).nullish(),
   createdAt: zod.coerce.date(),

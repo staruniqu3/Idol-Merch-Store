@@ -22,6 +22,8 @@ export interface Product {
   isAvailable: boolean;
   /** preorder or pickup */
   orderType: string;
+  /** @nullable */
+  orderLabel?: string | null;
   createdAt: string;
 }
 
@@ -36,6 +38,8 @@ export interface CreateProductBody {
   stock: number;
   isAvailable: boolean;
   orderType: string;
+  /** @nullable */
+  orderLabel?: string | null;
 }
 
 export interface UpdateProductBody {
@@ -49,6 +53,8 @@ export interface UpdateProductBody {
   stock?: number;
   isAvailable?: boolean;
   orderType?: string;
+  /** @nullable */
+  orderLabel?: string | null;
 }
 
 export interface Order {

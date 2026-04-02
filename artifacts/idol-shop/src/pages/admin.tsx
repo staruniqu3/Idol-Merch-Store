@@ -155,10 +155,10 @@ function ProductsTab() {
   const { toast } = useToast();
   const [open, setOpen] = useState(false);
   const [editId, setEditId] = useState<number | null>(null);
-  type VariantDraft = { name: string; priceAdjustment?: number; stock?: number };
-  const [form, setForm] = useState({ name: "", description: "", price: "", category: "Kpop", stock: "0", isAvailable: true, orderType: "preorder", imageUrl: "", tags: [] as string[], variants: [] as VariantDraft[] });
+  type VariantDraft = { name: string; price?: number; stock?: number };
+  const [form, setForm] = useState({ name: "", description: "", price: "", category: "Kpop", stock: "0", isAvailable: true, orderType: "preorder", orderLabel: "", imageUrl: "", tags: [] as string[], variants: [] as VariantDraft[] });
   const [customTagInput, setCustomTagInput] = useState("");
-  const [customVariantInput, setCustomVariantInput] = useState({ name: "", priceAdjustment: "", stock: "" });
+  const [customVariantInput, setCustomVariantInput] = useState({ name: "", price: "", stock: "" });
   const [customCategoryInput, setCustomCategoryInput] = useState("");
   const [customCategories, setCustomCategories] = useState<string[]>(() => {
     try { return JSON.parse(localStorage.getItem("custom_categories") || "[]"); } catch { return []; }
@@ -191,7 +191,7 @@ function ProductsTab() {
     "Weverse Album", "Limited Edition", "Merch Bundle",
   ];
 
-  const resetForm = () => { setForm({ name: "", description: "", price: "", category: "Kpop", stock: "0", isAvailable: true, orderType: "preorder", imageUrl: "", tags: [], variants: [] }); setCustomTagInput(""); setCustomVariantInput({ name: "", priceAdjustment: "", stock: "" }); };
+  const resetForm = () => { setForm({ name: "", description: "", price: "", category: "Kpop", stock: "0", isAvailable: true, orderType: "preorder", orderLabel: "", imageUrl: "", tags: [], variants: [] }); setCustomTagInput(""); setCustomVariantInput({ name: "", price: "", stock: "" }); };
 
   const addCustomTag = () => {
     const tag = customTagInput.trim();
@@ -202,7 +202,7 @@ function ProductsTab() {
 
   const openEdit = (p: NonNullable<typeof products>[0]) => {
     setEditId(p.id);
-    setForm({ name: p.name, description: p.description ?? "", price: String(p.price), category: p.category, stock: String(p.stock), isAvailable: p.isAvailable, orderType: p.orderType, imageUrl: p.imageUrl ?? "", tags: p.tags ?? [], variants: p.variants ?? [] });
+    setForm({ name: p.name, description: p.description ?? "", price: String(p.price), category: p.category, stock: String(p.stock), isAvailable: p.isAvailable, orderType: p.orderType, orderLabel: (p as any).orderLabel ?? "", imageUrl: p.imageUrl ?? "", tags: p.tags ?? [], variants: (p.variants ?? []).map((v: any) => ({ name: v.name, price: v.price ?? undefined, stock: v.stock ?? undefined })) });
     setOpen(true);
   };
 
@@ -214,14 +214,14 @@ function ProductsTab() {
       const isPreorder = form.orderType === "preorder";
       const cleanVariants = form.variants.map((v) => ({
         name: v.name,
-        ...(v.priceAdjustment != null && !isNaN(v.priceAdjustment) ? { priceAdjustment: v.priceAdjustment } : {}),
+        ...(v.price != null && !isNaN(v.price) ? { price: v.price } : {}),
         ...(!isPreorder && v.stock != null && !isNaN(v.stock) ? { stock: v.stock } : {}),
       }));
       const hasVariantStock = !isPreorder && cleanVariants.length > 0 && cleanVariants.every((v) => v.stock != null);
       const stock = hasVariantStock
         ? cleanVariants.reduce((s, v) => s + (v.stock ?? 0), 0)
         : parseInt(form.stock) || 0;
-      const data = { name: form.name, description: form.description || null, price, category: form.category, stock, isAvailable: form.isAvailable, orderType: form.orderType, imageUrl: form.imageUrl || null, tags: form.tags.length > 0 ? form.tags : null, variants: cleanVariants.length > 0 ? cleanVariants : null };
+      const data = { name: form.name, description: form.description || null, price, category: form.category, stock, isAvailable: form.isAvailable, orderType: form.orderType, orderLabel: form.orderLabel.trim() || null, imageUrl: form.imageUrl || null, tags: form.tags.length > 0 ? form.tags : null, variants: cleanVariants.length > 0 ? cleanVariants : null };
       if (editId) {
         updateProduct.mutate({ id: editId, data }, {
           onSuccess: () => { queryClient.invalidateQueries({ queryKey: getListProductsQueryKey() }); setOpen(false); resetForm(); setEditId(null); toast({ title: "Đã cập nhật sản phẩm" }); },
@@ -305,20 +305,18 @@ function ProductsTab() {
             <div className="rounded-2xl border border-border bg-muted/40 p-3 space-y-3">
               <div>
                 <p className="text-sm font-semibold">Biến thể</p>
-                <p className="text-[10px] text-muted-foreground mt-0.5">Muvmuv, Lunar, Size S... — Giá điều chỉnh để trống = dùng giá gốc</p>
+                <p className="text-[10px] text-muted-foreground mt-0.5">Muvmuv, Lunar, Size S... — nhập giá tuyệt đối cho từng biến thể (để trống = dùng giá gốc)</p>
               </div>
               {form.variants.length > 0 && (
                 <div className="space-y-1.5">
                   {form.variants.map((v, idx) => {
-                    const hasAdj = v.priceAdjustment != null && v.priceAdjustment !== 0;
-                    const isPositive = (v.priceAdjustment ?? 0) > 0;
                     return (
                       <div key={idx} className="flex items-center gap-2 bg-background rounded-xl px-3 py-1.5 border border-border">
                         <div className="flex-1 min-w-0 flex items-center gap-1.5 flex-wrap">
                           <span className="text-[11px] font-bold text-foreground">{v.name}</span>
-                          {hasAdj && (
-                            <span className={`text-[10px] font-bold ${isPositive ? "text-emerald-600" : "text-red-600"}`}>
-                              {isPositive ? "+" : ""}{new Intl.NumberFormat("vi-VN").format(v.priceAdjustment!)}₫
+                          {v.price != null && (
+                            <span className="text-[10px] font-bold text-primary">
+                              {new Intl.NumberFormat("vi-VN").format(v.price)}₫
                             </span>
                           )}
                           {v.stock != null && (
@@ -364,23 +362,23 @@ function ProductsTab() {
                       e.preventDefault();
                       const name = customVariantInput.name.trim();
                       if (!name) return;
-                      const adj = customVariantInput.priceAdjustment.trim();
-                      const priceAdjustment = adj ? parseFloat(adj) : undefined;
+                      const p = customVariantInput.price.trim();
+                      const price = p ? parseFloat(p) : undefined;
                       const stk = customVariantInput.stock.trim();
                       const stock = stk ? parseInt(stk) : undefined;
-                      setForm((f) => ({ ...f, variants: [...f.variants, { name, priceAdjustment, stock }] }));
-                      setCustomVariantInput({ name: "", priceAdjustment: "", stock: "" });
+                      setForm((f) => ({ ...f, variants: [...f.variants, { name, price, stock }] }));
+                      setCustomVariantInput({ name: "", price: "", stock: "" });
                     }
                   }}
                   placeholder="Tên biến thể..."
                   className="rounded-xl h-8 text-xs flex-1 bg-background"
                 />
                 <Input
-                  value={customVariantInput.priceAdjustment}
-                  onChange={(e) => setCustomVariantInput((s) => ({ ...s, priceAdjustment: e.target.value }))}
-                  placeholder="± Giá"
+                  value={customVariantInput.price}
+                  onChange={(e) => setCustomVariantInput((s) => ({ ...s, price: e.target.value }))}
+                  placeholder="Giá (VND)"
                   type="number"
-                  className="rounded-xl h-8 text-xs w-20 bg-background"
+                  className="rounded-xl h-8 text-xs w-28 bg-background"
                 />
                 {form.orderType !== "preorder" && (
                   <Input
@@ -397,12 +395,12 @@ function ProductsTab() {
                   onClick={() => {
                     const name = customVariantInput.name.trim();
                     if (!name) return;
-                    const adj = customVariantInput.priceAdjustment.trim();
-                    const priceAdjustment = adj ? parseFloat(adj) : undefined;
+                    const p = customVariantInput.price.trim();
+                    const price = p ? parseFloat(p) : undefined;
                     const stk = customVariantInput.stock.trim();
                     const stock = stk ? parseInt(stk) : undefined;
-                    setForm((f) => ({ ...f, variants: [...f.variants, { name, priceAdjustment, stock }] }));
-                    setCustomVariantInput({ name: "", priceAdjustment: "", stock: "" });
+                    setForm((f) => ({ ...f, variants: [...f.variants, { name, price, stock }] }));
+                    setCustomVariantInput({ name: "", price: "", stock: "" });
                   }}
                   className="shrink-0 h-8 px-3 rounded-xl text-xs font-bold bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
                 >
@@ -476,7 +474,7 @@ function ProductsTab() {
                 </div>
               </div>
               <div>
-                <Label>Loại</Label>
+                <Label>Loại đặt hàng</Label>
                 <Select value={form.orderType} onValueChange={(v) => setForm({ ...form, orderType: v })}>
                   <SelectTrigger className="rounded-xl mt-1"><SelectValue /></SelectTrigger>
                   <SelectContent>
@@ -486,6 +484,16 @@ function ProductsTab() {
                   </SelectContent>
                 </Select>
               </div>
+            </div>
+            <div>
+              <Label>Tên loại (hiển thị)</Label>
+              <Input
+                value={form.orderLabel}
+                onChange={(e) => setForm({ ...form, orderLabel: e.target.value })}
+                placeholder={form.orderType === "preorder" ? "vd: Mở PO, Flash Sale..." : form.orderType === "pickup" ? "vd: Pickup tháng 5..." : "vd: Deal Flash, Hàng về..."}
+                className="rounded-xl mt-1"
+              />
+              <p className="text-[10px] text-muted-foreground mt-1">Hiện như badge trên card sản phẩm — để trống sẽ hiện loại mặc định</p>
             </div>
             <div><Label>URL ảnh</Label><Input value={form.imageUrl} onChange={(e) => setForm({ ...form, imageUrl: e.target.value })} placeholder="https://..." className="rounded-xl mt-1" /></div>
             <div className="flex items-center gap-3 py-1">
@@ -506,9 +514,18 @@ function ProductsTab() {
             <div className="flex-1 min-w-0">
               <p className="font-bold text-sm truncate">{p.name}</p>
               <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                <span className="text-xs text-primary font-bold">{formatPrice(p.price)}</span>
+                {(() => {
+                  const vPrices = (p.variants ?? []).map((v) => (v as any).price).filter((x: any) => x != null) as number[];
+                  if (vPrices.length >= 2) {
+                    const mn = Math.min(...vPrices), mx = Math.max(...vPrices);
+                    return <span className="text-xs text-primary font-bold">{formatPrice(mn)} – {formatPrice(mx)}</span>;
+                  }
+                  return <span className="text-xs text-primary font-bold">{formatPrice(vPrices[0] ?? p.price)}</span>;
+                })()}
                 <span className="text-xs text-muted-foreground">Kho: {p.stock}</span>
-                <span className="text-[10px] bg-secondary/10 text-secondary px-1.5 py-0.5 rounded-full font-semibold">{p.orderType}</span>
+                <span className="text-[10px] bg-secondary/10 text-secondary px-1.5 py-0.5 rounded-full font-semibold">
+                  {(p as any).orderLabel ?? p.orderType}
+                </span>
                 {!p.isAvailable && <Badge variant="secondary" className="text-[10px] bg-red-50 text-red-600">Tắt</Badge>}
               </div>
               {p.tags && p.tags.length > 0 && (

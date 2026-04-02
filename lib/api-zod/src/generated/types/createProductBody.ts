@@ -17,4 +17,6 @@ export interface CreateProductBody {
   stock: number;
   isAvailable: boolean;
   orderType: string;
+  /** @nullable */
+  orderLabel?: string | null;
 }

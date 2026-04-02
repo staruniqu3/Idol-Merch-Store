@@ -396,33 +396,58 @@ export default function ShopPage() {
           >
             <div className="flex-1 min-w-0">
               {/* Row 1: badges */}
-              <div className="flex items-center gap-1.5 flex-wrap mb-1">
-                <Badge className={`text-[10px] border font-bold px-2 py-0 shrink-0 ${orderTypeBadgeClass[product.orderType] ?? ""}`} variant="outline">
-                  {orderTypeLabel[product.orderType] ?? product.orderType}
-                </Badge>
-                {product.orderType !== "preorder" && product.stock <= 5 && product.stock > 0 && (
-                  <Badge className="text-[10px] bg-red-100 text-red-600 border-red-200 font-bold px-2 py-0 shrink-0" variant="outline">
-                    Gần hết
-                  </Badge>
-                )}
-              </div>
-              {/* Row 2: name */}
-              <p className="text-sm font-bold leading-snug text-foreground">{product.name}</p>
-              {/* Row 3: price + stock */}
-              <div className="flex items-center gap-2 mt-1">
-                <span className="text-primary font-black text-base">{formatPrice(product.price)}</span>
-                {product.orderType !== "preorder" && (
-                  <span className={`text-[11px] font-bold px-2 py-0.5 rounded-lg ${
-                    product.stock <= 5
-                      ? "bg-red-100 text-red-600"
-                      : product.stock <= 15
-                        ? "bg-amber-100 text-amber-700"
-                        : "bg-emerald-100 text-emerald-700"
-                  }`}>
-                    Còn {product.stock}
-                  </span>
-                )}
-              </div>
+              {(() => {
+                const variantPrices = (product.variants ?? []).map((v) => (v as any).price).filter((p) => p != null) as number[];
+                const hasRange = variantPrices.length >= 2;
+                const minP = hasRange ? Math.min(...variantPrices) : null;
+                const maxP = hasRange ? Math.max(...variantPrices) : null;
+                const singleVariantPrice = variantPrices.length === 1 ? variantPrices[0] : null;
+                const label = (product as any).orderLabel as string | null;
+                return (
+                  <>
+                    <div className="flex items-center gap-1.5 flex-wrap mb-1">
+                      <Badge className={`text-[10px] border font-bold px-2 py-0 shrink-0 ${orderTypeBadgeClass[product.orderType] ?? ""}`} variant="outline">
+                        {label ?? (orderTypeLabel[product.orderType] ?? product.orderType)}
+                      </Badge>
+                      {label && (
+                        <Badge className="text-[10px] border-border text-muted-foreground font-semibold px-2 py-0 shrink-0" variant="outline">
+                          {orderTypeLabel[product.orderType] ?? product.orderType}
+                        </Badge>
+                      )}
+                      {product.orderType !== "preorder" && product.stock <= 5 && product.stock > 0 && (
+                        <Badge className="text-[10px] bg-red-100 text-red-600 border-red-200 font-bold px-2 py-0 shrink-0" variant="outline">
+                          Gần hết
+                        </Badge>
+                      )}
+                    </div>
+                    {/* Row 2: name */}
+                    <p className="text-sm font-bold leading-snug text-foreground">{product.name}</p>
+                    {/* Row 3: price + stock */}
+                    <div className="flex items-center gap-2 mt-1">
+                      {hasRange ? (
+                        <span className="text-primary font-black text-base">
+                          {formatPrice(minP!)} – {formatPrice(maxP!)}
+                        </span>
+                      ) : (
+                        <span className="text-primary font-black text-base">
+                          {formatPrice(singleVariantPrice ?? Number(product.price))}
+                        </span>
+                      )}
+                      {product.orderType !== "preorder" && (
+                        <span className={`text-[11px] font-bold px-2 py-0.5 rounded-lg ${
+                          product.stock <= 5
+                            ? "bg-red-100 text-red-600"
+                            : product.stock <= 15
+                              ? "bg-amber-100 text-amber-700"
+                              : "bg-emerald-100 text-emerald-700"
+                        }`}>
+                          Còn {product.stock}
+                        </span>
+                      )}
+                    </div>
+                  </>
+                );
+              })()}
               {/* Row 4: tags */}
               {product.tags && product.tags.length > 0 && (
                 <div className="flex flex-wrap gap-1 mt-2">
@@ -436,15 +461,16 @@ export default function ShopPage() {
                 <div className="flex flex-wrap gap-1 mt-2 items-center">
                   <span className="text-[10px] text-muted-foreground font-semibold shrink-0">Biến thể:</span>
                   {product.variants.map((v) => {
+                    const vAny = v as any;
                     const trackStock = product.orderType !== "preorder";
                     const soldOut = trackStock && v.stock != null && v.stock === 0;
                     const lowStock = trackStock && v.stock != null && v.stock > 0 && v.stock <= 5;
                     return (
                       <span key={v.name} className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${soldOut ? "bg-red-50 text-red-400 border-red-200 line-through opacity-60" : "bg-muted text-foreground border-border"}`}>
                         {v.name}
-                        {v.priceAdjustment != null && v.priceAdjustment !== 0 && !soldOut && (
-                          <span className={`ml-0.5 font-bold ${v.priceAdjustment > 0 ? "text-emerald-600" : "text-destructive"}`}>
-                            {v.priceAdjustment > 0 ? "+" : ""}{new Intl.NumberFormat("vi-VN").format(v.priceAdjustment)}₫
+                        {vAny.price != null && !soldOut && (
+                          <span className="ml-0.5 font-bold text-primary">
+                            {new Intl.NumberFormat("vi-VN", { notation: "compact", maximumFractionDigits: 0 }).format(vAny.price)}đ
                           </span>
                         )}
                         {soldOut && <span className="ml-0.5">hết</span>}
@@ -480,12 +506,11 @@ export default function ShopPage() {
             <div className="space-y-3">
               <div>
                 <p className="text-sm font-bold line-clamp-2">{variantPickerProduct.name}</p>
-                <p className="text-xs text-primary font-black mt-0.5">{formatPrice(variantPickerProduct.price)} (giá gốc)</p>
               </div>
               <div className="flex flex-wrap gap-2">
                 {variantPickerProduct.variants?.map((v) => {
-                  const finalPrice = variantPickerProduct.price + (v.priceAdjustment ?? 0);
-                  const hasAdj = v.priceAdjustment != null && v.priceAdjustment !== 0;
+                  const vAny = v as any;
+                  const finalPrice = vAny.price != null ? vAny.price : Number(variantPickerProduct.price);
                   const trackStock = variantPickerProduct.orderType !== "preorder";
                   const soldOut = trackStock && v.stock != null && v.stock === 0;
                   const lowStock = trackStock && v.stock != null && v.stock > 0 && v.stock <= 5;
@@ -503,15 +528,8 @@ export default function ShopPage() {
                       <span className={`text-sm font-bold ${soldOut ? "line-through" : ""}`}>{v.name}</span>
                       {soldOut ? (
                         <span className="text-[10px] font-semibold text-red-400">Hết hàng</span>
-                      ) : hasAdj ? (
-                        <span className="text-[10px] font-semibold opacity-80">
-                          {formatPrice(finalPrice)}
-                          <span className={`ml-1 ${(v.priceAdjustment ?? 0) > 0 ? "text-emerald-600" : "text-destructive"}`}>
-                            ({(v.priceAdjustment ?? 0) > 0 ? "+" : ""}{new Intl.NumberFormat("vi-VN").format(v.priceAdjustment ?? 0)}₫)
-                          </span>
-                        </span>
                       ) : (
-                        <span className="text-[10px] font-semibold opacity-60">{formatPrice(finalPrice)}</span>
+                        <span className="text-[10px] font-semibold opacity-80">{formatPrice(finalPrice)}</span>
                       )}
                       {lowStock && <span className="text-[9px] font-black text-orange-500 mt-0.5">còn {v.stock}</span>}
                     </button>
