@@ -476,7 +476,7 @@ export default function ShopPage() {
                         {v.name}
                         {vAny.price != null && !soldOut && (
                           <span className="ml-0.5 font-bold text-primary">
-                            {new Intl.NumberFormat("vi-VN", { notation: "compact", maximumFractionDigits: 0 }).format(vAny.price)}đ
+                            {vAny.price >= 1000 ? `${Math.round(vAny.price / 1000)}K` : `${vAny.price}đ`}
                           </span>
                         )}
                         {soldOut && <span className="ml-0.5">hết</span>}
