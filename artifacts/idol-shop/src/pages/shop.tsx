@@ -403,6 +403,7 @@ export default function ShopPage() {
                 const maxP = hasRange ? Math.max(...variantPrices) : null;
                 const singleVariantPrice = variantPrices.length === 1 ? variantPrices[0] : null;
                 const label = (product as any).orderLabel as string | null;
+                const oName = (product as any).orderName as string | null;
                 return (
                   <>
                     <div className="flex items-center gap-1.5 flex-wrap mb-1">
@@ -422,6 +423,7 @@ export default function ShopPage() {
                     </div>
                     {/* Row 2: name */}
                     <p className="text-sm font-bold leading-snug text-foreground">{product.name}</p>
+                    {oName && <p className="text-[10px] text-muted-foreground font-medium mt-0.5 truncate">{oName}</p>}
                     {/* Row 3: price + stock */}
                     <div className="flex items-center gap-2 mt-1">
                       {hasRange ? (

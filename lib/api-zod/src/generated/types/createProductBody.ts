@@ -19,4 +19,6 @@ export interface CreateProductBody {
   orderType: string;
   /** @nullable */
   orderLabel?: string | null;
+  /** @nullable */
+  orderName?: string | null;
 }

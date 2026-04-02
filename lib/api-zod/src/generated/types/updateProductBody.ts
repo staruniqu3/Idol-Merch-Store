@@ -19,4 +19,6 @@ export interface UpdateProductBody {
   orderType?: string;
   /** @nullable */
   orderLabel?: string | null;
+  /** @nullable */
+  orderName?: string | null;
 }

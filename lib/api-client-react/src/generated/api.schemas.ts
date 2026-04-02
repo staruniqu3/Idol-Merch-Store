@@ -24,6 +24,8 @@ export interface Product {
   orderType: string;
   /** @nullable */
   orderLabel?: string | null;
+  /** @nullable */
+  orderName?: string | null;
   createdAt: string;
 }
 
@@ -40,6 +42,8 @@ export interface CreateProductBody {
   orderType: string;
   /** @nullable */
   orderLabel?: string | null;
+  /** @nullable */
+  orderName?: string | null;
 }
 
 export interface UpdateProductBody {
@@ -55,6 +59,8 @@ export interface UpdateProductBody {
   orderType?: string;
   /** @nullable */
   orderLabel?: string | null;
+  /** @nullable */
+  orderName?: string | null;
 }
 
 export interface Order {
