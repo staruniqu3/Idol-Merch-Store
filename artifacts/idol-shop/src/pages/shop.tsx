@@ -34,12 +34,14 @@ const orderTypeLabel: Record<string, string> = {
   preorder: "Pre-order",
   pickup: "Pickup",
   instock: "Hàng sẵn",
+  prestock: "Hàng đặt trước",
 };
 
 const orderTypeBadgeClass: Record<string, string> = {
   preorder: "bg-primary/15 text-primary border-primary/20",
   pickup: "bg-emerald-100 text-emerald-700 border-emerald-200",
   instock: "bg-amber-100 text-amber-700 border-amber-200",
+  prestock: "bg-violet-100 text-violet-700 border-violet-200",
 };
 
 function formatPrice(price: number) {
