@@ -7,6 +7,7 @@ import shippingRouter from "./shipping";
 import rewardsRouter from "./rewards";
 import preorderRouter from "./preorder";
 import sheetsRouter from "./sheets";
+import noticesRouter from "./notices";
 
 const router: IRouter = Router();
 
@@ -18,5 +19,6 @@ router.use(shippingRouter);
 router.use(rewardsRouter);
 router.use(preorderRouter);
 router.use(sheetsRouter);
+router.use(noticesRouter);
 
 export default router;

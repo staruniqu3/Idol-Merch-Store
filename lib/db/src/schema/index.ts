@@ -4,3 +4,4 @@ export * from "./orders";
 export * from "./shipping";
 export * from "./rewards";
 export * from "./preorder";
+export * from "./notices";

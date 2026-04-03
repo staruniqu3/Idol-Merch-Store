@@ -63,6 +63,7 @@ artifacts-monorepo/
 - `shipping_updates` - Shipping timeline posts
 - `rewards` - Redeemable gifts (pointsCost, stock)
 - `redemptions` - Reward redemption history
+- `notices` - Admin announcements (title, content, type: general|looking, isPinned)
 
 ## Tier System
 

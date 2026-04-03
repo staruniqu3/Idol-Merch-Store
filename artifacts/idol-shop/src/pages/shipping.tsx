@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useListShippingUpdates } from "@workspace/api-client-react";
-import { Truck, Package, CheckCircle, Clock, ChevronRight, X, MapPin, Calendar, Search, Hash, ExternalLink } from "lucide-react";
+import { Truck, Package, CheckCircle, Clock, ChevronRight, X, MapPin, Calendar, Search, Hash, ExternalLink, Bell, Pin } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 
@@ -202,6 +202,8 @@ function formatVND(n: number) {
   return new Intl.NumberFormat("vi-VN").format(n) + "đ";
 }
 
+type NoticeItem = { id: number; title: string; content: string; type: string; isPinned: boolean; createdAt: string };
+
 export default function ShippingPage() {
   const { data: updates, isLoading: updatesLoading } = useListShippingUpdates();
   const [selected, setSelected] = useState<Update | null>(null);
@@ -211,6 +213,8 @@ export default function ShippingPage() {
   const [lookupResults, setLookupResults] = useState<TrackingResult[] | null>(null);
   const [lookupLoading, setLookupLoading] = useState(false);
   const [lookupError, setLookupError] = useState("");
+  const [notices, setNotices] = useState<NoticeItem[]>([]);
+  const [expandedNotice, setExpandedNotice] = useState<number | null>(null);
 
   const handleTrackingLookup = async () => {
     if (!lookupPhone.trim()) return;
@@ -237,6 +241,13 @@ export default function ShippingPage() {
       .then((r) => r.ok ? r.json() : [])
       .then((data) => { setSheetData(Array.isArray(data) ? data : []); setSheetLoading(false); })
       .catch(() => setSheetLoading(false));
+  }, []);
+
+  useEffect(() => {
+    fetch(`${getBaseUrl()}/api/notices`, { cache: "no-store" })
+      .then((r) => r.ok ? r.json() : [])
+      .then((data) => setNotices(Array.isArray(data) ? data : []))
+      .catch(() => {});
   }, []);
 
   const sorted = updates ? [...updates].reverse() : [];
@@ -470,6 +481,52 @@ export default function ShippingPage() {
           </div>
         )}
       </div>
+
+      {/* Notices section */}
+      {notices.length > 0 && (
+        <div className="px-4 pb-6">
+          <div className="flex items-center gap-2 mb-3">
+            <Bell size={14} className="text-rose-500" />
+            <h2 className="text-sm font-bold text-foreground">Thông báo</h2>
+            <span className="text-[10px] bg-rose-100 text-rose-600 font-bold px-1.5 py-0.5 rounded-full">{notices.length}</span>
+          </div>
+          <div className="space-y-2">
+            {notices.map((n) => {
+              const isExpanded = expandedNotice === n.id;
+              const typeCfg: Record<string, { label: string; cls: string }> = {
+                general: { label: "📣 Thông báo", cls: "bg-primary/10 text-primary" },
+                looking: { label: "🔍 Tìm khách", cls: "bg-rose-100 text-rose-600" },
+              };
+              const tc = typeCfg[n.type] ?? { label: n.type, cls: "bg-muted text-muted-foreground" };
+              return (
+                <button
+                  key={n.id}
+                  className={`w-full bg-card border rounded-2xl p-4 text-left transition-all active:scale-[0.99] ${n.isPinned ? "border-primary/30 ring-1 ring-primary/20" : "border-border"}`}
+                  onClick={() => setExpandedNotice(isExpanded ? null : n.id)}
+                >
+                  <div className="flex items-start gap-3">
+                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 text-base ${n.type === "looking" ? "bg-rose-100" : "bg-primary/10"}`}>
+                      {n.type === "looking" ? "🔍" : "📣"}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5 mb-0.5 flex-wrap">
+                        {n.isPinned && <Pin size={10} className="text-primary shrink-0" />}
+                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${tc.cls}`}>{tc.label}</span>
+                        <span className="text-[10px] text-muted-foreground">{new Date(n.createdAt).toLocaleDateString("vi-VN")}</span>
+                      </div>
+                      <p className="font-bold text-sm">{n.title}</p>
+                      <p className={`text-xs text-muted-foreground mt-1 ${isExpanded ? "" : "line-clamp-2"}`}>{n.content}</p>
+                      {!isExpanded && n.content.length > 100 && (
+                        <span className="text-[11px] text-primary font-semibold mt-0.5 inline-block">Xem thêm...</span>
+                      )}
+                    </div>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {selected && <ShippingModal update={selected} onClose={() => setSelected(null)} />}
     </div>

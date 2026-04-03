@@ -10,7 +10,7 @@ import {
 } from "@workspace/api-client-react";
 import {
   Shield, Package, ShoppingBag, Truck, Users, Gift, LogOut, Plus, Pencil, Trash2, ChevronDown,
-  TrendingUp, Star, Calendar, X, Check, BarChart3, Sparkles,
+  TrendingUp, Star, Calendar, X, Check, BarChart3, Sparkles, Bell, Pin,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -1438,6 +1438,143 @@ function RewardsTab() {
   );
 }
 
+// ===================== Notices Tab =====================
+type NoticeItem = { id: number; title: string; content: string; type: string; isPinned: boolean; createdAt: string };
+
+function NoticesTab() {
+  const [notices, setNotices] = useState<NoticeItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [open, setOpen] = useState(false);
+  const [form, setForm] = useState({ title: "", content: "", type: "general", isPinned: false });
+  const { toast } = useToast();
+
+  function getBaseUrl() { const b = import.meta.env.BASE_URL ?? "/"; return b.replace(/\/$/, ""); }
+
+  const load = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch(`${getBaseUrl()}/api/notices`, { cache: "no-store" });
+      const data = await res.json();
+      setNotices(Array.isArray(data) ? data : []);
+    } catch { /* ignore */ }
+    finally { setLoading(false); }
+  };
+
+  useEffect(() => { load(); }, []);
+
+  const handleCreate = async () => {
+    if (!form.title.trim() || !form.content.trim()) { toast({ title: "Vui lòng nhập tiêu đề và nội dung", variant: "destructive" }); return; }
+    try {
+      const res = await fetch(`${getBaseUrl()}/api/notices`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(form),
+      });
+      if (!res.ok) throw new Error();
+      toast({ title: "Đã đăng thông báo" });
+      setOpen(false);
+      setForm({ title: "", content: "", type: "general", isPinned: false });
+      load();
+    } catch { toast({ title: "Lỗi khi đăng thông báo", variant: "destructive" }); }
+  };
+
+  const handleDelete = async (id: number) => {
+    try {
+      await fetch(`${getBaseUrl()}/api/notices/${id}`, { method: "DELETE" });
+      toast({ title: "Đã xoá thông báo" });
+      load();
+    } catch { toast({ title: "Lỗi khi xoá", variant: "destructive" }); }
+  };
+
+  const handleTogglePin = async (n: NoticeItem) => {
+    try {
+      await fetch(`${getBaseUrl()}/api/notices/${n.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isPinned: !n.isPinned }),
+      });
+      load();
+    } catch { /* ignore */ }
+  };
+
+  const typeLabel: Record<string, string> = { general: "Thông báo", looking: "Tìm khách" };
+  const typeBg: Record<string, string> = { general: "bg-primary/10 text-primary", looking: "bg-rose-100 text-rose-600" };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h3 className="font-bold flex items-center gap-2"><Bell size={15} className="text-primary" />Thông báo ({notices.length})</h3>
+        <Button size="sm" className="rounded-xl" onClick={() => { setForm({ title: "", content: "", type: "general", isPinned: false }); setOpen(true); }}>
+          <Plus size={14} className="mr-1" />Đăng thông báo
+        </Button>
+      </div>
+
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="rounded-2xl">
+          <DialogHeader><DialogTitle>Đăng thông báo mới</DialogTitle></DialogHeader>
+          <div className="space-y-3 mt-2">
+            <div>
+              <Label>Loại thông báo</Label>
+              <div className="flex gap-2 mt-1">
+                {[{ value: "general", label: "📣 Thông báo chung" }, { value: "looking", label: "🔍 Tìm khách" }].map((t) => (
+                  <button
+                    key={t.value}
+                    type="button"
+                    onClick={() => setForm({ ...form, type: t.value })}
+                    className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold border transition-all ${form.type === t.value ? "bg-primary text-white border-primary" : "bg-card border-border text-muted-foreground"}`}
+                  >{t.label}</button>
+                ))}
+              </div>
+            </div>
+            <div><Label>Tiêu đề *</Label><Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="VD: Thông báo lô hàng, Tìm chủ đơn 0912..." className="rounded-xl mt-1" /></div>
+            <div><Label>Nội dung *</Label><Textarea value={form.content} onChange={(e) => setForm({ ...form, content: e.target.value })} rows={4} placeholder="Nhập nội dung thông báo..." className="rounded-xl mt-1" /></div>
+            <div className="flex items-center gap-2">
+              <input type="checkbox" id="pin" checked={form.isPinned} onChange={(e) => setForm({ ...form, isPinned: e.target.checked })} className="rounded" />
+              <Label htmlFor="pin" className="cursor-pointer">Ghim thông báo lên đầu</Label>
+            </div>
+            <Button className="w-full rounded-xl" onClick={handleCreate}>Đăng</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {loading && <div className="space-y-2">{Array.from({ length: 2 }).map((_, i) => <div key={i} className="h-20 bg-muted/50 rounded-2xl animate-pulse" />)}</div>}
+
+      {!loading && notices.length === 0 && (
+        <div className="text-center py-12 text-muted-foreground">
+          <Bell size={32} className="mx-auto mb-3 opacity-30" />
+          <p className="text-sm">Chưa có thông báo nào</p>
+        </div>
+      )}
+
+      <div className="space-y-2">
+        {notices.map((n) => (
+          <div key={n.id} className={`bg-card border rounded-2xl p-4 ${n.isPinned ? "border-primary/30 ring-1 ring-primary/20" : "border-border"}`}>
+            <div className="flex items-start justify-between gap-2">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 mb-1 flex-wrap">
+                  {n.isPinned && <Pin size={11} className="text-primary shrink-0" />}
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${typeBg[n.type] ?? "bg-muted text-muted-foreground"}`}>{typeLabel[n.type] ?? n.type}</span>
+                  <span className="text-[10px] text-muted-foreground">{new Date(n.createdAt).toLocaleDateString("vi-VN")}</span>
+                </div>
+                <p className="font-bold text-sm">{n.title}</p>
+                <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{n.content}</p>
+              </div>
+              <div className="flex items-center gap-1 shrink-0">
+                <Button variant="ghost" size="icon" className={`h-8 w-8 rounded-xl ${n.isPinned ? "text-primary" : "text-muted-foreground"}`} onClick={() => handleTogglePin(n)} title={n.isPinned ? "Bỏ ghim" : "Ghim"}>
+                  <Pin size={13} />
+                </Button>
+                <Button variant="ghost" size="icon" className="h-8 w-8 rounded-xl text-destructive" onClick={() => handleDelete(n.id)}>
+                  <Trash2 size={13} />
+                </Button>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ===================== Main Admin =====================
 const tabs = [
   { id: "dashboard", label: "Tổng quan", icon: BarChart3 },
@@ -1448,6 +1585,7 @@ const tabs = [
   { id: "preorder", label: "Pre-order", icon: Calendar },
   { id: "members", label: "Thành viên", icon: Users },
   { id: "rewards", label: "Quà tặng", icon: Gift },
+  { id: "notices", label: "Thông báo", icon: Bell },
 ];
 
 export default function AdminPage() {
@@ -1517,6 +1655,7 @@ export default function AdminPage() {
         {activeTab === "preorder" && <PreorderTab />}
         {activeTab === "members" && <MembersTab />}
         {activeTab === "rewards" && <RewardsTab />}
+        {activeTab === "notices" && <NoticesTab />}
       </div>
     </div>
   );
