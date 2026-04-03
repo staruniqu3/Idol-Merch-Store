@@ -94,7 +94,7 @@ const statusConfig: Record<string, {
 function getTrackingUrl(carrier: string, trackingCode: string): string {
   const c = carrier.toLowerCase();
   if (c.includes("spx") || c.includes("shopee")) {
-    return `https://spx.vn/tracking?trackingNo=${trackingCode}`;
+    return `https://spx.vn/track?trackingNo=${trackingCode}`;
   }
   if (c.includes("ghtk") || c.includes("tiết kiệm")) {
     return `https://i.ghtk.vn/${trackingCode}`;
@@ -405,7 +405,7 @@ export default function ShippingPage() {
           )}
 
           {!sheetLoading && filteredSheet.length > 0 && (
-            <div className="space-y-2">
+            <div className="max-h-[420px] overflow-y-auto rounded-2xl space-y-2 pr-0.5" style={{ scrollbarWidth: "thin" }}>
               {filteredSheet.map((s, i) => {
                 const cfg = normalizeSheetStatus(s.status);
                 return (
