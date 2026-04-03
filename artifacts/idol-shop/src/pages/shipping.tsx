@@ -91,6 +91,24 @@ const statusConfig: Record<string, {
   },
 };
 
+function getTrackingUrl(carrier: string, trackingCode: string): string {
+  const c = carrier.toLowerCase();
+  if (c.includes("spx") || c.includes("shopee")) {
+    return `https://spx.vn/tracking?trackingNo=${trackingCode}`;
+  }
+  if (c.includes("ghtk") || c.includes("tiết kiệm")) {
+    return `https://i.ghtk.vn/${trackingCode}`;
+  }
+  if (c.includes("j&t") || c.includes("j and t") || c.includes("jt")) {
+    return `https://jtexpress.vn/vi/tracking?billCode=${trackingCode}`;
+  }
+  if (c.includes("vnpost") || c.includes("bưu điện")) {
+    return `https://vnpost.vn/en-us/dinh-vi?key=${trackingCode}`;
+  }
+  // Default: GHN
+  return `https://tracking.ghn.dev/?order_id=${trackingCode}`;
+}
+
 function formatDate(d: string) {
   return new Date(d).toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric" });
 }
@@ -413,7 +431,7 @@ export default function ShippingPage() {
                         </div>
                       </div>
                       <a
-                        href={`https://tracking.ghn.dev/?order_id=${s.trackingCode}`}
+                        href={getTrackingUrl(s.carrier, s.trackingCode)}
                         target="_blank"
                         rel="noreferrer"
                         className="shrink-0 w-8 h-8 bg-muted rounded-xl flex items-center justify-center hover:bg-primary/10 transition-colors"
