@@ -105,6 +105,9 @@ function getTrackingUrl(carrier: string, trackingCode: string): string {
   if (c.includes("vnpost") || c.includes("bưu điện")) {
     return `https://vnpost.vn/en-us/dinh-vi?key=${trackingCode}`;
   }
+  if (c.includes("viettel") || c.includes("viettelpost")) {
+    return `https://viettelpost.com.vn/tra-cuu-hanh-trinh-don/?billCode=${trackingCode}`;
+  }
   // Default: GHN
   return `https://tracking.ghn.dev/?order_id=${trackingCode}`;
 }
