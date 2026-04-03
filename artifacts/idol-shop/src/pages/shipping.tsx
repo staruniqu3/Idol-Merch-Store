@@ -98,6 +98,7 @@ function formatDate(d: string) {
 interface SheetShipping {
   customerCode: string;
   name: string;
+  phone: string;
   trackingCode: string;
   carrier: string;
   status: string;
@@ -395,6 +396,9 @@ export default function ShippingPage() {
                         <div className="min-w-0">
                           <div className="flex items-center gap-2 flex-wrap mb-0.5">
                             <span className="text-base font-extrabold font-mono tracking-wide">{s.customerCode}</span>
+                            {s.phone && (
+                              <span className="text-[11px] text-muted-foreground font-mono">{s.phone}</span>
+                            )}
                           </div>
                           <p className={`text-xs font-bold font-mono ${cfg.color}`}>{s.trackingCode}</p>
                           <div className="flex items-center gap-2 mt-1 flex-wrap">

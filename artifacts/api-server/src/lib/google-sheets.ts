@@ -196,6 +196,7 @@ export async function getMemberProfile(phone: string): Promise<MemberProfile | n
 export interface AllShippingRow {
   customerCode: string;
   name: string;
+  phone: string;
   trackingCode: string;
   carrier: string;
   status: string;
@@ -212,17 +213,21 @@ export async function getAllShippingTracking(): Promise<AllShippingRow[]> {
     }),
     sheets.spreadsheets.values.get({
       spreadsheetId: MEMBERSHIP_SHEET_ID,
-      range: "Sheet1!B:C",
+      range: "Sheet1!B:D", // col B=code, col C=name, col D=phone
     }),
   ]);
 
   const shippingRows = shippingResp.data.values ?? [];
   const memberRows = membersResp.data.values ?? [];
 
-  // Build code→name map from Sheet1 (col B=code, col C=name)
+  // Build code→name and code→phone maps from Sheet1
   const nameMap: Record<string, string> = {};
+  const phoneMap: Record<string, string> = {};
   memberRows.slice(1).forEach((r) => {
-    if (r[0]) nameMap[r[0].trim()] = r[1] ?? "";
+    if (r[0]) {
+      nameMap[r[0].trim()] = r[1] ?? "";
+      phoneMap[r[0].trim()] = r[2] ?? "";
+    }
   });
 
   return shippingRows
@@ -231,6 +236,7 @@ export async function getAllShippingTracking(): Promise<AllShippingRow[]> {
     .map((r) => ({
       customerCode: r[0] ?? "",
       name: nameMap[r[0]?.trim() ?? ""] ?? "",
+      phone: phoneMap[r[0]?.trim() ?? ""] ?? "",
       trackingCode: r[1] ?? "",
       carrier: r[2] ?? "",
       status: r[3] ?? "",
