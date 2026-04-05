@@ -233,25 +233,37 @@ export default function ShippingPage() {
   const [sheetLoading, setSheetLoading] = useState(true);
   const [lookupPhone, setLookupPhone] = useState("");
   const [lookupResults, setLookupResults] = useState<TrackingResult[] | null>(null);
+  const [sheetLookupResults, setSheetLookupResults] = useState<SheetShipping[] | null>(null);
   const [lookupLoading, setLookupLoading] = useState(false);
   const [lookupError, setLookupError] = useState("");
   const [notices, setNotices] = useState<NoticeItem[]>([]);
   const [expandedNotice, setExpandedNotice] = useState<number | null>(null);
+
+  const normalizePhone = (p: string) => p.replace(/\D/g, "").replace(/^84/, "0");
 
   const handleTrackingLookup = async () => {
     if (!lookupPhone.trim()) return;
     setLookupLoading(true);
     setLookupError("");
     setLookupResults(null);
+    setSheetLookupResults(null);
     try {
       const base = getBaseUrl();
+      const normalized = normalizePhone(lookupPhone.trim());
+
+      // Search Google Sheets data (already loaded)
+      const sheetMatches = sheetData.filter((s) => s.phone && normalizePhone(s.phone) === normalized);
+      if (sheetMatches.length > 0) setSheetLookupResults(sheetMatches);
+
+      // Also search DB orders
       const res = await fetch(`${base}/api/tracking?phone=${encodeURIComponent(lookupPhone.trim())}&_t=${Date.now()}`, { cache: "no-store" });
-      if (!res.ok) { setLookupError("Có lỗi xảy ra, vui lòng thử lại"); return; }
-      const data = await res.json();
-      if (!Array.isArray(data) || data.length === 0) {
-        setLookupError("Không tìm thấy đơn hàng nào với số điện thoại này");
-      } else {
-        setLookupResults(data);
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data) && data.length > 0) setLookupResults(data);
+      }
+
+      if (sheetMatches.length === 0) {
+        setLookupError("Không tìm thấy mã vận đơn nào với số điện thoại này");
       }
     } catch { setLookupError("Có lỗi xảy ra, vui lòng thử lại"); }
     finally { setLookupLoading(false); }
@@ -342,9 +354,8 @@ export default function ShippingPage() {
               <div className="space-y-2">
                 <div className="flex items-center gap-2">
                   <Hash size={12} className="text-primary" />
-                  <span className="text-xs font-bold text-foreground">Mã vận đơn</span>
-                  <Badge variant="secondary" className="text-[10px]">theo dõi vận chuyển</Badge>
-                  <span className="text-[10px] text-muted-foreground ml-auto">{lookupResults.length} mã</span>
+                  <span className="text-xs font-bold text-foreground">Đơn hàng</span>
+                  <span className="text-[10px] text-muted-foreground ml-auto">{lookupResults.length} đơn</span>
                 </div>
                 {lookupResults.map((r, i) => {
                   const hasTracking = !!r.trackingNumber;
@@ -372,6 +383,48 @@ export default function ShippingPage() {
                       ) : (
                         <p className="text-[11px] text-muted-foreground pl-4 italic">Chưa có mã vận đơn — shop sẽ cập nhật sớm</p>
                       )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {sheetLookupResults && sheetLookupResults.length > 0 && (
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <Hash size={12} className="text-primary" />
+                  <span className="text-xs font-bold text-foreground">Mã vận đơn</span>
+                  <span className="text-[10px] text-muted-foreground ml-auto">{sheetLookupResults.length} mã</span>
+                </div>
+                {sheetLookupResults.map((s, i) => {
+                  const cfg = normalizeSheetStatus(s.status);
+                  return (
+                    <div key={i} className="bg-muted/60 rounded-xl p-3 space-y-1.5">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className={`w-2 h-2 rounded-full shrink-0 ${cfg.dot}`} />
+                          <span className="font-mono font-bold text-sm">{s.customerCode}</span>
+                        </div>
+                        <a
+                          href={getTrackingUrl(s.carrier, s.trackingCode)}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="shrink-0 w-7 h-7 bg-background rounded-lg flex items-center justify-center hover:bg-primary/10 transition-colors"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <ExternalLink size={12} className="text-muted-foreground" />
+                        </a>
+                      </div>
+                      <p className={`font-mono text-xs font-bold pl-4 ${cfg.color}`}>{s.trackingCode}</p>
+                      <div className="flex flex-wrap gap-1.5 pl-4">
+                        {s.carrier && (
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-muted text-foreground">{s.carrier}</span>
+                        )}
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${cfg.bg} ${cfg.color}`}>{cfg.label}</span>
+                        {s.shippingFee && (
+                          <span className="text-[10px] text-muted-foreground">{s.shippingFee}đ</span>
+                        )}
+                      </div>
                     </div>
                   );
                 })}
