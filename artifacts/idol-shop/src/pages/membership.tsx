@@ -289,7 +289,7 @@ function SheetOrderCard({ order }: { order: SheetOrder }) {
           <ShoppingBag size={16} className="text-primary" />
         </div>
         <div className="flex-1 min-w-0">
-          <p className="font-bold text-sm line-clamp-1">{order.products || "Đơn hàng"}</p>
+          <p className="font-bold text-sm break-words">{order.products || "Đơn hàng"}</p>
           <p className="text-xs text-muted-foreground mt-0.5">{formatDate(order.timestamp)}</p>
         </div>
         <div className="flex flex-col items-end gap-1 shrink-0">
@@ -354,7 +354,7 @@ function AppOrderCard({ order }: { order: AppOrder }) {
             <span className="font-bold text-xs text-primary font-mono">{order.orderCode}</span>
             <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${st.color}`}>{st.label}</span>
           </div>
-          <p className="text-sm font-medium mt-0.5 line-clamp-1">{itemsText}</p>
+          <p className="text-sm font-medium mt-0.5 break-words">{itemsText}</p>
           <p className="text-xs text-muted-foreground mt-0.5">{formatDate(order.createdAt)}</p>
         </div>
         <div className="flex flex-col items-end gap-1 shrink-0">
@@ -784,7 +784,7 @@ export default function MembershipPage() {
                             <div className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${i === 0 ? "bg-primary" : "bg-muted-foreground/30"}`} />
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-1.5 flex-wrap">
-                                <p className={`text-sm leading-snug truncate ${i === 0 ? "font-bold text-foreground" : "font-medium text-muted-foreground"}`}>{label || "—"}</p>
+                                <p className={`text-sm leading-snug break-words ${i === 0 ? "font-bold text-foreground" : "font-medium text-muted-foreground"}`}>{label || "—"}</p>
                                 {u.source === "app" && <span className="text-[10px] px-1.5 py-0.5 bg-primary/10 text-primary rounded font-semibold shrink-0">App</span>}
                               </div>
                               <div className="flex items-center gap-2 mt-0.5">
