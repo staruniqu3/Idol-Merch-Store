@@ -411,12 +411,17 @@ export default function MembershipPage() {
   const [bookingNotes, setBookingNotes] = useState<BookingNotePublic[]>([]);
   const [expandedBooking, setExpandedBooking] = useState<number | null>(null);
 
-  useEffect(() => {
-    fetch(`${getBaseUrl()}/api/booking-notes`, { cache: "no-store" })
+  const fetchBookingNotes = (phone?: string) => {
+    const url = phone
+      ? `${getBaseUrl()}/api/booking-notes?phone=${encodeURIComponent(phone)}`
+      : `${getBaseUrl()}/api/booking-notes`;
+    fetch(url, { cache: "no-store" })
       .then((r) => r.ok ? r.json() : [])
       .then((data) => setBookingNotes(Array.isArray(data) ? data : []))
       .catch(() => {});
-  }, []);
+  };
+
+  useEffect(() => { fetchBookingNotes(); }, []);
 
   useEffect(() => {
     const base = getBaseUrl();
@@ -472,6 +477,7 @@ export default function MembershipPage() {
       if (profileResp.ok) {
         const profileData: MemberProfile = await profileResp.json();
         setProfile(profileData);
+        fetchBookingNotes(phone);
         const [shippingResp, sheetsOrdersResp, appOrdersResp] = await Promise.allSettled([
           fetch(`${base}/api/sheets/member-shipping?code=${encodeURIComponent(profileData.customerCode)}&_t=${ts}`, { cache: "no-store" }),
           fetch(`${base}/api/sheets/member-orders?phone=${encodeURIComponent(phone)}&_t=${ts}`, { cache: "no-store" }),
