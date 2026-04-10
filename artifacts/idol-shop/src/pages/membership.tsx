@@ -124,7 +124,7 @@ const tierConfig: Record<string, {
   },
   "dreamer": {
     label: "Dreamer",
-    emoji: "🩵",
+    emoji: "💙",
     gradient: "from-sky-400 via-cyan-400 to-blue-400",
     textColor: "text-sky-50",
     bg: "bg-sky-100 text-sky-700",
@@ -142,7 +142,7 @@ const tierConfig: Record<string, {
   },
   "platinum": {
     label: "Platinum",
-    emoji: "🩶",
+    emoji: "💎",
     gradient: "from-slate-400 via-gray-400 to-slate-500",
     textColor: "text-slate-50",
     bg: "bg-slate-100 text-slate-600",
