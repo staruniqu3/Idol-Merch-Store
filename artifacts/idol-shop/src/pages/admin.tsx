@@ -10,7 +10,7 @@ import {
 } from "@workspace/api-client-react";
 import {
   Shield, Package, ShoppingBag, Truck, Users, Gift, LogOut, Plus, Pencil, Trash2, ChevronDown,
-  TrendingUp, Star, Calendar, X, Check, BarChart3, Sparkles, Bell, Pin,
+  TrendingUp, Star, Calendar, X, Check, BarChart3, Sparkles, Bell, Pin, Ticket, Eye, EyeOff,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -1575,6 +1575,161 @@ function NoticesTab() {
   );
 }
 
+// ===================== Booking Tab =====================
+type BookingNote = { id: number; title: string; content: string; event: string | null; eventDate: string | null; price: string | null; deadline: string | null; status: string; createdAt: string };
+
+function BookingTab() {
+  const [notes, setNotes] = useState<BookingNote[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [open, setOpen] = useState(false);
+  const [editTarget, setEditTarget] = useState<BookingNote | null>(null);
+  const [form, setForm] = useState({ title: "", content: "", event: "", eventDate: "", price: "", deadline: "" });
+  const { toast } = useToast();
+
+  function getBaseUrl() { const b = import.meta.env.BASE_URL ?? "/"; return b.replace(/\/$/, ""); }
+
+  const load = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch(`${getBaseUrl()}/api/booking-notes?all=true`, { cache: "no-store" });
+      const data = await res.json();
+      setNotes(Array.isArray(data) ? data : []);
+    } catch { /**/ }
+    finally { setLoading(false); }
+  };
+
+  useEffect(() => { load(); }, []);
+
+  const openCreate = () => { setEditTarget(null); setForm({ title: "", content: "", event: "", eventDate: "", price: "", deadline: "" }); setOpen(true); };
+  const openEdit = (n: BookingNote) => { setEditTarget(n); setForm({ title: n.title, content: n.content, event: n.event ?? "", eventDate: n.eventDate ?? "", price: n.price ?? "", deadline: n.deadline ?? "" }); setOpen(true); };
+
+  const handleSave = async () => {
+    if (!form.title.trim() || !form.content.trim()) { toast({ title: "Vui lòng nhập tiêu đề và nội dung", variant: "destructive" }); return; }
+    try {
+      const url = editTarget ? `${getBaseUrl()}/api/booking-notes/${editTarget.id}` : `${getBaseUrl()}/api/booking-notes`;
+      const res = await fetch(url, { method: editTarget ? "PATCH" : "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form) });
+      if (!res.ok) throw new Error();
+      toast({ title: editTarget ? "Đã cập nhật note" : "Đã tạo note booking" });
+      setOpen(false);
+      load();
+    } catch { toast({ title: "Lỗi khi lưu", variant: "destructive" }); }
+  };
+
+  const handleTogglePublish = async (n: BookingNote) => {
+    const next = n.status === "published" ? "draft" : "published";
+    try {
+      await fetch(`${getBaseUrl()}/api/booking-notes/${n.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status: next }) });
+      toast({ title: next === "published" ? "✅ Đã pin lên trang thành viên" : "📝 Đã chuyển về nháp" });
+      load();
+    } catch { toast({ title: "Lỗi", variant: "destructive" }); }
+  };
+
+  const handleDelete = async (id: number) => {
+    try {
+      await fetch(`${getBaseUrl()}/api/booking-notes/${id}`, { method: "DELETE" });
+      toast({ title: "Đã xoá note" });
+      load();
+    } catch { toast({ title: "Lỗi khi xoá", variant: "destructive" }); }
+  };
+
+  const published = notes.filter((n) => n.status === "published");
+  const drafts = notes.filter((n) => n.status === "draft");
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h3 className="font-bold flex items-center gap-2"><Ticket size={15} className="text-primary" />Booking Vé ({notes.length})</h3>
+        <Button size="sm" className="rounded-xl" onClick={openCreate}>
+          <Plus size={14} className="mr-1" />Tạo note mới
+        </Button>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 text-center">
+          <p className="text-lg font-black text-emerald-600">{published.length}</p>
+          <p className="text-[10px] text-emerald-700 font-semibold">Đang hiển thị</p>
+        </div>
+        <div className="bg-muted border border-border rounded-xl p-3 text-center">
+          <p className="text-lg font-black text-muted-foreground">{drafts.length}</p>
+          <p className="text-[10px] text-muted-foreground font-semibold">Bản nháp</p>
+        </div>
+      </div>
+
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="rounded-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader><DialogTitle>{editTarget ? "Chỉnh sửa note booking" : "Tạo note booking mới"}</DialogTitle></DialogHeader>
+          <div className="space-y-3 mt-2">
+            <div><Label>Tiêu đề *</Label><Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="VD: Booking vé concert IVE tháng 6" className="rounded-xl mt-1" /></div>
+            <div><Label>Nội dung *</Label><Textarea value={form.content} onChange={(e) => setForm({ ...form, content: e.target.value })} rows={5} placeholder="Mô tả chi tiết về booking vé, hướng dẫn, lưu ý..." className="rounded-xl mt-1" /></div>
+            <div className="grid grid-cols-2 gap-2">
+              <div><Label>Sự kiện</Label><Input value={form.event} onChange={(e) => setForm({ ...form, event: e.target.value })} placeholder="VD: IVE Concert" className="rounded-xl mt-1" /></div>
+              <div><Label>Ngày sự kiện</Label><Input value={form.eventDate} onChange={(e) => setForm({ ...form, eventDate: e.target.value })} placeholder="VD: 15/06/2026" className="rounded-xl mt-1" /></div>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div><Label>Giá vé</Label><Input value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} placeholder="VD: 1.500.000đ" className="rounded-xl mt-1" /></div>
+              <div><Label>Deadline booking</Label><Input value={form.deadline} onChange={(e) => setForm({ ...form, deadline: e.target.value })} placeholder="VD: 20/05/2026" className="rounded-xl mt-1" /></div>
+            </div>
+            <Button className="w-full rounded-xl" onClick={handleSave}>{editTarget ? "Lưu thay đổi" : "Tạo note (bản nháp)"}</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {loading && <div className="space-y-2">{Array.from({ length: 2 }).map((_, i) => <div key={i} className="h-24 bg-muted/50 rounded-2xl animate-pulse" />)}</div>}
+
+      {!loading && notes.length === 0 && (
+        <div className="text-center py-12 text-muted-foreground">
+          <Ticket size={32} className="mx-auto mb-3 opacity-30" />
+          <p className="text-sm">Chưa có note booking nào</p>
+        </div>
+      )}
+
+      <div className="space-y-2">
+        {notes.map((n) => (
+          <div key={n.id} className={`bg-card border rounded-2xl p-4 ${n.status === "published" ? "border-emerald-300 ring-1 ring-emerald-200" : "border-border"}`}>
+            <div className="flex items-start justify-between gap-2">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${n.status === "published" ? "bg-emerald-100 text-emerald-700" : "bg-muted text-muted-foreground"}`}>
+                    {n.status === "published" ? "✅ Đang hiển thị" : "📝 Bản nháp"}
+                  </span>
+                  <span className="text-[10px] text-muted-foreground">{new Date(n.createdAt).toLocaleDateString("vi-VN")}</span>
+                </div>
+                <p className="font-bold text-sm">{n.title}</p>
+                {(n.event || n.eventDate) && (
+                  <p className="text-xs text-primary font-semibold mt-0.5">🎫 {[n.event, n.eventDate].filter(Boolean).join(" · ")}</p>
+                )}
+                {(n.price || n.deadline) && (
+                  <div className="flex gap-3 mt-1">
+                    {n.price && <span className="text-[11px] text-muted-foreground">💰 {n.price}</span>}
+                    {n.deadline && <span className="text-[11px] text-muted-foreground">⏰ Hết hạn: {n.deadline}</span>}
+                  </div>
+                )}
+                <p className="text-xs text-muted-foreground mt-1.5 line-clamp-2">{n.content}</p>
+              </div>
+              <div className="flex flex-col gap-1 shrink-0">
+                <Button
+                  variant="ghost" size="icon"
+                  className={`h-8 w-8 rounded-xl ${n.status === "published" ? "text-emerald-600 bg-emerald-50" : "text-muted-foreground"}`}
+                  onClick={() => handleTogglePublish(n)}
+                  title={n.status === "published" ? "Bỏ hiển thị" : "Pin lên trang thành viên"}
+                >
+                  {n.status === "published" ? <EyeOff size={13} /> : <Eye size={13} />}
+                </Button>
+                <Button variant="ghost" size="icon" className="h-8 w-8 rounded-xl text-muted-foreground" onClick={() => openEdit(n)} title="Chỉnh sửa">
+                  <Pencil size={13} />
+                </Button>
+                <Button variant="ghost" size="icon" className="h-8 w-8 rounded-xl text-destructive" onClick={() => handleDelete(n.id)}>
+                  <Trash2 size={13} />
+                </Button>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ===================== Main Admin =====================
 const tabs = [
   { id: "dashboard", label: "Tổng quan", icon: BarChart3 },
@@ -1586,6 +1741,7 @@ const tabs = [
   { id: "members", label: "Thành viên", icon: Users },
   { id: "rewards", label: "Quà tặng", icon: Gift },
   { id: "notices", label: "Thông báo", icon: Bell },
+  { id: "booking", label: "Booking Vé", icon: Ticket },
 ];
 
 export default function AdminPage() {
@@ -1656,6 +1812,7 @@ export default function AdminPage() {
         {activeTab === "members" && <MembersTab />}
         {activeTab === "rewards" && <RewardsTab />}
         {activeTab === "notices" && <NoticesTab />}
+        {activeTab === "booking" && <BookingTab />}
       </div>
     </div>
   );

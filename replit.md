@@ -64,6 +64,7 @@ artifacts-monorepo/
 - `rewards` - Redeemable gifts (pointsCost, stock)
 - `redemptions` - Reward redemption history
 - `notices` - Admin announcements (title, content, type: general|looking, isPinned)
+- `booking_notes` - Ticket booking notes (title, content, event, eventDate, price, deadline, status: draft|published)
 
 ## Tier System
 

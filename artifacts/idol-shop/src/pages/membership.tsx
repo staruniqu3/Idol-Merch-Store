@@ -11,6 +11,18 @@ function getBaseUrl() {
   return base.replace(/\/$/, "");
 }
 
+interface BookingNotePublic {
+  id: number;
+  title: string;
+  content: string;
+  event: string | null;
+  eventDate: string | null;
+  price: string | null;
+  deadline: string | null;
+  status: string;
+  createdAt: string;
+}
+
 interface MemberProfile {
   stt: string;
   customerCode: string;
@@ -396,6 +408,15 @@ export default function MembershipPage() {
   const [shipping, setShipping] = useState<MemberShipping[]>([]);
   const [orders, setOrders] = useState<SheetOrder[]>([]);
   const [appOrders, setAppOrders] = useState<AppOrder[]>([]);
+  const [bookingNotes, setBookingNotes] = useState<BookingNotePublic[]>([]);
+  const [expandedBooking, setExpandedBooking] = useState<number | null>(null);
+
+  useEffect(() => {
+    fetch(`${getBaseUrl()}/api/booking-notes`, { cache: "no-store" })
+      .then((r) => r.ok ? r.json() : [])
+      .then((data) => setBookingNotes(Array.isArray(data) ? data : []))
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     const base = getBaseUrl();
@@ -581,6 +602,50 @@ export default function MembershipPage() {
       </div>
 
       <div className="px-4 py-4 -mt-2 space-y-4 pb-28">
+
+        {/* Booking notes pinned section */}
+        {bookingNotes.length > 0 && (
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <Ticket size={14} className="text-primary" />
+              <h2 className="text-sm font-bold text-foreground">Booking Vé</h2>
+              <span className="text-[10px] bg-primary/10 text-primary font-bold px-1.5 py-0.5 rounded-full">{bookingNotes.length}</span>
+            </div>
+            {bookingNotes.map((n) => {
+              const isExp = expandedBooking === n.id;
+              return (
+                <button
+                  key={n.id}
+                  className="w-full bg-gradient-to-br from-primary/5 to-rose-50 border border-primary/20 rounded-2xl p-4 text-left transition-all active:scale-[0.99]"
+                  onClick={() => setExpandedBooking(isExp ? null : n.id)}
+                >
+                  <div className="flex items-start gap-3">
+                    <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center shrink-0 text-lg">🎫</div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-bold text-sm">{n.title}</p>
+                      {(n.event || n.eventDate) && (
+                        <p className="text-xs text-primary font-semibold mt-0.5">
+                          {[n.event, n.eventDate].filter(Boolean).join(" · ")}
+                        </p>
+                      )}
+                      {(n.price || n.deadline) && (
+                        <div className="flex gap-3 mt-1 flex-wrap">
+                          {n.price && <span className="text-[11px] font-bold text-foreground">💰 {n.price}</span>}
+                          {n.deadline && <span className="text-[11px] text-rose-600 font-bold">⏰ Hết hạn: {n.deadline}</span>}
+                        </div>
+                      )}
+                      <p className={`text-xs text-muted-foreground mt-1.5 whitespace-pre-line ${isExp ? "" : "line-clamp-3"}`}>{n.content}</p>
+                      {!isExp && n.content.length > 120 && (
+                        <span className="text-[11px] text-primary font-semibold mt-0.5 inline-block">Xem thêm...</span>
+                      )}
+                    </div>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        )}
+
         {profileLoading && (
           <div className="space-y-3">
             <Skeleton className="h-52 rounded-2xl" />
