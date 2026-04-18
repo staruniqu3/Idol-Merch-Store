@@ -2,6 +2,11 @@ import { pgTable, text, serial, timestamp } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
+export const shippingDeliveryLogTable = pgTable("shipping_delivery_log", {
+  trackingCode: text("tracking_code").primaryKey(),
+  deliveredAt: timestamp("delivered_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
 export const shippingUpdatesTable = pgTable("shipping_updates", {
   id: serial("id").primaryKey(),
   title: text("title").notNull(),
