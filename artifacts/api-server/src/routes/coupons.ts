@@ -59,7 +59,7 @@ router.post("/coupons", async (req, res): Promise<void> => {
 router.patch("/coupons/:id", async (req, res): Promise<void> => {
   const id = parseInt(req.params.id);
   if (isNaN(id)) { res.status(400).json({ error: "invalid id" }); return; }
-  const { code, title, description, discountType, discountValue, eligibleTiers, assignedMembers, expiresAt, isActive } = req.body;
+  const { code, title, description, discountType, discountValue, eligibleTiers, assignedMembers, expiresAt, isActive, isUsed, usedAt } = req.body;
   const setData: Record<string, unknown> = {};
   if (code !== undefined) setData.code = String(code).trim().toUpperCase();
   if (title !== undefined) setData.title = title;
@@ -70,6 +70,8 @@ router.patch("/coupons/:id", async (req, res): Promise<void> => {
   if (assignedMembers !== undefined) setData.assignedMembers = assignedMembers;
   if (expiresAt !== undefined) setData.expiresAt = expiresAt;
   if (isActive !== undefined) setData.isActive = isActive;
+  if (isUsed !== undefined) setData.isUsed = isUsed;
+  if (usedAt !== undefined) setData.usedAt = usedAt ? new Date(usedAt) : null;
   const [item] = await db.update(couponsTable).set(setData as Partial<typeof couponsTable.$inferInsert>).where(eq(couponsTable.id, id)).returning();
   if (!item) { res.status(404).json({ error: "Not found" }); return; }
   res.json(item);

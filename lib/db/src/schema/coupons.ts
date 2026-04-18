@@ -13,6 +13,8 @@ export const couponsTable = pgTable("coupons", {
   assignedMembers: jsonb("assigned_members").$type<{ name: string; phone: string; customerCode: string }[]>().default([]),
   expiresAt: text("expires_at"),
   isActive: boolean("is_active").notNull().default(true),
+  isUsed: boolean("is_used").notNull().default(false),
+  usedAt: timestamp("used_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

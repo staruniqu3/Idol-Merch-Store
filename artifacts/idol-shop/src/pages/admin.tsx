@@ -1924,7 +1924,7 @@ type CouponItem = {
   id: number; code: string; title: string; description: string | null;
   discountType: string; discountValue: string | null;
   eligibleTiers: string[]; assignedMembers: CouponMember[];
-  expiresAt: string | null; isActive: boolean; createdAt: string;
+  expiresAt: string | null; isActive: boolean; isUsed: boolean; usedAt: string | null; createdAt: string;
 };
 
 function CouponTab() {
@@ -1996,6 +1996,16 @@ function CouponTab() {
   const handleDelete = async (id: number) => {
     await fetch(`${base}/api/coupons/${id}`, { method: "DELETE" });
     toast({ title: "Đã xoá coupon" }); load();
+  };
+
+  const handleMarkUsed = async (id: number, currentUsed: boolean) => {
+    await fetch(`${base}/api/coupons/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ isUsed: !currentUsed, usedAt: !currentUsed ? new Date().toISOString() : null }),
+    });
+    toast({ title: !currentUsed ? "Đã đánh dấu đã sử dụng" : "Đã khôi phục coupon" });
+    load();
   };
 
   const toggleTier = (v: string) => setSelectedTiers((prev) => prev.includes(v) ? prev.filter((x) => x !== v) : [...prev, v]);
@@ -2134,19 +2144,22 @@ function CouponTab() {
       <div className="space-y-2">
         {[...coupons].reverse().map((c) => {
           const isExpired = !!c.expiresAt && c.expiresAt < today;
+          const isUsed = !!c.isUsed;
           const members = c.assignedMembers ?? [];
           const tiers = c.eligibleTiers ?? [];
+          const dimmed = !c.isActive || isExpired || isUsed;
           return (
-            <div key={c.id} className={`bg-card border rounded-2xl p-4 ${!c.isActive || isExpired ? "opacity-50 border-dashed" : "border-border"}`}>
+            <div key={c.id} className={`bg-card border rounded-2xl p-4 transition-all ${dimmed ? "opacity-50 border-dashed" : "border-border"} ${isUsed ? "grayscale" : ""}`}>
               <div className="flex items-start justify-between gap-2">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap mb-1.5">
-                    <span className="font-mono font-black text-sm tracking-widest bg-primary/10 text-primary px-2 py-0.5 rounded-lg">{c.code}</span>
-                    {!c.isActive && <span className="text-[10px] font-bold bg-muted text-muted-foreground px-2 py-0.5 rounded-full">Tắt</span>}
-                    {isExpired && <span className="text-[10px] font-bold bg-red-50 text-red-600 px-2 py-0.5 rounded-full">⏰ Hết hạn</span>}
+                    <span className={`font-mono font-black text-sm tracking-widest px-2 py-0.5 rounded-lg ${isUsed ? "bg-muted text-muted-foreground" : "bg-primary/10 text-primary"}`}>{c.code}</span>
+                    {isUsed && <span className="text-[10px] font-bold bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">✓ Đã sử dụng</span>}
+                    {!c.isActive && !isUsed && <span className="text-[10px] font-bold bg-muted text-muted-foreground px-2 py-0.5 rounded-full">Tắt</span>}
+                    {isExpired && !isUsed && <span className="text-[10px] font-bold bg-red-50 text-red-600 px-2 py-0.5 rounded-full">⏰ Hết hạn</span>}
                   </div>
                   <p className="font-bold text-sm">{c.title}</p>
-                  <p className="text-xs text-primary font-semibold mt-0.5">💰 {getDiscountLabel(c)}</p>
+                  <p className={`text-xs font-semibold mt-0.5 ${isUsed ? "text-muted-foreground" : "text-primary"}`}>💰 {getDiscountLabel(c)}</p>
                   {c.description && <p className="text-[11px] text-muted-foreground mt-0.5 line-clamp-1">{c.description}</p>}
                   <div className="flex flex-wrap gap-1.5 mt-1.5">
                     {members.length > 0
@@ -2162,10 +2175,21 @@ function CouponTab() {
                           })
                         : <span className="text-[10px] bg-emerald-50 text-emerald-700 border border-emerald-200 px-1.5 py-0.5 rounded-full font-semibold">🌐 Tất cả hạng</span>
                     }
-                    {c.expiresAt && !isExpired && <span className="text-[10px] text-muted-foreground">· HSD: {c.expiresAt}</span>}
+                    {c.expiresAt && !isExpired && !isUsed && <span className="text-[10px] text-muted-foreground">· HSD: {c.expiresAt}</span>}
+                    {isUsed && c.usedAt && (
+                      <span className="text-[10px] text-muted-foreground">· Dùng lúc {new Date(c.usedAt).toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric" })}</span>
+                    )}
                   </div>
                 </div>
                 <div className="flex flex-col gap-1 shrink-0">
+                  <Button
+                    variant="ghost" size="icon"
+                    className={`h-8 w-8 rounded-xl ${isUsed ? "text-gray-400 hover:text-primary" : "text-emerald-600 hover:bg-emerald-50"}`}
+                    title={isUsed ? "Khôi phục coupon" : "Đánh dấu đã sử dụng"}
+                    onClick={() => handleMarkUsed(c.id, isUsed)}
+                  >
+                    <Check size={13} />
+                  </Button>
                   <Button variant="ghost" size="icon" className="h-8 w-8 rounded-xl text-muted-foreground" onClick={() => openEdit(c)}><Pencil size={13} /></Button>
                   <Button variant="ghost" size="icon" className="h-8 w-8 rounded-xl text-destructive" onClick={() => handleDelete(c.id)}><Trash2 size={13} /></Button>
                 </div>

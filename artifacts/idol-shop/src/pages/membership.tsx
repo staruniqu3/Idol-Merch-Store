@@ -427,7 +427,7 @@ export default function MembershipPage() {
     id: number; code: string; title: string; description: string | null;
     discountType: string; discountValue: string | null;
     eligibleTiers: string[]; assignedMembers: { name: string; phone: string; customerCode: string }[];
-    expiresAt: string | null;
+    expiresAt: string | null; isUsed: boolean; usedAt: string | null;
   };
   const [coupons, setCoupons] = useState<CouponPublic[]>([]);
 
@@ -639,6 +639,7 @@ export default function MembershipPage() {
               <span className="text-[10px] bg-emerald-500/10 text-emerald-600 font-bold px-1.5 py-0.5 rounded-full">{coupons.length}</span>
             </div>
             {coupons.map((c) => {
+              const isUsed = !!c.isUsed;
               const discountLabel = (() => {
                 if (!c.discountValue) return c.discountType === "freeship" ? "Miễn phí ship" : c.discountType === "gift" ? "Tặng quà" : "";
                 if (c.discountType === "percentage") return `Giảm ${c.discountValue}%`;
@@ -647,19 +648,24 @@ export default function MembershipPage() {
                 return c.discountValue;
               })();
               return (
-                <div key={c.id} className="bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-200/60 rounded-2xl p-4 relative overflow-hidden">
+                <div key={c.id} className={`border rounded-2xl p-4 relative overflow-hidden transition-all ${isUsed ? "bg-muted/40 border-border border-dashed grayscale opacity-60" : "bg-gradient-to-br from-emerald-50 to-teal-50 border-emerald-200/60"}`}>
                   <div className="absolute right-0 top-0 bottom-0 w-16 flex items-center justify-center opacity-5">
                     <Tag size={48} />
                   </div>
                   <div className="flex items-start gap-3 relative">
-                    <div className="w-9 h-9 rounded-xl bg-emerald-100 flex items-center justify-center shrink-0 text-lg">🎁</div>
+                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 text-lg ${isUsed ? "bg-muted" : "bg-emerald-100"}`}>
+                      {isUsed ? "✓" : "🎁"}
+                    </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap mb-1">
-                        <span className="font-mono font-black text-xs tracking-widest bg-emerald-500/10 text-emerald-700 px-2 py-0.5 rounded-lg border border-emerald-200">{c.code}</span>
-                        {c.expiresAt && <span className="text-[10px] text-muted-foreground font-medium">HSD: {c.expiresAt}</span>}
+                        <span className={`font-mono font-black text-xs tracking-widest px-2 py-0.5 rounded-lg border ${isUsed ? "bg-muted text-muted-foreground border-border" : "bg-emerald-500/10 text-emerald-700 border-emerald-200"}`}>{c.code}</span>
+                        {isUsed
+                          ? <span className="text-[10px] font-bold bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">Đã sử dụng</span>
+                          : c.expiresAt && <span className="text-[10px] text-muted-foreground font-medium">HSD: {c.expiresAt}</span>
+                        }
                       </div>
                       <p className="font-bold text-sm text-foreground">{c.title}</p>
-                      {discountLabel && <p className="text-xs text-emerald-700 font-semibold mt-0.5">💰 {discountLabel}</p>}
+                      {discountLabel && <p className={`text-xs font-semibold mt-0.5 ${isUsed ? "text-muted-foreground" : "text-emerald-700"}`}>💰 {discountLabel}</p>}
                       {c.description && <p className="text-[11px] text-muted-foreground mt-1 leading-relaxed">{c.description}</p>}
                     </div>
                   </div>
