@@ -10,7 +10,7 @@ import {
 } from "@workspace/api-client-react";
 import {
   Shield, Package, ShoppingBag, Truck, Users, Gift, LogOut, Plus, Pencil, Trash2, ChevronDown,
-  TrendingUp, Star, Calendar, X, Check, BarChart3, Sparkles, Bell, Pin, Ticket, Eye, EyeOff,
+  TrendingUp, Star, Calendar, X, Check, BarChart3, Sparkles, Bell, Pin, Ticket, Eye, EyeOff, Tag,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -1898,6 +1898,269 @@ function BookingTab() {
   );
 }
 
+// ===================== Coupon Tab =====================
+const TIERS = ["Newcomers", "Dreamer", "Platinum"];
+const DISCOUNT_TYPES: Record<string, string> = {
+  fixed: "Giảm tiền cố định",
+  percentage: "Giảm theo %",
+  gift: "Tặng quà",
+  freeship: "Miễn phí ship",
+};
+
+type CouponMember = { name: string; phone: string; customerCode: string };
+type CouponItem = {
+  id: number; code: string; title: string; description: string | null;
+  discountType: string; discountValue: string | null;
+  eligibleTiers: string[]; assignedMembers: CouponMember[];
+  expiresAt: string | null; isActive: boolean; createdAt: string;
+};
+
+function CouponTab() {
+  const base = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
+  const [coupons, setCoupons] = useState<CouponItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [open, setOpen] = useState(false);
+  const [editTarget, setEditTarget] = useState<CouponItem | null>(null);
+  const [form, setForm] = useState({ code: "", title: "", description: "", discountType: "fixed", discountValue: "", expiresAt: "", isActive: true });
+  const [selectedTiers, setSelectedTiers] = useState<string[]>([]);
+  const [assignedMembers, setAssignedMembers] = useState<CouponMember[]>([]);
+  const [memberSearch, setMemberSearch] = useState("");
+  const [allSheetMembers, setAllSheetMembers] = useState<CouponMember[]>([]);
+  const { toast } = useToast();
+
+  const load = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch(`${base}/api/coupons?all=true`, { cache: "no-store" });
+      const data = await res.json();
+      setCoupons(Array.isArray(data) ? data : []);
+    } catch { /**/ }
+    finally { setLoading(false); }
+  };
+
+  useEffect(() => { load(); }, []);
+
+  useEffect(() => {
+    fetch(`${base}/api/sheets/all-members?_t=${Date.now()}`, { cache: "no-store" })
+      .then((r) => r.ok ? r.json() : [])
+      .then((data: any[]) => {
+        if (Array.isArray(data)) {
+          setAllSheetMembers(data.filter((m) => m.name && m.phone).map((m) => ({
+            name: m.name ?? "", phone: m.phone ?? "", customerCode: m.customerCode ?? "",
+          })));
+        }
+      }).catch(() => {});
+  }, []);
+
+  const resetForm = () => {
+    setForm({ code: "", title: "", description: "", discountType: "fixed", discountValue: "", expiresAt: "", isActive: true });
+    setSelectedTiers([]); setAssignedMembers([]); setMemberSearch(""); setEditTarget(null);
+  };
+
+  const openCreate = () => { resetForm(); setOpen(true); };
+  const openEdit = (c: CouponItem) => {
+    setEditTarget(c);
+    setForm({ code: c.code, title: c.title, description: c.description ?? "", discountType: c.discountType, discountValue: c.discountValue ?? "", expiresAt: c.expiresAt ?? "", isActive: c.isActive });
+    setSelectedTiers(c.eligibleTiers ?? []);
+    setAssignedMembers(c.assignedMembers ?? []);
+    setMemberSearch(""); setOpen(true);
+  };
+
+  const handleSave = async () => {
+    if (!form.code.trim() || !form.title.trim()) { toast({ title: "Vui lòng nhập mã và tiêu đề", variant: "destructive" }); return; }
+    try {
+      const url = editTarget ? `${base}/api/coupons/${editTarget.id}` : `${base}/api/coupons`;
+      const res = await fetch(url, {
+        method: editTarget ? "PATCH" : "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...form, eligibleTiers: selectedTiers, assignedMembers }),
+      });
+      if (!res.ok) throw new Error();
+      toast({ title: editTarget ? "Đã cập nhật coupon" : "Đã tạo coupon mới" });
+      setOpen(false); resetForm(); load();
+    } catch { toast({ title: "Lỗi khi lưu", variant: "destructive" }); }
+  };
+
+  const handleDelete = async (id: number) => {
+    await fetch(`${base}/api/coupons/${id}`, { method: "DELETE" });
+    toast({ title: "Đã xoá coupon" }); load();
+  };
+
+  const toggleTier = (t: string) => setSelectedTiers((prev) => prev.includes(t) ? prev.filter((x) => x !== t) : [...prev, t]);
+
+  const norm = (s: string) => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  const memberResults = memberSearch.trim().length >= 1
+    ? allSheetMembers.filter((m) =>
+        !assignedMembers.some((a) => a.phone === m.phone) &&
+        (norm(m.name).includes(norm(memberSearch)) || m.phone.includes(memberSearch) || m.customerCode.toLowerCase().includes(memberSearch.toLowerCase()))
+      ).slice(0, 6)
+    : [];
+
+  const addMember = (m: CouponMember) => { setAssignedMembers((prev) => [...prev, m]); setMemberSearch(""); };
+  const removeMember = (phone: string) => setAssignedMembers((prev) => prev.filter((a) => a.phone !== phone));
+
+  const getDiscountLabel = (c: CouponItem) => {
+    if (!c.discountValue) return DISCOUNT_TYPES[c.discountType] ?? c.discountType;
+    if (c.discountType === "percentage") return `Giảm ${c.discountValue}%`;
+    if (c.discountType === "fixed") return `Giảm ${Number(c.discountValue).toLocaleString("vi-VN")}đ`;
+    if (c.discountType === "freeship") return "Miễn phí ship";
+    return c.discountValue;
+  };
+
+  const today = new Date().toISOString().slice(0, 10);
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h3 className="font-bold flex items-center gap-2"><Tag size={15} className="text-primary" />Coupon ({coupons.length})</h3>
+        <Button size="sm" className="rounded-xl" onClick={openCreate}><Plus size={14} className="mr-1" />Tạo coupon</Button>
+      </div>
+
+      <Dialog open={open} onOpenChange={(v) => { if (!v) resetForm(); setOpen(v); }}>
+        <DialogContent className="rounded-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader><DialogTitle>{editTarget ? "Chỉnh sửa coupon" : "Tạo coupon mới"}</DialogTitle></DialogHeader>
+          <div className="space-y-3 mt-2">
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <Label>Mã coupon *</Label>
+                <Input value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value.toUpperCase() })} placeholder="SUMMER20" className="rounded-xl mt-1 font-mono tracking-widest" />
+              </div>
+              <div>
+                <Label>Hết hạn</Label>
+                <Input type="date" value={form.expiresAt} onChange={(e) => setForm({ ...form, expiresAt: e.target.value })} className="rounded-xl mt-1" />
+              </div>
+            </div>
+            <div><Label>Tiêu đề *</Label><Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="VD: Giảm 50k đơn hàng đầu tiên" className="rounded-xl mt-1" /></div>
+            <div><Label>Mô tả</Label><Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={2} placeholder="Điều kiện áp dụng..." className="rounded-xl mt-1" /></div>
+
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <Label>Loại ưu đãi</Label>
+                <Select value={form.discountType} onValueChange={(v) => setForm({ ...form, discountType: v })}>
+                  <SelectTrigger className="rounded-xl mt-1"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {Object.entries(DISCOUNT_TYPES).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>{form.discountType === "percentage" ? "Số % giảm" : form.discountType === "fixed" ? "Số tiền giảm (đ)" : "Giá trị"}</Label>
+                <Input value={form.discountValue} onChange={(e) => setForm({ ...form, discountValue: e.target.value })} placeholder={form.discountType === "percentage" ? "10" : "50000"} className="rounded-xl mt-1" disabled={form.discountType === "freeship"} />
+              </div>
+            </div>
+
+            <div>
+              <Label>Áp dụng cho hạng thành viên</Label>
+              <p className="text-[10px] text-muted-foreground mb-2">Để trống = tất cả hạng. Chọn hạng cụ thể = chỉ hạng đó nhận.</p>
+              <div className="flex gap-2 flex-wrap">
+                {TIERS.map((t) => (
+                  <button key={t} type="button" onClick={() => toggleTier(t)}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-colors ${
+                      selectedTiers.includes(t) ? "bg-primary text-white border-primary" : "bg-muted text-muted-foreground border-border hover:border-primary/40"
+                    }`}
+                  >
+                    {t === "Newcomers" ? "🌸" : t === "Dreamer" ? "💙" : "💎"} {t}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <Label>Hoặc gán riêng cho thành viên cụ thể</Label>
+              <p className="text-[10px] text-muted-foreground mb-1.5">Nếu gán tên, coupon chỉ hiện cho thành viên đó (ưu tiên hơn hạng).</p>
+              <div className="relative">
+                <Input value={memberSearch} onChange={(e) => setMemberSearch(e.target.value)} placeholder="Tìm tên, SĐT, mã thành viên..." className="rounded-xl" />
+                {memberResults.length > 0 && (
+                  <div className="absolute top-full left-0 right-0 mt-1 bg-card border border-border rounded-xl shadow-lg z-50 overflow-hidden">
+                    {memberResults.map((m) => (
+                      <button key={m.phone} type="button" className="w-full px-3 py-2 text-left hover:bg-muted flex items-center gap-2" onClick={() => addMember(m)}>
+                        <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center shrink-0 text-xs font-bold text-primary">{m.name[0]}</div>
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold truncate">{m.name}</p>
+                          <p className="text-[10px] text-muted-foreground">{m.phone} · {m.customerCode}</p>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+              {assignedMembers.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 mt-2">
+                  {assignedMembers.map((m) => (
+                    <span key={m.phone} className="flex items-center gap-1 bg-primary/10 text-primary text-xs font-semibold px-2 py-1 rounded-full">
+                      {m.name}<button type="button" onClick={() => removeMember(m.phone)} className="text-primary/60 hover:text-destructive ml-0.5"><X size={10} /></button>
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="flex items-center gap-3 py-1">
+              <button type="button" onClick={() => setForm({ ...form, isActive: !form.isActive })}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${form.isActive ? "bg-primary" : "bg-muted"}`}>
+                <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${form.isActive ? "translate-x-6" : "translate-x-1"}`} />
+              </button>
+              <Label className="cursor-pointer" onClick={() => setForm({ ...form, isActive: !form.isActive })}>
+                {form.isActive ? "Đang kích hoạt" : "Tắt"}
+              </Label>
+            </div>
+
+            <Button className="w-full rounded-xl" onClick={handleSave}>{editTarget ? "Lưu thay đổi" : "Tạo coupon"}</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {loading && <div className="space-y-2">{Array.from({ length: 3 }).map((_, i) => <div key={i} className="h-20 bg-muted/50 rounded-2xl animate-pulse" />)}</div>}
+
+      {!loading && coupons.length === 0 && (
+        <div className="text-center py-12 text-muted-foreground">
+          <Tag size={32} className="mx-auto mb-3 opacity-30" />
+          <p className="text-sm">Chưa có coupon nào</p>
+        </div>
+      )}
+
+      <div className="space-y-2">
+        {[...coupons].reverse().map((c) => {
+          const isExpired = !!c.expiresAt && c.expiresAt < today;
+          const members = c.assignedMembers ?? [];
+          const tiers = c.eligibleTiers ?? [];
+          return (
+            <div key={c.id} className={`bg-card border rounded-2xl p-4 ${!c.isActive || isExpired ? "opacity-50 border-dashed" : "border-border"}`}>
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap mb-1.5">
+                    <span className="font-mono font-black text-sm tracking-widest bg-primary/10 text-primary px-2 py-0.5 rounded-lg">{c.code}</span>
+                    {!c.isActive && <span className="text-[10px] font-bold bg-muted text-muted-foreground px-2 py-0.5 rounded-full">Tắt</span>}
+                    {isExpired && <span className="text-[10px] font-bold bg-red-50 text-red-600 px-2 py-0.5 rounded-full">⏰ Hết hạn</span>}
+                  </div>
+                  <p className="font-bold text-sm">{c.title}</p>
+                  <p className="text-xs text-primary font-semibold mt-0.5">💰 {getDiscountLabel(c)}</p>
+                  {c.description && <p className="text-[11px] text-muted-foreground mt-0.5 line-clamp-1">{c.description}</p>}
+                  <div className="flex flex-wrap gap-1.5 mt-1.5">
+                    {members.length > 0
+                      ? members.map((m) => <span key={m.phone} className="text-[10px] bg-violet-50 text-violet-700 border border-violet-200 px-1.5 py-0.5 rounded-full font-semibold">👤 {m.name}</span>)
+                      : tiers.length > 0
+                        ? tiers.map((t) => <span key={t} className="text-[10px] bg-sky-50 text-sky-700 border border-sky-200 px-1.5 py-0.5 rounded-full font-semibold">
+                            {t === "Newcomers" ? "🌸" : t === "Dreamer" ? "💙" : "💎"} {t}
+                          </span>)
+                        : <span className="text-[10px] bg-emerald-50 text-emerald-700 border border-emerald-200 px-1.5 py-0.5 rounded-full font-semibold">🌐 Tất cả hạng</span>
+                    }
+                    {c.expiresAt && !isExpired && <span className="text-[10px] text-muted-foreground">· HSD: {c.expiresAt}</span>}
+                  </div>
+                </div>
+                <div className="flex flex-col gap-1 shrink-0">
+                  <Button variant="ghost" size="icon" className="h-8 w-8 rounded-xl text-muted-foreground" onClick={() => openEdit(c)}><Pencil size={13} /></Button>
+                  <Button variant="ghost" size="icon" className="h-8 w-8 rounded-xl text-destructive" onClick={() => handleDelete(c.id)}><Trash2 size={13} /></Button>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 // ===================== Main Admin =====================
 const tabs = [
   { id: "dashboard", label: "Tổng quan", icon: BarChart3 },
@@ -1910,6 +2173,7 @@ const tabs = [
   { id: "rewards", label: "Quà tặng", icon: Gift },
   { id: "notices", label: "Thông báo", icon: Bell },
   { id: "booking", label: "Booking Vé", icon: Ticket },
+  { id: "coupon", label: "Coupon", icon: Tag },
 ];
 
 export default function AdminPage() {
@@ -1981,6 +2245,7 @@ export default function AdminPage() {
         {activeTab === "rewards" && <RewardsTab />}
         {activeTab === "notices" && <NoticesTab />}
         {activeTab === "booking" && <BookingTab />}
+        {activeTab === "coupon" && <CouponTab />}
       </div>
     </div>
   );

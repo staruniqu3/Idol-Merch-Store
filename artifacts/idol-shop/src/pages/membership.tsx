@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import {
   Star, Gift, Package, Search, Trophy, ShoppingBag, Truck,
-  ChevronDown, ChevronUp, Ticket, Calendar, MapPin, ExternalLink, Hash, Sparkles, User, Phone
+  ChevronDown, ChevronUp, Ticket, Calendar, MapPin, ExternalLink, Hash, Sparkles, User, Phone, Tag
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
@@ -423,6 +423,26 @@ export default function MembershipPage() {
 
   useEffect(() => { fetchBookingNotes(); }, []);
 
+  type CouponPublic = {
+    id: number; code: string; title: string; description: string | null;
+    discountType: string; discountValue: string | null;
+    eligibleTiers: string[]; assignedMembers: { name: string; phone: string; customerCode: string }[];
+    expiresAt: string | null;
+  };
+  const [coupons, setCoupons] = useState<CouponPublic[]>([]);
+
+  const fetchCoupons = (phone?: string, tier?: string) => {
+    const params = new URLSearchParams();
+    if (phone) params.set("phone", phone);
+    if (tier) params.set("tier", tier);
+    fetch(`${getBaseUrl()}/api/coupons?${params.toString()}`, { cache: "no-store" })
+      .then((r) => r.ok ? r.json() : [])
+      .then((data) => setCoupons(Array.isArray(data) ? data : []))
+      .catch(() => {});
+  };
+
+  useEffect(() => { fetchCoupons(); }, []);
+
   useEffect(() => {
     const base = getBaseUrl();
     fetch(`${base}/api/sheets/all-members?_t=${Date.now()}`, { cache: "no-store" })
@@ -478,6 +498,7 @@ export default function MembershipPage() {
         const profileData: MemberProfile = await profileResp.json();
         setProfile(profileData);
         fetchBookingNotes(phone);
+        fetchCoupons(phone, profileData.tier ?? "Newcomers");
         const [shippingResp, sheetsOrdersResp, appOrdersResp] = await Promise.allSettled([
           fetch(`${base}/api/sheets/member-shipping?code=${encodeURIComponent(profileData.customerCode)}&_t=${ts}`, { cache: "no-store" }),
           fetch(`${base}/api/sheets/member-orders?phone=${encodeURIComponent(phone)}&_t=${ts}`, { cache: "no-store" }),
@@ -608,6 +629,45 @@ export default function MembershipPage() {
       </div>
 
       <div className="px-4 py-4 -mt-2 space-y-4 pb-28">
+
+        {/* Coupons section */}
+        {coupons.length > 0 && (
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <Tag size={14} className="text-emerald-500" />
+              <h2 className="text-sm font-bold text-foreground">Coupon của bạn</h2>
+              <span className="text-[10px] bg-emerald-500/10 text-emerald-600 font-bold px-1.5 py-0.5 rounded-full">{coupons.length}</span>
+            </div>
+            {coupons.map((c) => {
+              const discountLabel = (() => {
+                if (!c.discountValue) return c.discountType === "freeship" ? "Miễn phí ship" : c.discountType === "gift" ? "Tặng quà" : "";
+                if (c.discountType === "percentage") return `Giảm ${c.discountValue}%`;
+                if (c.discountType === "fixed") return `Giảm ${Number(c.discountValue).toLocaleString("vi-VN")}đ`;
+                if (c.discountType === "freeship") return "Miễn phí ship";
+                return c.discountValue;
+              })();
+              return (
+                <div key={c.id} className="bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-200/60 rounded-2xl p-4 relative overflow-hidden">
+                  <div className="absolute right-0 top-0 bottom-0 w-16 flex items-center justify-center opacity-5">
+                    <Tag size={48} />
+                  </div>
+                  <div className="flex items-start gap-3 relative">
+                    <div className="w-9 h-9 rounded-xl bg-emerald-100 flex items-center justify-center shrink-0 text-lg">🎁</div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap mb-1">
+                        <span className="font-mono font-black text-xs tracking-widest bg-emerald-500/10 text-emerald-700 px-2 py-0.5 rounded-lg border border-emerald-200">{c.code}</span>
+                        {c.expiresAt && <span className="text-[10px] text-muted-foreground font-medium">HSD: {c.expiresAt}</span>}
+                      </div>
+                      <p className="font-bold text-sm text-foreground">{c.title}</p>
+                      {discountLabel && <p className="text-xs text-emerald-700 font-semibold mt-0.5">💰 {discountLabel}</p>}
+                      {c.description && <p className="text-[11px] text-muted-foreground mt-1 leading-relaxed">{c.description}</p>}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
 
         {/* Booking notes pinned section */}
         {bookingNotes.length > 0 && (

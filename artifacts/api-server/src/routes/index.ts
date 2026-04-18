@@ -9,6 +9,7 @@ import preorderRouter from "./preorder";
 import sheetsRouter from "./sheets";
 import noticesRouter from "./notices";
 import bookingNotesRouter from "./booking-notes";
+import couponsRouter from "./coupons";
 
 const router: IRouter = Router();
 
@@ -22,5 +23,6 @@ router.use(preorderRouter);
 router.use(sheetsRouter);
 router.use(noticesRouter);
 router.use(bookingNotesRouter);
+router.use(couponsRouter);
 
 export default router;
