@@ -46,10 +46,11 @@ const statusColors: Record<string, string> = {
   cancelled: "bg-red-100 text-red-700",
 };
 
-const shippingStatusOptions = ["web_order", "warehouse_origin", "warehouse_vn", "sorting", "preparing", "in_transit", "delivered", "returned"];
+const shippingStatusOptions = ["web_order", "warehouse_origin", "shipping_to_vn", "warehouse_vn", "sorting", "preparing", "in_transit", "delivered", "returned"];
 const shippingStatusLabels: Record<string, string> = {
   web_order: "Web trả hàng",
   warehouse_origin: "Đã về kho tại nước sở tại",
+  shipping_to_vn: "Đang giao về kho Việt",
   warehouse_vn: "Về kho Việt",
   sorting: "Phân loại hàng",
   preparing: "Chuẩn bị giao",

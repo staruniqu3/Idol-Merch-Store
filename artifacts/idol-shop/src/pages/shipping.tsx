@@ -33,6 +33,14 @@ const statusConfig: Record<string, {
     dot: "bg-indigo-400",
     gradient: "from-indigo-400 to-blue-500",
   },
+  shipping_to_vn: {
+    label: "Đang giao về kho Việt",
+    icon: <Truck size={16} />,
+    color: "text-violet-600",
+    bg: "bg-violet-50",
+    dot: "bg-violet-400",
+    gradient: "from-violet-400 to-purple-500",
+  },
   warehouse_vn: {
     label: "Về kho Việt",
     icon: <MapPin size={16} />,
