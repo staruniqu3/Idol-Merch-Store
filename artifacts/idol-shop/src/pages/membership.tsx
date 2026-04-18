@@ -443,7 +443,7 @@ export default function MembershipPage() {
 
   useEffect(() => { fetchCoupons(); }, []);
 
-  type TicketNotice = { id: number; title: string; content: string; type: string; isPinned: boolean };
+  type TicketNotice = { id: number; title: string; content: string; type: string; isPinned: boolean; seller: string | null };
   const [ticketNotices, setTicketNotices] = useState<TicketNotice[]>([]);
   useEffect(() => {
     fetch(`${getBaseUrl()}/api/notices`, { cache: "no-store" })
@@ -640,19 +640,35 @@ export default function MembershipPage() {
       {/* Ticket sale banner */}
       {ticketNotices.length > 0 && (
         <div className="px-4 -mt-3 space-y-2 mb-1">
-          {ticketNotices.map((n) => (
-            <div key={n.id} className="bg-gradient-to-r from-rose-500 via-primary to-pink-500 rounded-2xl p-4 text-white shadow-lg shadow-primary/20 relative overflow-hidden">
-              <div className="absolute right-3 top-1/2 -translate-y-1/2 text-white/10 pointer-events-none select-none text-7xl leading-none">🎟️</div>
-              <div className="relative">
-                <div className="flex items-center gap-2 mb-1">
-                  <span className="text-base">🎟️</span>
-                  <span className="text-[11px] font-bold uppercase tracking-widest bg-white/20 px-2 py-0.5 rounded-full">Còn vé</span>
+          {ticketNotices.map((n) => {
+            const getSellerBadge = (seller: string | null) => {
+              if (!seller) return null;
+              if (seller === "shop") return { icon: "🏪", text: "Từ Tiệm Chu Du" };
+              if (seller === "external") return { icon: "🧑", text: "Khách ngoài" };
+              if (seller.startsWith("member:")) return { icon: "👤", text: `Mã ${seller.replace("member:", "")}` };
+              if (seller === "member") return { icon: "👤", text: "Thành viên" };
+              return null;
+            };
+            const sellerBadge = getSellerBadge(n.seller);
+            return (
+              <div key={n.id} className="bg-gradient-to-r from-rose-500 via-primary to-pink-500 rounded-2xl p-4 text-white shadow-lg shadow-primary/20 relative overflow-hidden">
+                <div className="absolute right-3 top-1/2 -translate-y-1/2 text-white/10 pointer-events-none select-none text-7xl leading-none">🎟️</div>
+                <div className="relative">
+                  <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+                    <span className="text-base">🎟️</span>
+                    <span className="text-[11px] font-bold uppercase tracking-widest bg-white/20 px-2 py-0.5 rounded-full">Còn vé</span>
+                    {sellerBadge && (
+                      <span className="text-[11px] font-bold bg-white/25 text-white px-2 py-0.5 rounded-full">
+                        {sellerBadge.icon} {sellerBadge.text}
+                      </span>
+                    )}
+                  </div>
+                  <p className="font-black text-base leading-tight">{n.title}</p>
+                  {n.content && <p className="text-xs text-white/80 mt-1 leading-relaxed">{n.content}</p>}
                 </div>
-                <p className="font-black text-base leading-tight">{n.title}</p>
-                {n.content && <p className="text-xs text-white/80 mt-1 leading-relaxed">{n.content}</p>}
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 

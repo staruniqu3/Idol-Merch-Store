@@ -1513,13 +1513,13 @@ function RewardsTab() {
 }
 
 // ===================== Notices Tab =====================
-type NoticeItem = { id: number; title: string; content: string; type: string; isPinned: boolean; createdAt: string };
+type NoticeItem = { id: number; title: string; content: string; type: string; isPinned: boolean; seller: string | null; createdAt: string };
 
 function NoticesTab() {
   const [notices, setNotices] = useState<NoticeItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState({ title: "", content: "", type: "general", isPinned: false });
+  const [form, setForm] = useState({ title: "", content: "", type: "general", isPinned: false, sellerType: "shop", sellerCode: "" });
   const { toast } = useToast();
 
   function getBaseUrl() { const b = import.meta.env.BASE_URL ?? "/"; return b.replace(/\/$/, ""); }
@@ -1536,18 +1536,25 @@ function NoticesTab() {
 
   useEffect(() => { load(); }, []);
 
+  const buildSeller = () => {
+    if (form.type !== "ticket") return null;
+    if (form.sellerType === "shop") return "shop";
+    if (form.sellerType === "member") return form.sellerCode.trim() ? `member:${form.sellerCode.trim()}` : "member";
+    return "external";
+  };
+
   const handleCreate = async () => {
     if (!form.title.trim() || !form.content.trim()) { toast({ title: "Vui lòng nhập tiêu đề và nội dung", variant: "destructive" }); return; }
     try {
       const res = await fetch(`${getBaseUrl()}/api/notices`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify({ title: form.title, content: form.content, type: form.type, isPinned: form.isPinned, seller: buildSeller() }),
       });
       if (!res.ok) throw new Error();
       toast({ title: "Đã đăng thông báo" });
       setOpen(false);
-      setForm({ title: "", content: "", type: "general", isPinned: false });
+      setForm({ title: "", content: "", type: "general", isPinned: false, sellerType: "shop", sellerCode: "" });
       load();
     } catch { toast({ title: "Lỗi khi đăng thông báo", variant: "destructive" }); }
   };
@@ -1571,14 +1578,23 @@ function NoticesTab() {
     } catch { /* ignore */ }
   };
 
-  const typeLabel: Record<string, string> = { general: "Thông báo", looking: "Tìm khách" };
-  const typeBg: Record<string, string> = { general: "bg-primary/10 text-primary", looking: "bg-rose-100 text-rose-600" };
+  const typeLabel: Record<string, string> = { general: "Thông báo", looking: "Tìm khách", ticket: "Vé dư concert" };
+  const typeBg: Record<string, string> = { general: "bg-primary/10 text-primary", looking: "bg-rose-100 text-rose-600", ticket: "bg-fuchsia-100 text-fuchsia-700" };
+
+  const sellerLabel = (seller: string | null) => {
+    if (!seller) return null;
+    if (seller === "shop") return { icon: "🏪", text: "Tiệm Chu Du" };
+    if (seller === "external") return { icon: "🧑", text: "Khách ngoài" };
+    if (seller.startsWith("member:")) return { icon: "👤", text: seller.replace("member:", "") };
+    if (seller === "member") return { icon: "👤", text: "Thành viên" };
+    return null;
+  };
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h3 className="font-bold flex items-center gap-2"><Bell size={15} className="text-primary" />Thông báo ({notices.length})</h3>
-        <Button size="sm" className="rounded-xl" onClick={() => { setForm({ title: "", content: "", type: "general", isPinned: false }); setOpen(true); }}>
+        <Button size="sm" className="rounded-xl" onClick={() => { setForm({ title: "", content: "", type: "general", isPinned: false, sellerType: "shop", sellerCode: "" }); setOpen(true); }}>
           <Plus size={14} className="mr-1" />Đăng thông báo
         </Button>
       </div>
@@ -1600,6 +1616,22 @@ function NoticesTab() {
                 ))}
               </div>
             </div>
+            {form.type === "ticket" && (
+              <div>
+                <Label>Người bán vé</Label>
+                <div className="flex gap-2 mt-1 flex-wrap">
+                  {[{ v: "shop", icon: "🏪", label: "Tiệm Chu Du" }, { v: "member", icon: "👤", label: "Thành viên" }, { v: "external", icon: "🧑", label: "Khách ngoài" }].map((s) => (
+                    <button key={s.v} type="button" onClick={() => setForm({ ...form, sellerType: s.v })}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border transition-all ${form.sellerType === s.v ? "bg-primary text-white border-primary" : "bg-card border-border text-muted-foreground"}`}>
+                      {s.icon} {s.label}
+                    </button>
+                  ))}
+                </div>
+                {form.sellerType === "member" && (
+                  <Input value={form.sellerCode} onChange={(e) => setForm({ ...form, sellerCode: e.target.value })} placeholder="Mã thành viên (VD: MS001)" className="rounded-xl mt-2" />
+                )}
+              </div>
+            )}
             <div><Label>Tiêu đề *</Label><Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="VD: Thông báo lô hàng, Tìm chủ đơn 0912..." className="rounded-xl mt-1" /></div>
             <div><Label>Nội dung *</Label><Textarea value={form.content} onChange={(e) => setForm({ ...form, content: e.target.value })} rows={4} placeholder="Nhập nội dung thông báo..." className="rounded-xl mt-1" /></div>
             <div className="flex items-center gap-2">
@@ -1628,6 +1660,7 @@ function NoticesTab() {
                 <div className="flex items-center gap-2 mb-1 flex-wrap">
                   {n.isPinned && <Pin size={11} className="text-primary shrink-0" />}
                   <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${typeBg[n.type] ?? "bg-muted text-muted-foreground"}`}>{typeLabel[n.type] ?? n.type}</span>
+                  {n.seller && (() => { const sl = sellerLabel(n.seller); return sl ? <span className="text-[10px] font-semibold bg-muted text-muted-foreground px-2 py-0.5 rounded-full">{sl.icon} {sl.text}</span> : null; })()}
                   <span className="text-[10px] text-muted-foreground">{new Date(n.createdAt).toLocaleDateString("vi-VN")}</span>
                 </div>
                 <p className="font-bold text-sm">{n.title}</p>

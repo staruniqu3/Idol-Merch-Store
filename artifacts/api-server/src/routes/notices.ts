@@ -10,13 +10,14 @@ router.get("/notices", async (_req, res): Promise<void> => {
 });
 
 router.post("/notices", async (req, res): Promise<void> => {
-  const { title, content, type, isPinned } = req.body;
+  const { title, content, type, isPinned, seller } = req.body;
   if (!title || !content) { res.status(400).json({ error: "title and content required" }); return; }
   const [notice] = await db.insert(noticesTable).values({
     title: String(title),
     content: String(content),
     type: String(type ?? "general"),
     isPinned: Boolean(isPinned ?? false),
+    seller: seller ? String(seller) : null,
   }).returning();
   res.status(201).json(notice);
 });
@@ -24,12 +25,13 @@ router.post("/notices", async (req, res): Promise<void> => {
 router.patch("/notices/:id", async (req, res): Promise<void> => {
   const id = parseInt(req.params.id);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
-  const { title, content, type, isPinned } = req.body;
+  const { title, content, type, isPinned, seller } = req.body;
   const update: Record<string, unknown> = {};
   if (title != null) update.title = String(title);
   if (content != null) update.content = String(content);
   if (type != null) update.type = String(type);
   if (isPinned != null) update.isPinned = Boolean(isPinned);
+  if (seller !== undefined) update.seller = seller ? String(seller) : null;
   const [updated] = await db.update(noticesTable).set(update as Partial<typeof noticesTable.$inferInsert>).where(eq(noticesTable.id, id)).returning();
   if (!updated) { res.status(404).json({ error: "Not found" }); return; }
   res.json(updated);
