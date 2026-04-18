@@ -1899,7 +1899,19 @@ function BookingTab() {
 }
 
 // ===================== Coupon Tab =====================
-const TIERS = ["Newcomers", "Dreamer", "Platinum"];
+const TIERS: { value: string; label: string; emoji: string }[] = [
+  { value: "Newcomers",      label: "Newcomers",       emoji: "🌸" },
+  { value: "Friend of Store",label: "Friend of Store", emoji: "🌿" },
+  { value: "Muses",          label: "Muses",           emoji: "🔮" },
+  { value: "Dreamer",        label: "Dreamer",         emoji: "💙" },
+  { value: "Ruby",           label: "Ruby",            emoji: "🥂" },
+  { value: "Platinum",       label: "Platinum",        emoji: "💎" },
+  { value: "Priviledged",    label: "Priviledged",     emoji: "🖤" },
+  { value: "Infinite",       label: "Infinite",        emoji: "🐉" },
+  { value: "Solstice",       label: "Solstice",        emoji: "🐲" },
+  { value: "Patron",         label: "Patron",          emoji: "🦅" },
+  { value: "Voyager",        label: "Voyager",         emoji: "🦚" },
+];
 const DISCOUNT_TYPES: Record<string, string> = {
   fixed: "Giảm tiền cố định",
   percentage: "Giảm theo %",
@@ -1986,7 +1998,7 @@ function CouponTab() {
     toast({ title: "Đã xoá coupon" }); load();
   };
 
-  const toggleTier = (t: string) => setSelectedTiers((prev) => prev.includes(t) ? prev.filter((x) => x !== t) : [...prev, t]);
+  const toggleTier = (v: string) => setSelectedTiers((prev) => prev.includes(v) ? prev.filter((x) => x !== v) : [...prev, v]);
 
   const norm = (s: string) => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
   const memberResults = memberSearch.trim().length >= 1
@@ -2054,12 +2066,12 @@ function CouponTab() {
               <p className="text-[10px] text-muted-foreground mb-2">Để trống = tất cả hạng. Chọn hạng cụ thể = chỉ hạng đó nhận.</p>
               <div className="flex gap-2 flex-wrap">
                 {TIERS.map((t) => (
-                  <button key={t} type="button" onClick={() => toggleTier(t)}
+                  <button key={t.value} type="button" onClick={() => toggleTier(t.value)}
                     className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-colors ${
-                      selectedTiers.includes(t) ? "bg-primary text-white border-primary" : "bg-muted text-muted-foreground border-border hover:border-primary/40"
+                      selectedTiers.includes(t.value) ? "bg-primary text-white border-primary" : "bg-muted text-muted-foreground border-border hover:border-primary/40"
                     }`}
                   >
-                    {t === "Newcomers" ? "🌸" : t === "Dreamer" ? "💙" : "💎"} {t}
+                    {t.emoji} {t.label}
                   </button>
                 ))}
               </div>
@@ -2140,9 +2152,14 @@ function CouponTab() {
                     {members.length > 0
                       ? members.map((m) => <span key={m.phone} className="text-[10px] bg-violet-50 text-violet-700 border border-violet-200 px-1.5 py-0.5 rounded-full font-semibold">👤 {m.name}</span>)
                       : tiers.length > 0
-                        ? tiers.map((t) => <span key={t} className="text-[10px] bg-sky-50 text-sky-700 border border-sky-200 px-1.5 py-0.5 rounded-full font-semibold">
-                            {t === "Newcomers" ? "🌸" : t === "Dreamer" ? "💙" : "💎"} {t}
-                          </span>)
+                        ? tiers.map((t) => {
+                            const cfg = TIERS.find((x) => x.value.toLowerCase() === t.toLowerCase());
+                            return (
+                              <span key={t} className="text-[10px] bg-sky-50 text-sky-700 border border-sky-200 px-1.5 py-0.5 rounded-full font-semibold">
+                                {cfg?.emoji ?? "⭐"} {t}
+                              </span>
+                            );
+                          })
                         : <span className="text-[10px] bg-emerald-50 text-emerald-700 border border-emerald-200 px-1.5 py-0.5 rounded-full font-semibold">🌐 Tất cả hạng</span>
                     }
                     {c.expiresAt && !isExpired && <span className="text-[10px] text-muted-foreground">· HSD: {c.expiresAt}</span>}
