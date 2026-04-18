@@ -10,6 +10,7 @@ export const preorderScheduleTable = pgTable("preorder_schedule", {
   deadline: text("deadline"),
   pickupDate: text("pickup_date"),
   pickupDeadline: text("pickup_deadline"),
+  scheduleType: text("schedule_type").default("po"),
   imageUrl: text("image_url"),
   artist: text("artist"),
   isActive: boolean("is_active").notNull().default(true),

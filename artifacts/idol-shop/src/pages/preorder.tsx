@@ -10,6 +10,7 @@ interface PreorderItem {
   deadline: string | null;
   pickupDate: string | null;
   pickupDeadline: string | null;
+  scheduleType: string | null;
   imageUrl: string | null;
   artist: string | null;
   isActive: boolean;
@@ -390,7 +391,10 @@ export default function PreorderPage() {
                 />
 
                 {filtered.map((item, idx) => {
-                  const isPickupOnly = !item.deadline && !!item.pickupDeadline;
+                  const type = item.scheduleType ?? (item.pickupDeadline ? "pickup" : "po");
+                  const isPickup = type === "pickup";
+                  const isBooking = type === "booking";
+                  const isPickupOnly = isPickup && !item.deadline && !!item.pickupDeadline;
                   const itemStart = item.startDate ? startOfDay(new Date(item.startDate)) : startOfDay(new Date(item.createdAt));
                   const itemEnd = item.deadline
                     ? startOfDay(new Date(item.deadline))
@@ -414,17 +418,13 @@ export default function PreorderPage() {
                   const pickupEndDay = item.pickupDeadline ? startOfDay(new Date(item.pickupDeadline)) : null;
                   const pickupOffset = pickupDay ? diffDays(pickupDay, rangeStart) : null;
 
-                  // Show pickup as a bar when both start + deadline exist, else just diamond
                   const hasPickupRange = pickupDay !== null && pickupEndDay !== null;
                   const pickupBarDays = hasPickupRange ? Math.max(diffDays(pickupEndDay!, pickupDay!) + 1, 1) : 0;
-
-                  // Pickup progress (today inside pickup window)
                   const pickupElapsed = hasPickupRange
                     ? Math.max(0, Math.min(pickupBarDays, diffDays(today, pickupDay!) + 1))
                     : 0;
                   const pickupPct = hasPickupRange && pickupBarDays > 0 ? (pickupElapsed / pickupBarDays) * 100 : 0;
 
-                  // Hide PO bar for pickup-only items, or when deadline ended and pickup is set
                   const showPOBar = !isPickupOnly && !(ended && pickupDay);
                   const showPickupRow = pickupDay !== null;
 
@@ -432,17 +432,23 @@ export default function PreorderPage() {
                     ? "rgba(200,200,200,0.25)"
                     : urgent
                       ? "rgba(239,68,68,0.15)"
-                      : ac ? ac.bg : "rgba(var(--primary),0.10)";
+                      : isBooking
+                        ? "rgba(139,92,246,0.12)"
+                        : ac ? ac.bg : "rgba(var(--primary),0.10)";
                   const barFill = ended
                     ? "#9CA3AF"
                     : urgent
                       ? "#F87171"
-                      : ac ? ac.fill : "hsl(var(--primary))";
+                      : isBooking
+                        ? "#8B5CF6"
+                        : ac ? ac.fill : "hsl(var(--primary))";
                   const barBorder = ended
                     ? "rgba(156,163,175,0.4)"
                     : urgent
                       ? "rgba(239,68,68,0.3)"
-                      : ac ? `${ac.fill}55` : "hsl(var(--primary)/0.25)";
+                      : isBooking
+                        ? "rgba(139,92,246,0.35)"
+                        : ac ? `${ac.fill}55` : "hsl(var(--primary)/0.25)";
 
                   const pickupFill = ended
                     ? "#9CA3AF"
@@ -562,7 +568,9 @@ export default function PreorderPage() {
               Chi tiết đơn pre-order
             </p>
             {filtered.map((item) => {
-              const isPickupOnly = !item.deadline && !!item.pickupDeadline;
+              const type = item.scheduleType ?? (item.pickupDeadline ? "pickup" : "po");
+              const isPickup = type === "pickup";
+              const isBooking = type === "booking";
               const days_ = getDaysLeft(item.deadline ?? item.pickupDeadline);
               const ended = days_ !== null && days_ < 0;
               const urgent = days_ !== null && days_ >= 0 && days_ <= 3;
@@ -582,6 +590,9 @@ export default function PreorderPage() {
                 ? Math.min(100, (elapsedD / totalD) * 100)
                 : null;
               const isExpanded = expandedId === item.id;
+              const barColor = ended ? "bg-gray-300" : urgent ? "bg-red-400" : isBooking ? "bg-violet-500" : isPickup ? "bg-emerald-500" : "bg-primary";
+              const iconBg = ended ? "bg-gray-100" : urgent ? "bg-red-100" : isBooking ? "bg-violet-50" : isPickup ? "bg-emerald-50" : "bg-primary/10";
+              const artistColor = isBooking ? "text-violet-600 bg-violet-50" : isPickup ? "text-emerald-600 bg-emerald-50" : "text-primary bg-primary/10";
 
               return (
                 <div
@@ -595,16 +606,15 @@ export default function PreorderPage() {
                     className="w-full p-4 text-left flex items-start gap-3"
                     onClick={() => setExpandedId(isExpanded ? null : item.id)}
                   >
-                    <div className={`w-10 h-10 rounded-xl shrink-0 flex items-center justify-center mt-0.5 ${
-                      ended ? "bg-gray-100" : urgent ? "bg-red-100" : "bg-primary/10"
-                    }`}>
-                      <Calendar size={18} className={ended ? "text-gray-400" : urgent ? "text-red-500" : "text-primary"} />
+                    <div className={`w-10 h-10 rounded-xl shrink-0 flex items-center justify-center mt-0.5 text-base ${iconBg}`}>
+                      {isBooking ? "🎫" : isPickup ? "🛍️" : <Calendar size={18} className={ended ? "text-gray-400" : urgent ? "text-red-500" : "text-primary"} />}
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap mb-1">
                         {item.artist && (
-                          <span className="text-[10px] font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-full">{item.artist}</span>
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${artistColor}`}>{item.artist}</span>
                         )}
+                        {isBooking && <span className="text-[10px] font-bold text-violet-600 bg-violet-50 px-2 py-0.5 rounded-full">🎫 Booking Vé</span>}
                         <UrgencyBadge days={days_} />
                       </div>
                       <p className="font-bold text-sm leading-snug">{item.title}</p>
@@ -612,12 +622,7 @@ export default function PreorderPage() {
                       {pct !== null && (
                         <div className="mt-2">
                           <div className="w-full bg-muted rounded-full h-1.5 overflow-hidden">
-                            <div
-                              className={`h-1.5 rounded-full transition-all ${
-                                ended ? "bg-gray-300" : urgent ? "bg-red-400" : "bg-primary"
-                              }`}
-                              style={{ width: `${pct}%` }}
-                            />
+                            <div className={`h-1.5 rounded-full transition-all ${barColor}`} style={{ width: `${pct}%` }} />
                           </div>
                           <div className="flex justify-between text-[9px] text-muted-foreground mt-1">
                             <span>{itemStart.toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit" })}</span>
@@ -640,10 +645,10 @@ export default function PreorderPage() {
                       {item.description && (
                         <p className="text-sm text-muted-foreground leading-relaxed">{item.description}</p>
                       )}
-                      {item.startDate && !isPickupOnly && (
+                      {item.startDate && !isPickup && (
                         <div className="flex items-center gap-1.5 text-xs">
                           <Clock size={12} className="text-muted-foreground" />
-                          <span className="text-muted-foreground">Bắt đầu PO:</span>
+                          <span className="text-muted-foreground">{isBooking ? "Mở booking:" : "Bắt đầu PO:"}</span>
                           <span className="font-bold text-foreground">
                             {new Date(item.startDate).toLocaleDateString("vi-VN", { day: "2-digit", month: "long", year: "numeric" })}
                           </span>

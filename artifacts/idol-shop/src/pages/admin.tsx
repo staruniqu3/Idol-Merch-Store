@@ -842,14 +842,14 @@ function ShippingTab() {
 // ===================== Pre-order Schedule =====================
 interface PreorderItem {
   id: number; title: string; description: string | null; startDate: string | null; deadline: string | null; pickupDate: string | null; pickupDeadline: string | null;
-  imageUrl: string | null; artist: string | null; isActive: boolean; createdAt: string;
+  scheduleType: string | null; imageUrl: string | null; artist: string | null; isActive: boolean; createdAt: string;
 }
 
 function PreorderTab() {
   const [items, setItems] = useState<PreorderItem[]>([]);
   const [open, setOpen] = useState(false);
   const [editId, setEditId] = useState<number | null>(null);
-  const [scheduleMode, setScheduleMode] = useState<"po" | "pickup">("po");
+  const [scheduleMode, setScheduleMode] = useState<"po" | "pickup" | "booking">("po");
   const [form, setForm] = useState({ title: "", description: "", startDate: "", deadline: "", pickupDate: "", pickupDeadline: "", artist: "", imageUrl: "", isActive: true });
   const { toast } = useToast();
 
@@ -866,8 +866,8 @@ function PreorderTab() {
 
   const openEdit = (item: PreorderItem) => {
     setEditId(item.id);
-    const mode = (item.pickupDate || item.pickupDeadline) ? "pickup" : "po";
-    setScheduleMode(mode);
+    const type = item.scheduleType ?? (item.pickupDeadline ? "pickup" : "po");
+    setScheduleMode(type as "po" | "pickup" | "booking");
     setForm({ title: item.title, description: item.description ?? "", startDate: item.startDate ?? "", deadline: item.deadline ?? "", pickupDate: item.pickupDate ?? "", pickupDeadline: item.pickupDeadline ?? "", artist: item.artist ?? "", imageUrl: item.imageUrl ?? "", isActive: item.isActive });
     setOpen(true);
   };
@@ -878,9 +878,10 @@ function PreorderTab() {
       title: form.title,
       description: form.description || null,
       startDate: form.startDate || null,
-      deadline: scheduleMode === "po" ? (form.deadline || null) : null,
+      deadline: (scheduleMode === "po" || scheduleMode === "booking") ? (form.deadline || null) : null,
       pickupDate: scheduleMode === "pickup" ? (form.pickupDate || null) : null,
       pickupDeadline: scheduleMode === "pickup" ? (form.pickupDeadline || null) : null,
+      scheduleType: scheduleMode,
       artist: form.artist || null,
       imageUrl: form.imageUrl || null,
       isActive: form.isActive,
@@ -920,27 +921,40 @@ function PreorderTab() {
                 <button
                   type="button"
                   onClick={() => setScheduleMode("po")}
-                  className={`flex-1 py-2 text-sm font-medium transition-colors ${scheduleMode === "po" ? "bg-primary text-white" : "bg-muted text-muted-foreground hover:bg-muted/70"}`}
+                  className={`flex-1 py-2 text-xs font-medium transition-colors ${scheduleMode === "po" ? "bg-primary text-white" : "bg-muted text-muted-foreground hover:bg-muted/70"}`}
                 >
                   📅 Deadline đặt hàng
                 </button>
                 <button
                   type="button"
                   onClick={() => setScheduleMode("pickup")}
-                  className={`flex-1 py-2 text-sm font-medium transition-colors ${scheduleMode === "pickup" ? "bg-emerald-600 text-white" : "bg-muted text-muted-foreground hover:bg-muted/70"}`}
+                  className={`flex-1 py-2 text-xs font-medium transition-colors ${scheduleMode === "pickup" ? "bg-emerald-600 text-white" : "bg-muted text-muted-foreground hover:bg-muted/70"}`}
                 >
-                  🛍️ Lịch đi mua hàng tại store
+                  🛍️ Lịch đi mua tại store
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setScheduleMode("booking")}
+                  className={`flex-1 py-2 text-xs font-medium transition-colors ${scheduleMode === "booking" ? "bg-violet-600 text-white" : "bg-muted text-muted-foreground hover:bg-muted/70"}`}
+                >
+                  🎫 Nhận Booking Vé
                 </button>
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-2">
-              <div><Label>{scheduleMode === "pickup" ? "Bắt đầu đi pickup" : "Bắt đầu PO"}</Label><Input type="date" value={form.startDate} onChange={(e) => setForm({ ...form, startDate: e.target.value })} className="rounded-xl mt-1" /></div>
+              <div>
+                <Label>{scheduleMode === "pickup" ? "Bắt đầu đi pickup" : scheduleMode === "booking" ? "Ngày mở booking" : "Bắt đầu PO"}</Label>
+                <Input type="date" value={form.startDate} onChange={(e) => setForm({ ...form, startDate: e.target.value })} className="rounded-xl mt-1" />
+              </div>
               {scheduleMode === "po" && (
                 <div><Label>Deadline PO</Label><Input type="date" value={form.deadline} onChange={(e) => setForm({ ...form, deadline: e.target.value })} className="rounded-xl mt-1" /></div>
               )}
               {scheduleMode === "pickup" && (
                 <div><Label className="text-emerald-700 dark:text-emerald-400">Deadline pickup</Label><Input type="date" value={form.pickupDeadline} onChange={(e) => setForm({ ...form, pickupDeadline: e.target.value })} className="rounded-xl mt-1" /></div>
+              )}
+              {scheduleMode === "booking" && (
+                <div><Label className="text-violet-700 dark:text-violet-400">Deadline booking</Label><Input type="date" value={form.deadline} onChange={(e) => setForm({ ...form, deadline: e.target.value })} className="rounded-xl mt-1" /></div>
               )}
             </div>
 
@@ -960,18 +974,33 @@ function PreorderTab() {
           const effectiveDeadline = item.pickupDeadline ?? item.deadline;
           const isExpired = !!effectiveDeadline && effectiveDeadline < today;
           const isDim = isExpired || !item.isActive;
+          const type = item.scheduleType ?? (item.pickupDeadline ? "pickup" : "po");
+          const typeConfig = {
+            po:      { icon: "📅", color: "text-primary",       bg: "bg-primary/10"    },
+            pickup:  { icon: "🛍️", color: "text-emerald-600",  bg: "bg-emerald-50"    },
+            booking: { icon: "🎫", color: "text-violet-600",    bg: "bg-violet-50"     },
+          }[type] ?? { icon: "📅", color: "text-primary", bg: "bg-primary/10" };
           return (
             <div key={item.id} className={`bg-card border rounded-2xl p-3 flex items-start gap-3 transition-opacity ${isDim ? "opacity-40 border-dashed" : "border-border"}`} data-testid={`admin-preorder-${item.id}`}>
-              <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${isExpired ? "bg-muted" : "bg-primary/10"}`}>
-                <Calendar size={16} className={isExpired ? "text-muted-foreground" : "text-primary"} />
+              <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 text-base ${isExpired ? "bg-muted" : typeConfig.bg}`}>
+                {typeConfig.icon}
               </div>
               <div className="flex-1 min-w-0">
                 <p className="font-bold text-sm">{item.title}</p>
-                {item.artist && <p className="text-xs text-primary font-semibold mt-0.5">{item.artist}</p>}
+                {item.artist && <p className={`text-xs font-semibold mt-0.5 ${isExpired ? "text-muted-foreground" : typeConfig.color}`}>{item.artist}</p>}
                 <div className="flex flex-wrap gap-x-3 mt-0.5">
-                  {item.startDate && !item.pickupDeadline && <p className="text-xs text-muted-foreground">Bắt đầu: {item.startDate}</p>}
-                  {item.deadline && <p className="text-xs text-muted-foreground">Deadline: {item.deadline}</p>}
-                  {item.pickupDeadline && <p className="text-xs text-emerald-600 font-medium">🛍️ Pickup{item.startDate ? `: ${item.startDate}` : ""} · deadline {item.pickupDeadline}</p>}
+                  {type === "pickup" && item.pickupDeadline && (
+                    <p className="text-xs text-emerald-600 font-medium">🛍️ Pickup{item.startDate ? `: ${item.startDate}` : ""} · deadline {item.pickupDeadline}</p>
+                  )}
+                  {type === "booking" && (
+                    <p className="text-xs text-violet-600 font-medium">🎫 Nhận booking{item.startDate ? `: ${item.startDate}` : ""}{ item.deadline ? ` · deadline ${item.deadline}` : ""}</p>
+                  )}
+                  {type === "po" && (
+                    <>
+                      {item.startDate && <p className="text-xs text-muted-foreground">Bắt đầu: {item.startDate}</p>}
+                      {item.deadline && <p className="text-xs text-muted-foreground">Deadline: {item.deadline}</p>}
+                    </>
+                  )}
                 </div>
                 <div className="flex gap-1.5 mt-1 flex-wrap">
                   {!item.isActive && <Badge variant="secondary" className="text-[10px]">Đã đóng</Badge>}
