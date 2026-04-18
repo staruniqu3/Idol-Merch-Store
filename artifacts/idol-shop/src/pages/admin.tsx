@@ -955,27 +955,36 @@ function PreorderTab() {
       </Dialog>
 
       <div className="space-y-2">
-        {items.map((item) => (
-          <div key={item.id} className={`bg-card border rounded-2xl p-3 flex items-start gap-3 ${!item.isActive ? "opacity-60" : "border-border"}`} data-testid={`admin-preorder-${item.id}`}>
-            <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center shrink-0">
-              <Calendar size={16} className="text-primary" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="font-bold text-sm">{item.title}</p>
-              {item.artist && <p className="text-xs text-primary font-semibold mt-0.5">{item.artist}</p>}
-              <div className="flex flex-wrap gap-x-3 mt-0.5">
-                {item.startDate && !item.pickupDeadline && <p className="text-xs text-muted-foreground">Bắt đầu: {item.startDate}</p>}
-                {item.deadline && <p className="text-xs text-muted-foreground">Deadline: {item.deadline}</p>}
-                {item.pickupDeadline && <p className="text-xs text-emerald-600 font-medium">🛍️ Pickup{item.startDate ? `: ${item.startDate}` : ""} · deadline {item.pickupDeadline}</p>}
+        {items.map((item) => {
+          const today = new Date().toISOString().slice(0, 10);
+          const effectiveDeadline = item.pickupDeadline ?? item.deadline;
+          const isExpired = !!effectiveDeadline && effectiveDeadline < today;
+          const isDim = isExpired || !item.isActive;
+          return (
+            <div key={item.id} className={`bg-card border rounded-2xl p-3 flex items-start gap-3 transition-opacity ${isDim ? "opacity-40 border-dashed" : "border-border"}`} data-testid={`admin-preorder-${item.id}`}>
+              <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${isExpired ? "bg-muted" : "bg-primary/10"}`}>
+                <Calendar size={16} className={isExpired ? "text-muted-foreground" : "text-primary"} />
               </div>
-              {!item.isActive && <Badge variant="secondary" className="text-[10px] mt-1">Đã đóng</Badge>}
+              <div className="flex-1 min-w-0">
+                <p className="font-bold text-sm">{item.title}</p>
+                {item.artist && <p className="text-xs text-primary font-semibold mt-0.5">{item.artist}</p>}
+                <div className="flex flex-wrap gap-x-3 mt-0.5">
+                  {item.startDate && !item.pickupDeadline && <p className="text-xs text-muted-foreground">Bắt đầu: {item.startDate}</p>}
+                  {item.deadline && <p className="text-xs text-muted-foreground">Deadline: {item.deadline}</p>}
+                  {item.pickupDeadline && <p className="text-xs text-emerald-600 font-medium">🛍️ Pickup{item.startDate ? `: ${item.startDate}` : ""} · deadline {item.pickupDeadline}</p>}
+                </div>
+                <div className="flex gap-1.5 mt-1 flex-wrap">
+                  {!item.isActive && <Badge variant="secondary" className="text-[10px]">Đã đóng</Badge>}
+                  {isExpired && <Badge variant="outline" className="text-[10px] border-muted-foreground/40 text-muted-foreground">⏰ Đã hết deadline</Badge>}
+                </div>
+              </div>
+              <div className="flex gap-1 shrink-0">
+                <Button variant="ghost" size="icon" className="h-8 w-8 rounded-xl" onClick={() => openEdit(item)}><Pencil size={13} /></Button>
+                <Button variant="ghost" size="icon" className="h-8 w-8 rounded-xl text-destructive" onClick={() => handleDelete(item.id)}><Trash2 size={13} /></Button>
+              </div>
             </div>
-            <div className="flex gap-1 shrink-0">
-              <Button variant="ghost" size="icon" className="h-8 w-8 rounded-xl" onClick={() => openEdit(item)}><Pencil size={13} /></Button>
-              <Button variant="ghost" size="icon" className="h-8 w-8 rounded-xl text-destructive" onClick={() => handleDelete(item.id)}><Trash2 size={13} /></Button>
-            </div>
-          </div>
-        ))}
+          );
+        })}
         {items.length === 0 && (
           <div className="text-center py-8 text-muted-foreground">
             <Calendar size={28} strokeWidth={1.2} className="mx-auto mb-2" />
