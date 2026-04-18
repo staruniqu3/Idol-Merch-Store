@@ -664,7 +664,7 @@ export default function MembershipPage() {
                     )}
                   </div>
                   <p className="font-black text-base leading-tight">{n.title}</p>
-                  {n.content && <p className="text-xs text-white/80 mt-1 leading-relaxed">{n.content}</p>}
+                  {n.content && <p className="text-xs text-white/80 mt-1 leading-relaxed whitespace-pre-line">{n.content}</p>}
                 </div>
               </div>
             );
