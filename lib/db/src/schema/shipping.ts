@@ -8,6 +8,7 @@ export const shippingUpdatesTable = pgTable("shipping_updates", {
   description: text("description").notNull(),
   status: text("status").notNull().default("preparing"),
   estimatedDate: text("estimated_date"),
+  returnedAt: timestamp("returned_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });

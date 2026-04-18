@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQueryClient, useQuery } from "@tanstack/react-query";
 import {
   useListProducts, getListProductsQueryKey, useCreateProduct, useUpdateProduct, useDeleteProduct,
   useListOrders, getListOrdersQueryKey, useUpdateOrder,
@@ -731,8 +731,27 @@ function OrdersTab() {
 }
 
 // ===================== Shipping =====================
+const TWO_WEEKS_MS = 14 * 24 * 60 * 60 * 1000;
+
+function getReturnedCountdown(returnedAt: string | Date | null | undefined): string | null {
+  if (!returnedAt) return null;
+  const elapsed = Date.now() - new Date(returnedAt).getTime();
+  const remaining = TWO_WEEKS_MS - elapsed;
+  if (remaining <= 0) return "Đã ẩn khỏi trang công khai";
+  const days = Math.ceil(remaining / (24 * 60 * 60 * 1000));
+  return `Tự ẩn sau ${days} ngày`;
+}
+
 function ShippingTab() {
-  const { data: updates } = useListShippingUpdates();
+  const base = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
+  const { data: updates, refetch } = useQuery({
+    queryKey: ["/api/shipping?all=true"],
+    queryFn: async () => {
+      const res = await fetch(`${base}/api/shipping?all=true`, { cache: "no-store" });
+      if (!res.ok) return [];
+      return res.json() as Promise<Array<{ id: number; title: string; description: string; status: string; estimatedDate: string | null; returnedAt: string | null; createdAt: string }>>;
+    },
+  });
   const createUpdate = useCreateShippingUpdate();
   const updateUpdate = useUpdateShippingUpdate();
   const deleteUpdate = useDeleteShippingUpdate();
@@ -747,13 +766,18 @@ function ShippingTab() {
     setEditId(u.id); setForm({ title: u.title, description: u.description, status: u.status, estimatedDate: u.estimatedDate ?? "" }); setOpen(true);
   };
 
+  const invalidate = () => {
+    queryClient.invalidateQueries({ queryKey: getListShippingUpdatesQueryKey() });
+    refetch();
+  };
+
   const handleSave = () => {
     if (!form.title || !form.description) { toast({ title: "Nhập đủ thông tin", variant: "destructive" }); return; }
     const data = { title: form.title, description: form.description, status: form.status, estimatedDate: form.estimatedDate || null };
     if (editId) {
-      updateUpdate.mutate({ id: editId, data }, { onSuccess: () => { queryClient.invalidateQueries({ queryKey: getListShippingUpdatesQueryKey() }); setOpen(false); resetForm(); setEditId(null); toast({ title: "Đã cập nhật" }); } });
+      updateUpdate.mutate({ id: editId, data }, { onSuccess: () => { invalidate(); setOpen(false); resetForm(); setEditId(null); toast({ title: "Đã cập nhật" }); } });
     } else {
-      createUpdate.mutate({ data }, { onSuccess: () => { queryClient.invalidateQueries({ queryKey: getListShippingUpdatesQueryKey() }); setOpen(false); resetForm(); toast({ title: "Đã thêm cập nhật vận chuyển" }); } });
+      createUpdate.mutate({ data }, { onSuccess: () => { invalidate(); setOpen(false); resetForm(); toast({ title: "Đã thêm cập nhật vận chuyển" }); } });
     }
   };
 
@@ -786,19 +810,30 @@ function ShippingTab() {
         </DialogContent>
       </Dialog>
       <div className="space-y-2">
-        {updates && [...updates].reverse().map((u) => (
-          <div key={u.id} className="bg-card border border-border rounded-2xl p-3 flex items-start gap-3" data-testid={`admin-shipping-${u.id}`}>
-            <div className="flex-1 min-w-0">
-              <p className="font-bold text-sm">{u.title}</p>
-              <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{u.description}</p>
-              <Badge variant="outline" className="text-[10px] mt-1 rounded-full">{shippingStatusLabels[u.status] ?? u.status}</Badge>
+        {updates && [...updates].reverse().map((u) => {
+          const countdown = u.status === "returned" ? getReturnedCountdown(u.returnedAt) : null;
+          const isExpired = countdown === "Đã ẩn khỏi trang công khai";
+          return (
+            <div key={u.id} className={`bg-card border rounded-2xl p-3 flex items-start gap-3 ${isExpired ? "border-dashed border-muted-foreground/30 opacity-60" : "border-border"}`} data-testid={`admin-shipping-${u.id}`}>
+              <div className="flex-1 min-w-0">
+                <p className="font-bold text-sm">{u.title}</p>
+                <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{u.description}</p>
+                <div className="flex flex-wrap gap-1.5 mt-1">
+                  <Badge variant="outline" className="text-[10px] rounded-full">{shippingStatusLabels[u.status] ?? u.status}</Badge>
+                  {countdown && (
+                    <Badge variant="outline" className={`text-[10px] rounded-full ${isExpired ? "border-muted-foreground/30 text-muted-foreground" : "border-amber-300 text-amber-700 bg-amber-50"}`}>
+                      ⏱ {countdown}
+                    </Badge>
+                  )}
+                </div>
+              </div>
+              <div className="flex gap-1 shrink-0">
+                <Button variant="ghost" size="icon" className="h-8 w-8 rounded-xl" onClick={() => openEdit(u)}><Pencil size={13} /></Button>
+                <Button variant="ghost" size="icon" className="h-8 w-8 rounded-xl text-destructive" onClick={() => deleteUpdate.mutate({ id: u.id }, { onSuccess: () => invalidate() })}><Trash2 size={13} /></Button>
+              </div>
             </div>
-            <div className="flex gap-1 shrink-0">
-              <Button variant="ghost" size="icon" className="h-8 w-8 rounded-xl" onClick={() => openEdit(u)}><Pencil size={13} /></Button>
-              <Button variant="ghost" size="icon" className="h-8 w-8 rounded-xl text-destructive" onClick={() => deleteUpdate.mutate({ id: u.id }, { onSuccess: () => queryClient.invalidateQueries({ queryKey: getListShippingUpdatesQueryKey() }) })}><Trash2 size={13} /></Button>
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

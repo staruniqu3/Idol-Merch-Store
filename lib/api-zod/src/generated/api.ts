@@ -278,6 +278,7 @@ export const ListShippingUpdatesResponseItem = zod.object({
   description: zod.string(),
   status: zod.string().describe("preparing, in_transit, arrived, delivered"),
   estimatedDate: zod.string().nullish(),
+  returnedAt: zod.coerce.date().nullish(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -315,6 +316,7 @@ export const UpdateShippingUpdateResponse = zod.object({
   description: zod.string(),
   status: zod.string().describe("preparing, in_transit, arrived, delivered"),
   estimatedDate: zod.string().nullish(),
+  returnedAt: zod.coerce.date().nullish(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });

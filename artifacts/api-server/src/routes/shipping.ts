@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq } from "drizzle-orm";
+import { eq, and, or, isNull, gt } from "drizzle-orm";
 import { db, shippingUpdatesTable } from "@workspace/db";
 import {
   ListShippingUpdatesResponse,
@@ -12,8 +12,20 @@ import {
 
 const router: IRouter = Router();
 
-router.get("/shipping", async (_req, res): Promise<void> => {
-  const updates = await db.select().from(shippingUpdatesTable).orderBy(shippingUpdatesTable.createdAt);
+const TWO_WEEKS_MS = 14 * 24 * 60 * 60 * 1000;
+
+router.get("/shipping", async (req, res): Promise<void> => {
+  const showAll = req.query.all === "true";
+  const all = await db.select().from(shippingUpdatesTable).orderBy(shippingUpdatesTable.createdAt);
+
+  const updates = showAll
+    ? all
+    : all.filter((u) => {
+        if (u.status !== "returned") return true;
+        if (!u.returnedAt) return true;
+        return Date.now() - u.returnedAt.getTime() < TWO_WEEKS_MS;
+      });
+
   res.json(ListShippingUpdatesResponse.parse(updates));
 });
 
@@ -24,7 +36,12 @@ router.post("/shipping", async (req, res): Promise<void> => {
     return;
   }
 
-  const [update] = await db.insert(shippingUpdatesTable).values(parsed.data).returning();
+  const values: typeof shippingUpdatesTable.$inferInsert = { ...parsed.data };
+  if (values.status === "returned") {
+    values.returnedAt = new Date();
+  }
+
+  const [update] = await db.insert(shippingUpdatesTable).values(values).returning();
   res.status(201).json(update);
 });
 
@@ -41,9 +58,17 @@ router.patch("/shipping/:id", async (req, res): Promise<void> => {
     return;
   }
 
+  const setData: Record<string, unknown> = { ...parsed.data };
+
+  if (parsed.data.status === "returned") {
+    setData.returnedAt = new Date();
+  } else if (parsed.data.status !== undefined) {
+    setData.returnedAt = null;
+  }
+
   const [update] = await db
     .update(shippingUpdatesTable)
-    .set(parsed.data as Partial<typeof shippingUpdatesTable.$inferInsert>)
+    .set(setData as Partial<typeof shippingUpdatesTable.$inferInsert>)
     .where(eq(shippingUpdatesTable.id, params.data.id))
     .returning();
 
