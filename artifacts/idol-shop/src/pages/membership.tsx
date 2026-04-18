@@ -641,7 +641,8 @@ export default function MembershipPage() {
       {/* Ticket sale banner */}
       {ticketNotices.length > 0 && (
         <div className="px-4 -mt-3 mb-1">
-          <div className="bg-gradient-to-r from-rose-500 via-primary to-pink-500 rounded-2xl overflow-hidden shadow-lg shadow-primary/20">
+          <div className="bg-gradient-to-r from-rose-500 via-primary to-pink-500 rounded-2xl overflow-hidden shadow-lg shadow-primary/20 relative">
+            <div className="absolute right-3 top-1/2 -translate-y-1/2 text-white/10 pointer-events-none select-none text-8xl leading-none">🎟️</div>
             {ticketNotices.map((n, idx) => {
               const getSellerBadge = (seller: string | null) => {
                 if (!seller) return null;
