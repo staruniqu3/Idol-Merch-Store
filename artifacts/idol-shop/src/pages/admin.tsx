@@ -1590,7 +1590,7 @@ function NoticesTab() {
             <div>
               <Label>Loại thông báo</Label>
               <div className="flex gap-2 mt-1">
-                {[{ value: "general", label: "📣 Thông báo chung" }, { value: "looking", label: "🔍 Tìm khách" }].map((t) => (
+                {[{ value: "general", label: "📣 Thông báo chung" }, { value: "looking", label: "🔍 Tìm khách" }, { value: "ticket", label: "🎟️ Vé dư concert" }].map((t) => (
                   <button
                     key={t.value}
                     type="button"
