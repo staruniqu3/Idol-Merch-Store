@@ -445,6 +445,7 @@ export default function MembershipPage() {
 
   type TicketNotice = { id: number; title: string; content: string; type: string; isPinned: boolean; seller: string | null };
   const [ticketNotices, setTicketNotices] = useState<TicketNotice[]>([]);
+  const [expandedTicket, setExpandedTicket] = useState<number | null>(null);
   useEffect(() => {
     fetch(`${getBaseUrl()}/api/notices`, { cache: "no-store" })
       .then((r) => r.ok ? r.json() : [])
@@ -639,36 +640,46 @@ export default function MembershipPage() {
 
       {/* Ticket sale banner */}
       {ticketNotices.length > 0 && (
-        <div className="px-4 -mt-3 space-y-2 mb-1">
-          {ticketNotices.map((n) => {
-            const getSellerBadge = (seller: string | null) => {
-              if (!seller) return null;
-              if (seller === "shop") return { icon: "🏪", text: "Từ Tiệm Chu Du" };
-              if (seller === "external") return { icon: "🧑", text: "Khách ngoài" };
-              if (seller.startsWith("member:")) return { icon: "👤", text: `Mã ${seller.replace("member:", "")}` };
-              if (seller === "member") return { icon: "👤", text: "Thành viên" };
-              return null;
-            };
-            const sellerBadge = getSellerBadge(n.seller);
-            return (
-              <div key={n.id} className="bg-gradient-to-r from-rose-500 via-primary to-pink-500 rounded-2xl p-4 text-white shadow-lg shadow-primary/20 relative overflow-hidden">
-                <div className="absolute right-3 top-1/2 -translate-y-1/2 text-white/10 pointer-events-none select-none text-7xl leading-none">🎟️</div>
-                <div className="relative">
-                  <div className="flex items-center gap-2 mb-1.5 flex-wrap">
-                    <span className="text-base">🎟️</span>
-                    <span className="text-[11px] font-bold uppercase tracking-widest bg-white/20 px-2 py-0.5 rounded-full">Còn vé</span>
-                    {sellerBadge && (
-                      <span className="text-[11px] font-bold bg-white/25 text-white px-2 py-0.5 rounded-full">
-                        {sellerBadge.icon} {sellerBadge.text}
-                      </span>
-                    )}
-                  </div>
-                  <p className="font-black text-base leading-tight">{n.title}</p>
-                  {n.content && <p className="text-xs text-white/80 mt-1 leading-relaxed whitespace-pre-line">{n.content}</p>}
+        <div className="px-4 -mt-3 mb-1">
+          <div className="bg-gradient-to-r from-rose-500 via-primary to-pink-500 rounded-2xl overflow-hidden shadow-lg shadow-primary/20">
+            {ticketNotices.map((n, idx) => {
+              const getSellerBadge = (seller: string | null) => {
+                if (!seller) return null;
+                if (seller === "shop") return { icon: "🏪", text: "Từ Tiệm Chu Du" };
+                if (seller === "external") return { icon: "🧑", text: "Khách ngoài" };
+                if (seller.startsWith("member:")) return { icon: "👤", text: `Mã ${seller.replace("member:", "")}` };
+                if (seller === "member") return { icon: "👤", text: "Thành viên" };
+                return null;
+              };
+              const sellerBadge = getSellerBadge(n.seller);
+              const isOpen = expandedTicket === n.id;
+              return (
+                <div key={n.id} className={`relative text-white ${idx > 0 ? "border-t border-white/20" : ""}`}>
+                  <button
+                    className="w-full text-left px-4 py-3 flex items-center gap-2 active:bg-white/10 transition-colors"
+                    onClick={() => setExpandedTicket(isOpen ? null : n.id)}
+                  >
+                    <span className="text-sm shrink-0">🎟️</span>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5 flex-wrap mb-0.5">
+                        <span className="text-[10px] font-bold uppercase tracking-widest bg-white/20 px-1.5 py-0.5 rounded-full">Còn vé</span>
+                        {sellerBadge && (
+                          <span className="text-[10px] font-bold bg-white/20 px-1.5 py-0.5 rounded-full">{sellerBadge.icon} {sellerBadge.text}</span>
+                        )}
+                      </div>
+                      <p className="font-black text-sm leading-tight truncate">{n.title}</p>
+                    </div>
+                    <span className={`shrink-0 text-white/70 text-xs transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`}>▾</span>
+                  </button>
+                  {isOpen && n.content && (
+                    <div className="px-4 pb-3 -mt-1">
+                      <p className="text-xs text-white/85 leading-relaxed whitespace-pre-line">{n.content}</p>
+                    </div>
+                  )}
                 </div>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
       )}
 
