@@ -443,7 +443,7 @@ export default function MembershipPage() {
 
   useEffect(() => { fetchCoupons(); }, []);
 
-  type TicketNotice = { id: number; title: string; content: string; type: string; isPinned: boolean; seller: string | null };
+  type TicketNotice = { id: number; title: string; content: string; type: string; isPinned: boolean; seller: string | null; soldNotes: string | null };
   const [ticketNotices, setTicketNotices] = useState<TicketNotice[]>([]);
   const [expandedTicket, setExpandedTicket] = useState<number | null>(null);
   useEffect(() => {
@@ -672,9 +672,27 @@ export default function MembershipPage() {
                     </div>
                     <span className={`shrink-0 text-white/70 text-xs transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`}>▾</span>
                   </button>
-                  {isOpen && n.content && (
-                    <div className="px-4 pb-3 -mt-1">
-                      <p className="text-xs text-white/85 leading-relaxed whitespace-pre-line">{n.content}</p>
+                  {isOpen && (
+                    <div className="px-4 pb-4 -mt-1 space-y-3">
+                      {n.content && (
+                        <p className="text-xs text-white/90 leading-relaxed whitespace-pre-line">{n.content}</p>
+                      )}
+                      {n.soldNotes && (() => {
+                        const lines = n.soldNotes.split("\n").filter(Boolean);
+                        return lines.length > 0 ? (
+                          <div className="bg-black/20 rounded-xl px-3 py-2.5 space-y-1.5">
+                            <p className="text-[10px] font-bold uppercase tracking-widest text-white/60 mb-2">✓ Đã bán</p>
+                            {lines.map((line, i) => (
+                              <div key={i} className="flex items-center gap-2">
+                                <div className="w-4 h-4 rounded-full bg-white/20 flex items-center justify-center shrink-0">
+                                  <span className="text-[9px] text-white font-bold">✓</span>
+                                </div>
+                                <span className="text-xs text-white/50 line-through">{line}</span>
+                              </div>
+                            ))}
+                          </div>
+                        ) : null;
+                      })()}
                     </div>
                   )}
                 </div>
