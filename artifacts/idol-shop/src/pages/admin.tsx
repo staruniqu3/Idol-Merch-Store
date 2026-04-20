@@ -1519,6 +1519,7 @@ function NoticesTab() {
   const [notices, setNotices] = useState<NoticeItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
+  const [editNoticeId, setEditNoticeId] = useState<number | null>(null);
   const [form, setForm] = useState({ title: "", content: "", type: "general", isPinned: false, sellerType: "shop", sellerCode: "" });
   const { toast } = useToast();
 
@@ -1543,20 +1544,36 @@ function NoticesTab() {
     return "external";
   };
 
-  const handleCreate = async () => {
+  const resetForm = () => {
+    setForm({ title: "", content: "", type: "general", isPinned: false, sellerType: "shop", sellerCode: "" });
+    setEditNoticeId(null);
+  };
+
+  const openEditNotice = (n: NoticeItem) => {
+    let sellerType = "shop";
+    let sellerCode = "";
+    if (n.seller === "external") sellerType = "external";
+    else if (n.seller === "shop" || !n.seller) sellerType = "shop";
+    else if (n.seller.startsWith("member:")) { sellerType = "member"; sellerCode = n.seller.replace("member:", ""); }
+    else if (n.seller === "member") sellerType = "member";
+    setForm({ title: n.title, content: n.content, type: n.type, isPinned: n.isPinned, sellerType, sellerCode });
+    setEditNoticeId(n.id);
+    setOpen(true);
+  };
+
+  const handleSave = async () => {
     if (!form.title.trim() || !form.content.trim()) { toast({ title: "Vui lòng nhập tiêu đề và nội dung", variant: "destructive" }); return; }
     try {
-      const res = await fetch(`${getBaseUrl()}/api/notices`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: form.title, content: form.content, type: form.type, isPinned: form.isPinned, seller: buildSeller() }),
-      });
+      const payload = { title: form.title, content: form.content, type: form.type, isPinned: form.isPinned, seller: buildSeller() };
+      const url = editNoticeId ? `${getBaseUrl()}/api/notices/${editNoticeId}` : `${getBaseUrl()}/api/notices`;
+      const method = editNoticeId ? "PATCH" : "POST";
+      const res = await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
       if (!res.ok) throw new Error();
-      toast({ title: "Đã đăng thông báo" });
+      toast({ title: editNoticeId ? "Đã cập nhật thông báo" : "Đã đăng thông báo" });
       setOpen(false);
-      setForm({ title: "", content: "", type: "general", isPinned: false, sellerType: "shop", sellerCode: "" });
+      resetForm();
       load();
-    } catch { toast({ title: "Lỗi khi đăng thông báo", variant: "destructive" }); }
+    } catch { toast({ title: "Lỗi khi lưu thông báo", variant: "destructive" }); }
   };
 
   const handleDelete = async (id: number) => {
@@ -1594,14 +1611,14 @@ function NoticesTab() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h3 className="font-bold flex items-center gap-2"><Bell size={15} className="text-primary" />Thông báo ({notices.length})</h3>
-        <Button size="sm" className="rounded-xl" onClick={() => { setForm({ title: "", content: "", type: "general", isPinned: false, sellerType: "shop", sellerCode: "" }); setOpen(true); }}>
+        <Button size="sm" className="rounded-xl" onClick={() => { resetForm(); setOpen(true); }}>
           <Plus size={14} className="mr-1" />Đăng thông báo
         </Button>
       </div>
 
-      <Dialog open={open} onOpenChange={setOpen}>
+      <Dialog open={open} onOpenChange={(v) => { if (!v) resetForm(); setOpen(v); }}>
         <DialogContent className="rounded-2xl">
-          <DialogHeader><DialogTitle>Đăng thông báo mới</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>{editNoticeId ? "Chỉnh sửa thông báo" : "Đăng thông báo mới"}</DialogTitle></DialogHeader>
           <div className="space-y-3 mt-2">
             <div>
               <Label>Loại thông báo</Label>
@@ -1638,7 +1655,7 @@ function NoticesTab() {
               <input type="checkbox" id="pin" checked={form.isPinned} onChange={(e) => setForm({ ...form, isPinned: e.target.checked })} className="rounded" />
               <Label htmlFor="pin" className="cursor-pointer">Ghim thông báo lên đầu</Label>
             </div>
-            <Button className="w-full rounded-xl" onClick={handleCreate}>Đăng</Button>
+            <Button className="w-full rounded-xl" onClick={handleSave}>{editNoticeId ? "Lưu thay đổi" : "Đăng"}</Button>
           </div>
         </DialogContent>
       </Dialog>
@@ -1669,6 +1686,9 @@ function NoticesTab() {
               <div className="flex items-center gap-1 shrink-0">
                 <Button variant="ghost" size="icon" className={`h-8 w-8 rounded-xl ${n.isPinned ? "text-primary" : "text-muted-foreground"}`} onClick={() => handleTogglePin(n)} title={n.isPinned ? "Bỏ ghim" : "Ghim"}>
                   <Pin size={13} />
+                </Button>
+                <Button variant="ghost" size="icon" className="h-8 w-8 rounded-xl text-muted-foreground" onClick={() => openEditNotice(n)} title="Chỉnh sửa">
+                  <Pencil size={13} />
                 </Button>
                 <Button variant="ghost" size="icon" className="h-8 w-8 rounded-xl text-destructive" onClick={() => handleDelete(n.id)}>
                   <Trash2 size={13} />
