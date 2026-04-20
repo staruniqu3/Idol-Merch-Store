@@ -1513,14 +1513,14 @@ function RewardsTab() {
 }
 
 // ===================== Notices Tab =====================
-type NoticeItem = { id: number; title: string; content: string; type: string; isPinned: boolean; seller: string | null; createdAt: string };
+type NoticeItem = { id: number; title: string; content: string; type: string; isPinned: boolean; seller: string | null; soldNotes: string | null; createdAt: string };
 
 function NoticesTab() {
   const [notices, setNotices] = useState<NoticeItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
   const [editNoticeId, setEditNoticeId] = useState<number | null>(null);
-  const [form, setForm] = useState({ title: "", content: "", type: "general", isPinned: false, sellerType: "shop", sellerCode: "" });
+  const [form, setForm] = useState({ title: "", content: "", type: "general", isPinned: false, sellerType: "shop", sellerCode: "", soldNotes: "" });
   const { toast } = useToast();
 
   function getBaseUrl() { const b = import.meta.env.BASE_URL ?? "/"; return b.replace(/\/$/, ""); }
@@ -1545,7 +1545,7 @@ function NoticesTab() {
   };
 
   const resetForm = () => {
-    setForm({ title: "", content: "", type: "general", isPinned: false, sellerType: "shop", sellerCode: "" });
+    setForm({ title: "", content: "", type: "general", isPinned: false, sellerType: "shop", sellerCode: "", soldNotes: "" });
     setEditNoticeId(null);
   };
 
@@ -1556,7 +1556,7 @@ function NoticesTab() {
     else if (n.seller === "shop" || !n.seller) sellerType = "shop";
     else if (n.seller.startsWith("member:")) { sellerType = "member"; sellerCode = n.seller.replace("member:", ""); }
     else if (n.seller === "member") sellerType = "member";
-    setForm({ title: n.title, content: n.content, type: n.type, isPinned: n.isPinned, sellerType, sellerCode });
+    setForm({ title: n.title, content: n.content, type: n.type, isPinned: n.isPinned, sellerType, sellerCode, soldNotes: n.soldNotes ?? "" });
     setEditNoticeId(n.id);
     setOpen(true);
   };
@@ -1564,7 +1564,7 @@ function NoticesTab() {
   const handleSave = async () => {
     if (!form.title.trim() || !form.content.trim()) { toast({ title: "Vui lòng nhập tiêu đề và nội dung", variant: "destructive" }); return; }
     try {
-      const payload = { title: form.title, content: form.content, type: form.type, isPinned: form.isPinned, seller: buildSeller() };
+      const payload = { title: form.title, content: form.content, type: form.type, isPinned: form.isPinned, seller: buildSeller(), soldNotes: form.type === "ticket" ? (form.soldNotes.trim() || null) : null };
       const url = editNoticeId ? `${getBaseUrl()}/api/notices/${editNoticeId}` : `${getBaseUrl()}/api/notices`;
       const method = editNoticeId ? "PATCH" : "POST";
       const res = await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
@@ -1651,6 +1651,16 @@ function NoticesTab() {
             )}
             <div><Label>Tiêu đề *</Label><Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="VD: Thông báo lô hàng, Tìm chủ đơn 0912..." className="rounded-xl mt-1" /></div>
             <div><Label>Nội dung *</Label><Textarea value={form.content} onChange={(e) => setForm({ ...form, content: e.target.value })} rows={4} placeholder="Nhập nội dung thông báo..." className="rounded-xl mt-1" /></div>
+            {form.type === "ticket" && (
+              <div>
+                <Label className="flex items-center gap-1.5">
+                  <Check size={12} className="text-emerald-500" />
+                  Ghi chú đã bán
+                  <span className="text-[10px] text-muted-foreground font-normal">(mỗi dòng 1 vé)</span>
+                </Label>
+                <Textarea value={form.soldNotes} onChange={(e) => setForm({ ...form, soldNotes: e.target.value })} rows={3} placeholder={"Zone 7900: A2Bxx - 2 vé\nZone 4500: 1 vé"} className="rounded-xl mt-1 font-mono text-xs" />
+              </div>
+            )}
             <div className="flex items-center gap-2">
               <input type="checkbox" id="pin" checked={form.isPinned} onChange={(e) => setForm({ ...form, isPinned: e.target.checked })} className="rounded" />
               <Label htmlFor="pin" className="cursor-pointer">Ghim thông báo lên đầu</Label>
@@ -1682,6 +1692,16 @@ function NoticesTab() {
                 </div>
                 <p className="font-bold text-sm">{n.title}</p>
                 <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{n.content}</p>
+                {n.soldNotes && (
+                  <div className="mt-1.5 flex flex-wrap gap-1">
+                    {n.soldNotes.split("\n").filter(Boolean).map((line, i) => (
+                      <span key={i} className="inline-flex items-center gap-1 text-[10px] font-mono bg-emerald-50 text-emerald-700 border border-emerald-200 px-1.5 py-0.5 rounded-lg line-through opacity-70">
+                        <Check size={9} className="shrink-0 no-underline" style={{ textDecoration: "none" }} />
+                        <span>{line}</span>
+                      </span>
+                    ))}
+                  </div>
+                )}
               </div>
               <div className="flex items-center gap-1 shrink-0">
                 <Button variant="ghost" size="icon" className={`h-8 w-8 rounded-xl ${n.isPinned ? "text-primary" : "text-muted-foreground"}`} onClick={() => handleTogglePin(n)} title={n.isPinned ? "Bỏ ghim" : "Ghim"}>

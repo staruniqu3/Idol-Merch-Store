@@ -7,6 +7,7 @@ export const noticesTable = pgTable("notices", {
   type: text("type").notNull().default("general"),
   isPinned: boolean("is_pinned").notNull().default(false),
   seller: text("seller"),
+  soldNotes: text("sold_notes"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
