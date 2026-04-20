@@ -681,13 +681,13 @@ export default function MembershipPage() {
                         const lines = n.soldNotes.split("\n").filter(Boolean);
                         return lines.length > 0 ? (
                           <div className="bg-black/20 rounded-xl px-3 py-2.5 space-y-1.5">
-                            <p className="text-[10px] font-bold uppercase tracking-widest text-white/60 mb-2">✓ Đã bán</p>
+                            <p className="text-xs font-bold uppercase tracking-widest text-white/60 mb-2">✓ Đã bán</p>
                             {lines.map((line, i) => (
                               <div key={i} className="flex items-center gap-2">
-                                <div className="w-4 h-4 rounded-full bg-white/20 flex items-center justify-center shrink-0">
-                                  <span className="text-[9px] text-white font-bold">✓</span>
+                                <div className="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center shrink-0">
+                                  <span className="text-[10px] text-white font-bold">✓</span>
                                 </div>
-                                <span className="text-xs text-white/50 line-through">{line}</span>
+                                <span className="text-sm text-white/55 line-through">{line}</span>
                               </div>
                             ))}
                           </div>
