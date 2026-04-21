@@ -733,14 +733,21 @@ function OrdersTab() {
 
 // ===================== Shipping =====================
 const TWO_WEEKS_MS = 14 * 24 * 60 * 60 * 1000;
+const ONE_WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 
-function getReturnedCountdown(returnedAt: string | Date | null | undefined): string | null {
+type ReturnedStatus =
+  | { kind: "pending"; label: string }
+  | { kind: "due" }
+  | { kind: "hidden" };
+
+function getReturnedStatus(returnedAt: string | Date | null | undefined): ReturnedStatus | null {
   if (!returnedAt) return null;
   const elapsed = Date.now() - new Date(returnedAt).getTime();
+  if (elapsed >= TWO_WEEKS_MS) return { kind: "hidden" };
+  if (elapsed >= ONE_WEEK_MS) return { kind: "due" };
   const remaining = TWO_WEEKS_MS - elapsed;
-  if (remaining <= 0) return "Đã ẩn khỏi trang công khai";
   const days = Math.ceil(remaining / (24 * 60 * 60 * 1000));
-  return `Tự ẩn sau ${days} ngày`;
+  return { kind: "pending", label: `Tự ẩn sau ${days} ngày` };
 }
 
 function ShippingTab() {
@@ -812,25 +819,46 @@ function ShippingTab() {
       </Dialog>
       <div className="space-y-2">
         {updates && [...updates].reverse().map((u) => {
-          const countdown = u.status === "returned" ? getReturnedCountdown(u.returnedAt) : null;
-          const isExpired = countdown === "Đã ẩn khỏi trang công khai";
+          const rs = u.status === "returned" ? getReturnedStatus(u.returnedAt) : null;
+          const isHidden = rs?.kind === "hidden";
+          const isDue = rs?.kind === "due";
           return (
-            <div key={u.id} className={`bg-card border rounded-2xl p-3 flex items-start gap-3 ${isExpired ? "border-dashed border-muted-foreground/30 opacity-60" : "border-border"}`} data-testid={`admin-shipping-${u.id}`}>
+            <div
+              key={u.id}
+              className={`bg-card border rounded-2xl p-3 flex items-start gap-3 transition-colors ${
+                isDue
+                  ? "border-destructive/50 ring-1 ring-destructive/20 bg-destructive/5"
+                  : isHidden
+                  ? "border-dashed border-muted-foreground/30 opacity-50"
+                  : "border-border"
+              }`}
+              data-testid={`admin-shipping-${u.id}`}
+            >
               <div className="flex-1 min-w-0">
                 <p className="font-bold text-sm">{u.title}</p>
                 <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{u.description}</p>
-                <div className="flex flex-wrap gap-1.5 mt-1">
+                <div className="flex flex-wrap gap-1.5 mt-1.5">
                   <Badge variant="outline" className="text-[10px] rounded-full">{shippingStatusLabels[u.status] ?? u.status}</Badge>
-                  {countdown && (
-                    <Badge variant="outline" className={`text-[10px] rounded-full ${isExpired ? "border-muted-foreground/30 text-muted-foreground" : "border-amber-300 text-amber-700 bg-amber-50"}`}>
-                      ⏱ {countdown}
+                  {rs?.kind === "pending" && (
+                    <Badge variant="outline" className="text-[10px] rounded-full border-amber-300 text-amber-700 bg-amber-50">
+                      ⏱ {rs.label}
+                    </Badge>
+                  )}
+                  {isDue && (
+                    <Badge className="text-[10px] rounded-full bg-destructive/10 text-destructive border border-destructive/30 font-bold">
+                      🗑️ Đến hạn xoá
+                    </Badge>
+                  )}
+                  {isHidden && (
+                    <Badge variant="outline" className="text-[10px] rounded-full border-muted-foreground/30 text-muted-foreground">
+                      Đã ẩn khỏi trang công khai
                     </Badge>
                   )}
                 </div>
               </div>
               <div className="flex gap-1 shrink-0">
                 <Button variant="ghost" size="icon" className="h-8 w-8 rounded-xl" onClick={() => openEdit(u)}><Pencil size={13} /></Button>
-                <Button variant="ghost" size="icon" className="h-8 w-8 rounded-xl text-destructive" onClick={() => deleteUpdate.mutate({ id: u.id }, { onSuccess: () => invalidate() })}><Trash2 size={13} /></Button>
+                <Button variant="ghost" size="icon" className={`h-8 w-8 rounded-xl ${isDue ? "text-destructive" : "text-destructive"}`} onClick={() => deleteUpdate.mutate({ id: u.id }, { onSuccess: () => invalidate() })}><Trash2 size={13} /></Button>
               </div>
             </div>
           );
