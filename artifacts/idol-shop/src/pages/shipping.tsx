@@ -250,13 +250,15 @@ function maskPhone(p: string) {
   return p;
 }
 
-function getProductNames(itemsJson: string | null): string {
-  if (!itemsJson) return "";
+function parseItems(itemsJson: string | null): Array<{ label: string }> {
+  if (!itemsJson) return [];
   try {
     const arr: Array<{ name: string; quantity: number }> = JSON.parse(itemsJson);
-    return arr.map((i) => (i.quantity > 1 ? `${i.name} ×${i.quantity}` : i.name)).join(", ");
-  } catch { return ""; }
+    return arr.map((i) => ({ label: i.quantity > 1 ? `${i.name} ×${i.quantity}` : i.name }));
+  } catch { return []; }
 }
+
+const MAX_CHIPS = 3;
 
 function StatusCarousel({ entries }: { entries: StatusEntry[] }) {
   const [idx, setIdx] = useState(0);
@@ -276,7 +278,9 @@ function StatusCarousel({ entries }: { entries: StatusEntry[] }) {
 
   const e = entries[idx];
   const cfg = STATUS_CFG[e.status] ?? { label: e.status, dot: "bg-muted-foreground", badge: "bg-muted text-muted-foreground" };
-  const products = getProductNames(e.items);
+  const items = parseItems(e.items);
+  const visibleItems = items.slice(0, MAX_CHIPS);
+  const extraCount = items.length - MAX_CHIPS;
 
   return (
     <div>
@@ -287,7 +291,7 @@ function StatusCarousel({ entries }: { entries: StatusEntry[] }) {
           {entries.length} đơn
         </span>
         {entries.length > 1 && (
-          <span className="ml-auto text-[10px] text-muted-foreground">
+          <span className="ml-auto text-[10px] text-muted-foreground tabular-nums">
             {idx + 1}/{entries.length}
           </span>
         )}
@@ -295,36 +299,50 @@ function StatusCarousel({ entries }: { entries: StatusEntry[] }) {
 
       <div className="bg-card border border-border rounded-2xl overflow-hidden">
         <div
-          className="px-4 py-3 transition-all duration-300"
-          style={{ opacity: visible ? 1 : 0, transform: visible ? "translateY(0)" : "translateY(-8px)" }}
+          className="px-4 pt-3 pb-2.5 transition-all duration-300"
+          style={{ opacity: visible ? 1 : 0, transform: visible ? "translateY(0)" : "translateY(-6px)" }}
         >
-          <div className="flex items-start gap-3">
-            <div className={`w-2 h-2 rounded-full shrink-0 mt-1.5 ${cfg.dot}`} />
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 flex-wrap mb-0.5">
-                <span className="font-mono font-bold text-sm">{maskPhone(e.phone)}</span>
-                {e.customerName && e.customerName !== e.phone && (
-                  <span className="text-xs text-muted-foreground truncate max-w-[90px]">{e.customerName}</span>
-                )}
-              </div>
-              {products && (
-                <p className="text-[11px] text-muted-foreground truncate leading-snug">{products}</p>
-              )}
-            </div>
-            <span className={`text-[10px] font-bold px-2 py-1 rounded-full shrink-0 mt-0.5 ${cfg.badge}`}>
+          {/* Phone + status row */}
+          <div className="flex items-center gap-2 mb-2">
+            <div className={`w-2 h-2 rounded-full shrink-0 ${cfg.dot}`} />
+            <span className="font-mono font-bold text-sm flex-1 min-w-0">{maskPhone(e.phone)}</span>
+            {e.customerName && e.customerName !== e.phone && (
+              <span className="text-[11px] text-muted-foreground truncate max-w-[80px]">{e.customerName}</span>
+            )}
+            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 ${cfg.badge}`}>
               {cfg.label}
             </span>
           </div>
+
+          {/* Product chips */}
+          {visibleItems.length > 0 && (
+            <div className="flex flex-wrap gap-1 pl-4">
+              {visibleItems.map((it, i) => (
+                <span
+                  key={i}
+                  className="text-[10px] bg-muted text-muted-foreground px-2 py-0.5 rounded-full leading-snug max-w-[180px] truncate"
+                  title={it.label}
+                >
+                  {it.label}
+                </span>
+              ))}
+              {extraCount > 0 && (
+                <span className="text-[10px] font-bold bg-primary/10 text-primary px-2 py-0.5 rounded-full leading-snug">
+                  +{extraCount} món
+                </span>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Dot indicators */}
         {entries.length > 1 && (
-          <div className="flex justify-center gap-1 pb-2">
+          <div className="flex justify-center gap-1 py-2 border-t border-border/40 mt-1">
             {entries.map((_, i) => (
               <button
                 key={i}
                 onClick={() => { setVisible(false); setTimeout(() => { setIdx(i); setVisible(true); }, 350); }}
-                className={`w-1.5 h-1.5 rounded-full transition-all ${i === idx ? "bg-primary w-3" : "bg-muted-foreground/30"}`}
+                className={`h-1.5 rounded-full transition-all duration-200 ${i === idx ? "bg-primary w-4" : "bg-muted-foreground/25 w-1.5"}`}
               />
             ))}
           </div>
