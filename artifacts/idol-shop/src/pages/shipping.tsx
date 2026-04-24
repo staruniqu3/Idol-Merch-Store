@@ -236,12 +236,12 @@ type NoticeItem = { id: number; title: string; content: string; type: string; is
 type StatusEntry = { id: number; phone: string; customerName: string | null; status: string; note: string | null; updatedAt: string };
 
 const STATUS_CFG: Record<string, { label: string; dot: string; badge: string }> = {
-  pending:   { label: "⏳ Chờ xác nhận",          dot: "bg-amber-400",   badge: "bg-amber-100 text-amber-700" },
-  confirmed: { label: "✅ Đã xác nhận thông tin",  dot: "bg-green-400",   badge: "bg-green-100 text-green-700" },
-  preparing: { label: "📦 Đang chuẩn bị hàng",    dot: "bg-blue-400",    badge: "bg-blue-100 text-blue-700" },
-  shipped:   { label: "🚚 Đã giao ĐVVC",           dot: "bg-violet-400",  badge: "bg-violet-100 text-violet-700" },
-  done:      { label: "🎉 Hoàn thành",             dot: "bg-emerald-400", badge: "bg-emerald-100 text-emerald-700" },
-  cancelled: { label: "❌ Đã huỷ",                 dot: "bg-muted-foreground", badge: "bg-muted text-muted-foreground" },
+  awaiting:  { label: "⏳ Chờ xác nhận",      dot: "bg-amber-400",        badge: "bg-amber-100 text-amber-700" },
+  pending:   { label: "📝 Đã nhập thông tin", dot: "bg-sky-400",          badge: "bg-sky-100 text-sky-700" },
+  confirmed: { label: "💳 Đã chuyển khoản",   dot: "bg-blue-400",         badge: "bg-blue-100 text-blue-700" },
+  shipped:   { label: "🚚 Đang giao",         dot: "bg-violet-400",       badge: "bg-violet-100 text-violet-700" },
+  delivered: { label: "🎉 Đã giao",           dot: "bg-emerald-400",      badge: "bg-emerald-100 text-emerald-700" },
+  cancelled: { label: "❌ Đã hủy",            dot: "bg-muted-foreground", badge: "bg-muted text-muted-foreground" },
 };
 
 function maskPhone(p: string) {
@@ -370,11 +370,10 @@ export default function ShippingPage() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="font-mono font-bold text-sm">{maskPhone(e.phone)}</span>
-                        {e.customerName && (
+                        {e.customerName && e.customerName !== e.phone && (
                           <span className="text-xs text-muted-foreground truncate max-w-[100px]">{e.customerName}</span>
                         )}
                       </div>
-                      {e.note && <p className="text-[11px] text-muted-foreground mt-0.5 truncate">{e.note}</p>}
                     </div>
                     <span className={`text-[10px] font-bold px-2 py-1 rounded-full shrink-0 ${cfg.badge}`}>
                       {cfg.label}
