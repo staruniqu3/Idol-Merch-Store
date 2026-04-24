@@ -353,37 +353,52 @@ export default function ShippingPage() {
 
       <div className="px-4 py-4 -mt-2 space-y-5 pb-28">
 
-        {/* Order Status Board */}
-        {statusEntries.length > 0 && (
-          <div>
-            <div className="flex items-center gap-2 mb-3">
-              <span className="text-base">📋</span>
-              <h2 className="text-sm font-bold text-foreground">Trạng thái đơn</h2>
-              <span className="text-[10px] bg-primary/10 text-primary font-bold px-1.5 py-0.5 rounded-full">{statusEntries.length} đơn</span>
-            </div>
-            <div className="bg-card border border-border rounded-2xl overflow-hidden">
-              {statusEntries.map((e, i) => {
-                const cfg = STATUS_CFG[e.status] ?? { label: e.status, dot: "bg-muted-foreground", badge: "bg-muted text-muted-foreground" };
-                return (
-                  <div key={e.id} className={`flex items-center gap-3 px-4 py-3 ${i < statusEntries.length - 1 ? "border-b border-border" : ""}`}>
-                    <div className={`w-2 h-2 rounded-full shrink-0 ${cfg.dot}`} />
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-mono font-bold text-sm">{maskPhone(e.phone)}</span>
-                        {e.customerName && e.customerName !== e.phone && (
-                          <span className="text-xs text-muted-foreground truncate max-w-[100px]">{e.customerName}</span>
-                        )}
+        {/* Order Status Board — grouped by phone */}
+        {statusEntries.length > 0 && (() => {
+          // Group entries by phone, keep the most recently updated entry as representative
+          const groups = new Map<string, { entries: StatusEntry[]; latest: StatusEntry }>();
+          for (const e of statusEntries) {
+            const key = e.phone.replace(/\D/g, "");
+            if (!groups.has(key)) groups.set(key, { entries: [], latest: e });
+            groups.get(key)!.entries.push(e);
+          }
+          const grouped = Array.from(groups.values());
+          return (
+            <div>
+              <div className="flex items-center gap-2 mb-3">
+                <span className="text-base">📋</span>
+                <h2 className="text-sm font-bold text-foreground">Trạng thái đơn</h2>
+                <span className="text-[10px] bg-primary/10 text-primary font-bold px-1.5 py-0.5 rounded-full">
+                  {grouped.length} khách · {statusEntries.length} đơn
+                </span>
+              </div>
+              <div className="bg-card border border-border rounded-2xl overflow-hidden">
+                {grouped.map(({ entries, latest }, i) => {
+                  const cfg = STATUS_CFG[latest.status] ?? { label: latest.status, dot: "bg-muted-foreground", badge: "bg-muted text-muted-foreground" };
+                  return (
+                    <div key={latest.id} className={`flex items-center gap-3 px-4 py-3 ${i < grouped.length - 1 ? "border-b border-border" : ""}`}>
+                      <div className={`w-2 h-2 rounded-full shrink-0 ${cfg.dot}`} />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-mono font-bold text-sm">{maskPhone(latest.phone)}</span>
+                          {latest.customerName && latest.customerName !== latest.phone && (
+                            <span className="text-xs text-muted-foreground truncate max-w-[90px]">{latest.customerName}</span>
+                          )}
+                          {entries.length > 1 && (
+                            <span className="text-[9px] font-bold bg-muted text-muted-foreground px-1.5 py-0.5 rounded-full">{entries.length} đơn</span>
+                          )}
+                        </div>
                       </div>
+                      <span className={`text-[10px] font-bold px-2 py-1 rounded-full shrink-0 ${cfg.badge}`}>
+                        {cfg.label}
+                      </span>
                     </div>
-                    <span className={`text-[10px] font-bold px-2 py-1 rounded-full shrink-0 ${cfg.badge}`}>
-                      {cfg.label}
-                    </span>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
             </div>
-          </div>
-        )}
+          );
+        })()}
 
         {/* Phone-based tracking lookup */}
         <div>

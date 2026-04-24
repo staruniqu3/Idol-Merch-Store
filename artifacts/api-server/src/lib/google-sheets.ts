@@ -94,6 +94,23 @@ export interface SheetOrder {
   notes: string;
 }
 
+export async function getAllSheetPhones(): Promise<string[]> {
+  const sheets = await getGoogleSheetsClient();
+  const [r1, r2] = await Promise.allSettled([
+    sheets.spreadsheets.values.get({ spreadsheetId: ORDERS_SHEET_ID, range: `${ORDERS_SHEET_NAME}!C:C` }),
+    sheets.spreadsheets.values.get({ spreadsheetId: ORDERS_SHEET_2_ID, range: `${ORDERS_SHEET_2_NAME}!C:C` }),
+  ]);
+  const norm = (p: string) => p.replace(/\D/g, "").replace(/^84/, "0");
+  const phones = new Set<string>();
+  const rows1 = r1.status === "fulfilled" ? (r1.value.data.values ?? []).slice(1) : [];
+  const rows2 = r2.status === "fulfilled" ? (r2.value.data.values ?? []).slice(1) : [];
+  [...rows1, ...rows2].forEach((row) => {
+    const p = norm((row[0] ?? "").trim());
+    if (p.length >= 9) phones.add(p);
+  });
+  return Array.from(phones);
+}
+
 export async function getMemberOrdersByPhone(phone: string): Promise<SheetOrder[]> {
   const sheets = await getGoogleSheetsClient();
   const normalizePhone = (p: string) => p.replace(/\D/g, "").replace(/^0/, "84");

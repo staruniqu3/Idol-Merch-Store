@@ -10,7 +10,7 @@ import {
 } from "@workspace/api-client-react";
 import {
   Shield, Package, ShoppingBag, Truck, Users, Gift, LogOut, Plus, Pencil, Trash2, ChevronDown,
-  TrendingUp, Star, Calendar, X, Check, BarChart3, Sparkles, Bell, Pin, Ticket, Eye, EyeOff, Tag,
+  TrendingUp, Star, Calendar, X, Check, BarChart3, Sparkles, Bell, Pin, Ticket, Eye, EyeOff, Tag, AlertTriangle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -658,22 +658,71 @@ function OrdersTab() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const [expandedId, setExpandedId] = useState<number | null>(null);
+  const [sheetPhones, setSheetPhones] = useState<Set<string>>(new Set());
+  const [sheetPhoneLoading, setSheetPhoneLoading] = useState(true);
+
+  const normPhone = (p: string) => p.replace(/\D/g, "").replace(/^84/, "0");
 
   useEffect(() => {
     const base = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
     fetch(`${base}/api/orders/cleanup`, { method: "DELETE" }).catch(() => {});
+    fetch(`${base}/api/sheet-phones`, { cache: "no-store" })
+      .then((r) => r.json())
+      .then((d) => setSheetPhones(new Set((d.phones ?? []).map(normPhone))))
+      .catch(() => {})
+      .finally(() => setSheetPhoneLoading(false));
   }, []);
+
+  const crossRefOrders = useMemo(() => {
+    if (!orders || sheetPhones.size === 0) return new Set<number>();
+    const matched = new Set<number>();
+    for (const o of orders) {
+      if (sheetPhones.has(normPhone(o.memberPhone ?? ""))) matched.add(o.id);
+    }
+    return matched;
+  }, [orders, sheetPhones]);
+
+  const crossRefPhones = useMemo(() => {
+    if (!orders || sheetPhones.size === 0) return [] as string[];
+    const seen = new Set<string>();
+    return orders
+      .filter((o) => sheetPhones.has(normPhone(o.memberPhone ?? "")))
+      .map((o) => o.memberPhone ?? "")
+      .filter((p) => { const k = normPhone(p); if (seen.has(k)) return false; seen.add(k); return true; });
+  }, [orders, sheetPhones]);
 
   return (
     <div className="space-y-3">
       <h3 className="font-bold">Đơn Hàng ({orders?.length ?? 0})</h3>
+
+      {/* Cross-reference alert */}
+      {!sheetPhoneLoading && crossRefPhones.length > 0 && (
+        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-3 space-y-1.5">
+          <div className="flex items-center gap-2">
+            <AlertTriangle size={14} className="text-amber-600 shrink-0" />
+            <span className="text-xs font-bold text-amber-800">
+              {crossRefPhones.length} SĐT vừa có đơn DB vừa có form Google Sheet — cần chú ý:
+            </span>
+          </div>
+          <div className="flex flex-wrap gap-1.5 pl-5">
+            {crossRefPhones.map((p) => (
+              <span key={p} className="font-mono text-[11px] font-bold bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full border border-amber-200">
+                {p}
+              </span>
+            ))}
+          </div>
+          <p className="text-[10px] text-amber-600 pl-5">Kiểm tra xem khách đã đặt trùng hoặc chưa được xử lý đơn Google Form.</p>
+        </div>
+      )}
+
       <div className="space-y-2">
         {orders && [...orders].reverse().map((order) => {
           let items: Array<{ name: string; quantity: number; price: number }> = [];
           try { items = JSON.parse(order.items); } catch {}
           const isExpanded = expandedId === order.id;
+          const hasCrossRef = crossRefOrders.has(order.id);
           return (
-            <div key={order.id} className="bg-card border border-border rounded-2xl overflow-hidden" data-testid={`admin-order-${order.id}`}>
+            <div key={order.id} className={`bg-card border rounded-2xl overflow-hidden ${hasCrossRef ? "border-amber-300 ring-1 ring-amber-200" : "border-border"}`} data-testid={`admin-order-${order.id}`}>
               <button className="w-full p-3 flex items-center gap-3 text-left" onClick={() => setExpandedId(isExpanded ? null : order.id)}>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
@@ -681,6 +730,11 @@ function OrdersTab() {
                     <Badge className={`text-[10px] ${statusColors[order.status] ?? ""}`} variant="secondary">
                       {statusLabels[order.status] ?? order.status}
                     </Badge>
+                    {hasCrossRef && (
+                      <span className="inline-flex items-center gap-1 text-[9px] font-bold bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full border border-amber-200">
+                        <AlertTriangle size={9} /> Sheet
+                      </span>
+                    )}
                   </div>
                   <p className="text-xs text-muted-foreground mt-0.5">{order.memberPhone} · {formatDate(order.createdAt)}</p>
                 </div>
