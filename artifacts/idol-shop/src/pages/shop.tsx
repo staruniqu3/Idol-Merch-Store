@@ -429,7 +429,7 @@ export default function ShopPage() {
                         const allSoldOut = variants.length > 0 ? variants.every((v) => v.soldOut) : (product as any).isSoldOut;
                         return allSoldOut ? (
                           <Badge className="text-[10px] bg-red-500 text-white border-red-600 font-black px-2 py-0 shrink-0 tracking-wide" variant="outline">
-                            SOLD OUT
+                            Not available
                           </Badge>
                         ) : null;
                       })()}
