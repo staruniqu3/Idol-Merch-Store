@@ -233,7 +233,7 @@ function formatVND(n: number) {
 }
 
 type NoticeItem = { id: number; title: string; content: string; type: string; isPinned: boolean; createdAt: string };
-type StatusEntry = { id: number; phone: string; customerName: string | null; status: string; note: string | null; updatedAt: string };
+type StatusEntry = { id: number; phone: string; customerName: string | null; status: string; items: string | null; updatedAt: string };
 
 const STATUS_CFG: Record<string, { label: string; dot: string; badge: string }> = {
   awaiting:  { label: "⏳ Chờ xác nhận",      dot: "bg-amber-400",        badge: "bg-amber-100 text-amber-700" },
@@ -248,6 +248,90 @@ function maskPhone(p: string) {
   const d = p.replace(/\D/g, "");
   if (d.length >= 7) return d.slice(0, 4) + "***" + d.slice(-3);
   return p;
+}
+
+function getProductNames(itemsJson: string | null): string {
+  if (!itemsJson) return "";
+  try {
+    const arr: Array<{ name: string; quantity: number }> = JSON.parse(itemsJson);
+    return arr.map((i) => (i.quantity > 1 ? `${i.name} ×${i.quantity}` : i.name)).join(", ");
+  } catch { return ""; }
+}
+
+function StatusCarousel({ entries }: { entries: StatusEntry[] }) {
+  const [idx, setIdx] = useState(0);
+  const [visible, setVisible] = useState(true);
+
+  useEffect(() => {
+    if (entries.length <= 1) return;
+    const interval = setInterval(() => {
+      setVisible(false);
+      setTimeout(() => {
+        setIdx((prev) => (prev + 1) % entries.length);
+        setVisible(true);
+      }, 350);
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [entries.length]);
+
+  const e = entries[idx];
+  const cfg = STATUS_CFG[e.status] ?? { label: e.status, dot: "bg-muted-foreground", badge: "bg-muted text-muted-foreground" };
+  const products = getProductNames(e.items);
+
+  return (
+    <div>
+      <div className="flex items-center gap-2 mb-2">
+        <span className="text-base">📋</span>
+        <h2 className="text-sm font-bold text-foreground">Trạng thái đơn</h2>
+        <span className="text-[10px] bg-primary/10 text-primary font-bold px-1.5 py-0.5 rounded-full">
+          {entries.length} đơn
+        </span>
+        {entries.length > 1 && (
+          <span className="ml-auto text-[10px] text-muted-foreground">
+            {idx + 1}/{entries.length}
+          </span>
+        )}
+      </div>
+
+      <div className="bg-card border border-border rounded-2xl overflow-hidden">
+        <div
+          className="px-4 py-3 transition-all duration-300"
+          style={{ opacity: visible ? 1 : 0, transform: visible ? "translateY(0)" : "translateY(-8px)" }}
+        >
+          <div className="flex items-start gap-3">
+            <div className={`w-2 h-2 rounded-full shrink-0 mt-1.5 ${cfg.dot}`} />
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 flex-wrap mb-0.5">
+                <span className="font-mono font-bold text-sm">{maskPhone(e.phone)}</span>
+                {e.customerName && e.customerName !== e.phone && (
+                  <span className="text-xs text-muted-foreground truncate max-w-[90px]">{e.customerName}</span>
+                )}
+              </div>
+              {products && (
+                <p className="text-[11px] text-muted-foreground truncate leading-snug">{products}</p>
+              )}
+            </div>
+            <span className={`text-[10px] font-bold px-2 py-1 rounded-full shrink-0 mt-0.5 ${cfg.badge}`}>
+              {cfg.label}
+            </span>
+          </div>
+        </div>
+
+        {/* Dot indicators */}
+        {entries.length > 1 && (
+          <div className="flex justify-center gap-1 pb-2">
+            {entries.map((_, i) => (
+              <button
+                key={i}
+                onClick={() => { setVisible(false); setTimeout(() => { setIdx(i); setVisible(true); }, 350); }}
+                className={`w-1.5 h-1.5 rounded-full transition-all ${i === idx ? "bg-primary w-3" : "bg-muted-foreground/30"}`}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
 }
 
 export default function ShippingPage() {
@@ -353,52 +437,8 @@ export default function ShippingPage() {
 
       <div className="px-4 py-4 -mt-2 space-y-5 pb-28">
 
-        {/* Order Status Board — grouped by phone */}
-        {statusEntries.length > 0 && (() => {
-          // Group entries by phone, keep the most recently updated entry as representative
-          const groups = new Map<string, { entries: StatusEntry[]; latest: StatusEntry }>();
-          for (const e of statusEntries) {
-            const key = e.phone.replace(/\D/g, "");
-            if (!groups.has(key)) groups.set(key, { entries: [], latest: e });
-            groups.get(key)!.entries.push(e);
-          }
-          const grouped = Array.from(groups.values());
-          return (
-            <div>
-              <div className="flex items-center gap-2 mb-3">
-                <span className="text-base">📋</span>
-                <h2 className="text-sm font-bold text-foreground">Trạng thái đơn</h2>
-                <span className="text-[10px] bg-primary/10 text-primary font-bold px-1.5 py-0.5 rounded-full">
-                  {grouped.length} khách · {statusEntries.length} đơn
-                </span>
-              </div>
-              <div className="bg-card border border-border rounded-2xl overflow-hidden">
-                {grouped.map(({ entries, latest }, i) => {
-                  const cfg = STATUS_CFG[latest.status] ?? { label: latest.status, dot: "bg-muted-foreground", badge: "bg-muted text-muted-foreground" };
-                  return (
-                    <div key={latest.id} className={`flex items-center gap-3 px-4 py-3 ${i < grouped.length - 1 ? "border-b border-border" : ""}`}>
-                      <div className={`w-2 h-2 rounded-full shrink-0 ${cfg.dot}`} />
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="font-mono font-bold text-sm">{maskPhone(latest.phone)}</span>
-                          {latest.customerName && latest.customerName !== latest.phone && (
-                            <span className="text-xs text-muted-foreground truncate max-w-[90px]">{latest.customerName}</span>
-                          )}
-                          {entries.length > 1 && (
-                            <span className="text-[9px] font-bold bg-muted text-muted-foreground px-1.5 py-0.5 rounded-full">{entries.length} đơn</span>
-                          )}
-                        </div>
-                      </div>
-                      <span className={`text-[10px] font-bold px-2 py-1 rounded-full shrink-0 ${cfg.badge}`}>
-                        {cfg.label}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          );
-        })()}
+        {/* Order Status Board — auto-scroll carousel */}
+        {statusEntries.length > 0 && <StatusCarousel entries={statusEntries} />}
 
         {/* Phone-based tracking lookup */}
         <div>

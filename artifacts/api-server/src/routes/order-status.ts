@@ -14,7 +14,7 @@ router.get("/order-status", async (_req, res): Promise<void> => {
       phone: ordersTable.memberPhone,
       customerName: ordersTable.memberName,
       status: ordersTable.status,
-      note: ordersTable.notes,
+      items: ordersTable.items,
       updatedAt: ordersTable.updatedAt,
     })
     .from(ordersTable)
