@@ -269,8 +269,8 @@ function StatusCarousel({ entries }: { entries: StatusEntry[] }) {
       setTimeout(() => {
         setIdx((prev) => (prev + 1) % entries.length);
         setVisible(true);
-      }, 350);
-    }, 5000);
+      }, 400);
+    }, 10000);
     return () => clearInterval(interval);
   }, [entries.length]);
 
