@@ -263,6 +263,7 @@ const MAX_CHIPS = 3;
 function StatusCarousel({ entries }: { entries: StatusEntry[] }) {
   const [idx, setIdx] = useState(0);
   const [visible, setVisible] = useState(true);
+  const [expanded, setExpanded] = useState(false);
 
   useEffect(() => {
     if (entries.length <= 1) return;
@@ -270,6 +271,7 @@ function StatusCarousel({ entries }: { entries: StatusEntry[] }) {
       setVisible(false);
       setTimeout(() => {
         setIdx((prev) => (prev + 1) % entries.length);
+        setExpanded(false);
         setVisible(true);
       }, 400);
     }, 10000);
@@ -279,7 +281,7 @@ function StatusCarousel({ entries }: { entries: StatusEntry[] }) {
   const e = entries[idx];
   const cfg = STATUS_CFG[e.status] ?? { label: e.status, dot: "bg-muted-foreground", badge: "bg-muted text-muted-foreground" };
   const items = parseItems(e.items);
-  const visibleItems = items.slice(0, MAX_CHIPS);
+  const visibleItems = expanded ? items : items.slice(0, MAX_CHIPS);
   const extraCount = items.length - MAX_CHIPS;
 
   return (
@@ -326,10 +328,21 @@ function StatusCarousel({ entries }: { entries: StatusEntry[] }) {
                   {it.label}
                 </span>
               ))}
-              {extraCount > 0 && (
-                <span className="text-[10px] font-bold bg-primary/10 text-primary px-2 py-0.5 rounded-full leading-snug">
+              {!expanded && extraCount > 0 && (
+                <button
+                  onClick={() => setExpanded(true)}
+                  className="text-[10px] font-bold bg-primary/10 text-primary px-2 py-0.5 rounded-full leading-snug active:bg-primary/20 transition-colors"
+                >
                   +{extraCount} món
-                </span>
+                </button>
+              )}
+              {expanded && (
+                <button
+                  onClick={() => setExpanded(false)}
+                  className="text-[10px] font-semibold text-muted-foreground px-2 py-0.5 rounded-full leading-snug bg-muted active:bg-border transition-colors"
+                >
+                  Thu gọn
+                </button>
               )}
             </div>
           )}
