@@ -71,9 +71,16 @@ export async function getGoogleSheetsClient() {
   return google.sheets({ version: "v4", auth: oauth2Client });
 }
 
-// ─── Orders Sheet (old) ───────────────────────────────────────────────────────
+// ─── Orders Sheet (sheet 1 — old form) ───────────────────────────────────────
 export const ORDERS_SHEET_ID = "1byi1bcsjzjREU-7_1qdkHhtUXi4ts3FCNfZoyKI3OtQ";
 export const ORDERS_SHEET_NAME = "Form Responses 1";
+
+// ─── Orders Sheet 2 (new form — different column layout) ─────────────────────
+// Cols: [0] Timestamp | [1] Tên | [2] SĐT | [3] Địa chỉ | [4] Sản phẩm |
+//       [5] Giá | [6] FB link | [7] Bill | [8] Đã gửi bill | [9] VC method |
+//       [10] Note | [11] Membership status
+export const ORDERS_SHEET_2_ID = "1SGi1Cl2S6TJPkH27MPc1q71uTsPDlBF0eFAINj6p9aw";
+export const ORDERS_SHEET_2_NAME = "Form Responses 1";
 
 export interface SheetOrder {
   timestamp: string;
@@ -89,23 +96,23 @@ export interface SheetOrder {
 
 export async function getMemberOrdersByPhone(phone: string): Promise<SheetOrder[]> {
   const sheets = await getGoogleSheetsClient();
-  const resp = await sheets.spreadsheets.values.get({
-    spreadsheetId: ORDERS_SHEET_ID,
-    range: `${ORDERS_SHEET_NAME}!A:P`,
-  });
-
-  const rows = resp.data.values ?? [];
-  if (rows.length < 2) return [];
-
   const normalizePhone = (p: string) => p.replace(/\D/g, "").replace(/^0/, "84");
   const searchPhone = normalizePhone(phone);
 
-  return rows
-    .slice(1)
-    .filter((row) => {
-      const rowPhone = normalizePhone(row[2] ?? "");
-      return rowPhone === searchPhone || (row[2] ?? "").trim() === phone.trim();
-    })
+  const [resp1, resp2] = await Promise.all([
+    sheets.spreadsheets.values.get({ spreadsheetId: ORDERS_SHEET_ID, range: `${ORDERS_SHEET_NAME}!A:P` }),
+    sheets.spreadsheets.values.get({ spreadsheetId: ORDERS_SHEET_2_ID, range: `${ORDERS_SHEET_2_NAME}!A:L` }),
+  ]);
+
+  const matchPhone = (raw: string) => {
+    const n = normalizePhone(raw);
+    return n === searchPhone || raw.trim() === phone.trim();
+  };
+
+  // Sheet 1 — old form layout
+  const rows1 = (resp1.data.values ?? []).slice(1);
+  const from1: SheetOrder[] = rows1
+    .filter((row) => matchPhone(row[2] ?? ""))
     .map((row) => ({
       timestamp: row[0] ?? "",
       name: row[1] ?? "",
@@ -117,6 +124,26 @@ export async function getMemberOrdersByPhone(phone: string): Promise<SheetOrder[
       shippingMethod: row[14] ?? "",
       notes: row[15] ?? "",
     }));
+
+  // Sheet 2 — new form layout (different columns)
+  const rows2 = (resp2.data.values ?? []).slice(1);
+  const from2: SheetOrder[] = rows2
+    .filter((row) => matchPhone(row[2] ?? ""))
+    .map((row) => ({
+      timestamp: row[0] ?? "",
+      name: row[1] ?? "",
+      phone: row[2] ?? "",
+      address: row[3] ?? "",
+      products: row[4] ?? "",
+      totalPrice: row[5] ?? "",
+      memberStatus: row[11] ?? "",
+      shippingMethod: row[9] ?? "",
+      notes: row[10] ?? "",
+    }));
+
+  return [...from1, ...from2].sort(
+    (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+  );
 }
 
 // ─── Membership Sheet (new) ───────────────────────────────────────────────────
