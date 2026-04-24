@@ -156,7 +156,7 @@ function ProductsTab() {
   const { toast } = useToast();
   const [open, setOpen] = useState(false);
   const [editId, setEditId] = useState<number | null>(null);
-  type VariantDraft = { name: string; price?: number; stock?: number };
+  type VariantDraft = { name: string; price?: number; stock?: number; soldOut?: boolean };
   const [form, setForm] = useState({ name: "", description: "", price: "", category: "Kpop", stock: "0", isAvailable: true, isSoldOut: false, orderType: "preorder", orderLabel: "", orderName: "", imageUrl: "", tags: [] as string[], variants: [] as VariantDraft[] });
   const [customTagInput, setCustomTagInput] = useState("");
   const [customVariantInput, setCustomVariantInput] = useState({ name: "", price: "", stock: "" });
@@ -203,7 +203,7 @@ function ProductsTab() {
 
   const openEdit = (p: NonNullable<typeof products>[0]) => {
     setEditId(p.id);
-    setForm({ name: p.name, description: p.description ?? "", price: String(p.price), category: p.category, stock: String(p.stock), isAvailable: p.isAvailable, isSoldOut: (p as any).isSoldOut ?? false, orderType: p.orderType, orderLabel: (p as any).orderLabel ?? "", orderName: (p as any).orderName ?? "", imageUrl: p.imageUrl ?? "", tags: p.tags ?? [], variants: (p.variants ?? []).map((v: any) => ({ name: v.name, price: v.price ?? undefined, stock: v.stock ?? undefined })) });
+    setForm({ name: p.name, description: p.description ?? "", price: String(p.price), category: p.category, stock: String(p.stock), isAvailable: p.isAvailable, isSoldOut: false, orderType: p.orderType, orderLabel: (p as any).orderLabel ?? "", orderName: (p as any).orderName ?? "", imageUrl: p.imageUrl ?? "", tags: p.tags ?? [], variants: (p.variants ?? []).map((v: any) => ({ name: v.name, price: v.price ?? undefined, stock: v.stock ?? undefined, soldOut: v.soldOut ?? false })) });
     setOpen(true);
   };
 
@@ -214,6 +214,7 @@ function ProductsTab() {
         name: v.name,
         ...(v.price != null && !isNaN(v.price) ? { price: v.price } : {}),
         ...(!isPreorder && v.stock != null && !isNaN(v.stock) ? { stock: v.stock } : {}),
+        soldOut: v.soldOut ?? false,
       }));
       const vPrices = cleanVariants.map((v) => (v as any).price).filter((p: any) => p != null && !isNaN(p)) as number[];
       const autoMinPrice = vPrices.length >= 1 ? Math.min(...vPrices) : null;
@@ -225,7 +226,8 @@ function ProductsTab() {
       const stock = hasVariantStock
         ? cleanVariants.reduce((s, v) => s + (v.stock ?? 0), 0)
         : parseInt(form.stock) || 0;
-      const data = { name: form.name, description: form.description || null, price, category: form.category, stock, isAvailable: form.isAvailable, isSoldOut: form.orderType === "preorder" ? form.isSoldOut : false, orderType: form.orderType, orderLabel: form.orderLabel.trim() || null, orderName: form.orderName.trim() || null, imageUrl: form.imageUrl || null, tags: form.tags.length > 0 ? form.tags : null, variants: cleanVariants.length > 0 ? cleanVariants : null };
+      const allVariantsSoldOut = cleanVariants.length > 0 && cleanVariants.every((v) => v.soldOut);
+      const data = { name: form.name, description: form.description || null, price, category: form.category, stock, isAvailable: form.isAvailable, isSoldOut: allVariantsSoldOut, orderType: form.orderType, orderLabel: form.orderLabel.trim() || null, orderName: form.orderName.trim() || null, imageUrl: form.imageUrl || null, tags: form.tags.length > 0 ? form.tags : null, variants: cleanVariants.length > 0 ? cleanVariants : null };
       if (editId) {
         updateProduct.mutate({ id: editId, data }, {
           onSuccess: () => { queryClient.invalidateQueries({ queryKey: getListProductsQueryKey() }); setOpen(false); resetForm(); setEditId(null); toast({ title: "Đã cập nhật sản phẩm" }); },
@@ -326,16 +328,19 @@ function ProductsTab() {
                 <div className="space-y-1.5">
                   {form.variants.map((v, idx) => {
                     return (
-                      <div key={idx} className="flex items-center gap-2 bg-background rounded-xl px-3 py-1.5 border border-border">
+                      <div key={idx} className={`flex items-center gap-2 rounded-xl px-3 py-1.5 border transition-colors ${v.soldOut ? "bg-red-50 border-red-200" : "bg-background border-border"}`}>
                         <div className="flex-1 min-w-0 flex items-center gap-1.5 flex-wrap">
-                          <span className="text-[11px] font-bold text-foreground">{v.name}</span>
+                          <span className={`text-[11px] font-bold ${v.soldOut ? "text-red-500 line-through" : "text-foreground"}`}>{v.name}</span>
                           {v.price != null && (
-                            <span className="text-[10px] font-bold text-primary">
+                            <span className={`text-[10px] font-bold ${v.soldOut ? "text-red-400 line-through" : "text-primary"}`}>
                               {new Intl.NumberFormat("vi-VN").format(v.price)}₫
                             </span>
                           )}
                           {v.stock != null && (
                             <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-primary/10 text-primary">kho: {v.stock}</span>
+                          )}
+                          {v.soldOut && (
+                            <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full bg-red-100 text-red-600 border border-red-200 uppercase tracking-wide">Sold Out</span>
                           )}
                         </div>
                         {form.orderType !== "preorder" && (
@@ -356,6 +361,14 @@ function ProductsTab() {
                             className="rounded-lg h-7 text-xs w-16 bg-muted/50 shrink-0"
                           />
                         )}
+                        <button
+                          type="button"
+                          title={v.soldOut ? "Bỏ Sold Out" : "Đánh dấu Sold Out"}
+                          onClick={() => setForm((f) => ({ ...f, variants: f.variants.map((vv, i) => i === idx ? { ...vv, soldOut: !vv.soldOut } : vv) }))}
+                          className={`text-[9px] font-bold px-2 h-6 rounded-lg border shrink-0 transition-colors ${v.soldOut ? "bg-red-100 text-red-600 border-red-300 hover:bg-red-200" : "bg-muted/60 text-muted-foreground border-border hover:bg-red-50 hover:text-red-500 hover:border-red-200"}`}
+                        >
+                          {v.soldOut ? "✓ Sold" : "Sold?"}
+                        </button>
                         <button
                           type="button"
                           onClick={() => setForm((f) => ({ ...f, variants: f.variants.filter((_, i) => i !== idx) }))}
@@ -531,22 +544,6 @@ function ProductsTab() {
               <Switch checked={form.isAvailable} onCheckedChange={(v) => setForm({ ...form, isAvailable: v })} id="avail" />
               <Label htmlFor="avail">Đang bán</Label>
             </div>
-            {form.orderType === "preorder" && (
-              <div className={`flex items-center gap-3 py-1 px-3 rounded-xl border transition-colors ${form.isSoldOut ? "bg-red-50 border-red-200" : "bg-muted/40 border-border"}`}>
-                <Switch
-                  checked={form.isSoldOut}
-                  onCheckedChange={(v) => setForm({ ...form, isSoldOut: v })}
-                  id="sold-out"
-                  className="data-[state=checked]:bg-red-500"
-                />
-                <div>
-                  <Label htmlFor="sold-out" className={form.isSoldOut ? "text-red-600 font-bold" : ""}>
-                    Sold Out
-                  </Label>
-                  <p className="text-[10px] text-muted-foreground leading-none mt-0.5">Hiện badge đỏ, khoá đặt hàng</p>
-                </div>
-              </div>
-            )}
             <Button className="w-full rounded-xl" onClick={handleSave} data-testid="button-save-product">Lưu</Button>
           </div>
         </DialogContent>

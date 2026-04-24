@@ -424,11 +424,15 @@ export default function ShopPage() {
                           Gần hết
                         </Badge>
                       )}
-                      {product.orderType === "preorder" && (product as any).isSoldOut && (
-                        <Badge className="text-[10px] bg-red-500 text-white border-red-600 font-black px-2 py-0 shrink-0 tracking-wide" variant="outline">
-                          SOLD OUT
-                        </Badge>
-                      )}
+                      {(() => {
+                        const variants = (product.variants ?? []) as Array<{ soldOut?: boolean }>;
+                        const allSoldOut = variants.length > 0 ? variants.every((v) => v.soldOut) : (product as any).isSoldOut;
+                        return allSoldOut ? (
+                          <Badge className="text-[10px] bg-red-500 text-white border-red-600 font-black px-2 py-0 shrink-0 tracking-wide" variant="outline">
+                            SOLD OUT
+                          </Badge>
+                        ) : null;
+                      })()}
                     </div>
                     {/* Row 2: name */}
                     <p className="text-sm font-bold leading-snug text-foreground">{product.name}</p>
@@ -497,11 +501,11 @@ export default function ShopPage() {
             <Button
               size="sm"
               className="shrink-0 rounded-xl font-bold px-3 mt-0.5"
-              disabled={!product.isAvailable || (product.orderType !== "preorder" && product.stock === 0) || (product.orderType === "preorder" && !!(product as any).isSoldOut)}
+              disabled={!product.isAvailable || (product.orderType !== "preorder" && product.stock === 0) || (() => { const vs = (product.variants ?? []) as Array<{ soldOut?: boolean }>; return vs.length > 0 ? vs.every((v) => v.soldOut) : !!(product as any).isSoldOut; })()}
               onClick={() => addToCart(product)}
               data-testid={`button-add-cart-${product.id}`}
             >
-              {(product.orderType !== "preorder" && product.stock === 0) || (product.orderType === "preorder" && !!(product as any).isSoldOut) ? "Hết hàng" : <><Plus size={13} className="mr-1" />Thêm</>}
+              {(product.orderType !== "preorder" && product.stock === 0) || (() => { const vs = (product.variants ?? []) as Array<{ soldOut?: boolean }>; return vs.length > 0 ? vs.every((v) => v.soldOut) : !!(product as any).isSoldOut; })() ? "Hết hàng" : <><Plus size={13} className="mr-1" />Thêm</>}
             </Button>
           </div>
         ))}
