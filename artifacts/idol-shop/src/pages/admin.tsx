@@ -36,14 +36,16 @@ function formatDate(d: string) {
   return new Date(d).toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric" });
 }
 
-const statusOptions = ["awaiting", "confirmed", "pending", "shipped", "delivered", "cancelled"];
+const statusOptions = ["awaiting", "confirmed", "pending", "shipped", "delivered", "cancelled", "form_incomplete"];
 const statusLabels: Record<string, string> = {
   awaiting: "Chờ xác nhận", pending: "Đã nhập thông tin", confirmed: "Đã chuyển khoản", shipped: "Đang giao", delivered: "Đã giao", cancelled: "Đã hủy",
+  form_incomplete: "Xác nhận không thành công - chưa điền form",
 };
 const statusColors: Record<string, string> = {
   awaiting: "bg-gray-100 text-gray-600", pending: "bg-amber-100 text-amber-700", confirmed: "bg-blue-100 text-blue-700",
   shipped: "bg-purple-100 text-purple-700", delivered: "bg-emerald-100 text-emerald-700",
   cancelled: "bg-red-100 text-red-700",
+  form_incomplete: "bg-orange-100 text-orange-700",
 };
 
 const shippingStatusOptions = ["web_order", "warehouse_origin", "shipping_to_vn", "warehouse_vn", "sorting", "preparing", "in_transit", "delivered", "returned"];
@@ -780,8 +782,12 @@ function OrdersTab() {
         </div>
       )}
 
-      <div className="space-y-2">
-        {orders && [...orders].reverse().map((order) => {
+      {(() => {
+        const reversed = orders ? [...orders].reverse() : [];
+        const mainOrders = reversed.filter((o) => o.status !== "form_incomplete");
+        const incompleteOrders = reversed.filter((o) => o.status === "form_incomplete");
+
+        const renderOrderCard = (order: typeof reversed[number]) => {
           let items: Array<{ name: string; quantity: number; price: number }> = [];
           try { items = JSON.parse(order.items); } catch {}
           const isExpanded = expandedId === order.id;
@@ -840,9 +846,7 @@ function OrdersTab() {
                       <span>Mã vận đơn: <span className="font-bold text-foreground font-mono">{order.trackingNumber}</span></span>
                     )}
                   </div>
-                  {/* Member code input */}
                   <MemberCodeEditor orderId={order.id} currentCode={(order as any).memberCode ?? null} />
-                  {/* Sheet checked button */}
                   {hasCrossRef && (
                     <button
                       className="w-full flex items-center justify-center gap-2 text-xs font-bold py-2 px-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-700 hover:bg-green-50 hover:border-green-300 hover:text-green-700 transition-colors"
@@ -875,8 +879,29 @@ function OrdersTab() {
               )}
             </div>
           );
-        })}
-      </div>
+        };
+
+        return (
+          <>
+            <div className="space-y-2">
+              {mainOrders.map(renderOrderCard)}
+            </div>
+
+            {incompleteOrders.length > 0 && (
+              <div className="mt-4 space-y-2">
+                <div className="flex items-center gap-2 px-1">
+                  <div className="h-px flex-1 bg-orange-200" />
+                  <span className="text-[11px] font-bold text-orange-600 uppercase tracking-wide">
+                    Chưa điền form ({incompleteOrders.length})
+                  </span>
+                  <div className="h-px flex-1 bg-orange-200" />
+                </div>
+                {incompleteOrders.map(renderOrderCard)}
+              </div>
+            )}
+          </>
+        );
+      })()}
     </div>
   );
 }

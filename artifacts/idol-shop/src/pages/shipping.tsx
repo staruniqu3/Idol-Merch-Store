@@ -226,6 +226,7 @@ const orderStatusLabels: Record<string, string> = {
   shipped: "Đã giao ĐVVC",
   delivered: "Đã giao",
   cancelled: "Đã huỷ",
+  form_incomplete: "Xác nhận không thành công - chưa điền form",
 };
 
 function formatVND(n: number) {
@@ -242,6 +243,7 @@ const STATUS_CFG: Record<string, { label: string; dot: string; badge: string }> 
   shipped:   { label: "🚚 Đang giao",         dot: "bg-violet-400",       badge: "bg-violet-100 text-violet-700" },
   delivered: { label: "🎉 Đã giao",           dot: "bg-emerald-400",      badge: "bg-emerald-100 text-emerald-700" },
   cancelled: { label: "❌ Đã hủy",            dot: "bg-muted-foreground", badge: "bg-muted text-muted-foreground" },
+  form_incomplete: { label: "❌ Đã hủy",      dot: "bg-muted-foreground", badge: "bg-muted text-muted-foreground" },
 };
 
 function maskPhone(p: string) {
@@ -402,7 +404,8 @@ export default function ShippingPage() {
       const res = await fetch(`${base}/api/tracking?phone=${encodeURIComponent(lookupPhone.trim())}&_t=${Date.now()}`, { cache: "no-store" });
       if (res.ok) {
         const data = await res.json();
-        if (Array.isArray(data) && data.length > 0) setLookupResults(data);
+        const filtered = Array.isArray(data) ? data.filter((r: TrackingResult) => r.status !== "form_incomplete") : [];
+        if (filtered.length > 0) setLookupResults(filtered);
       }
 
       if (sheetMatches.length === 0) {
@@ -430,7 +433,7 @@ export default function ShippingPage() {
   useEffect(() => {
     fetch(`${getBaseUrl()}/api/order-status`, { cache: "no-store" })
       .then((r) => r.ok ? r.json() : [])
-      .then((data) => setStatusEntries(Array.isArray(data) ? data : []))
+      .then((data) => setStatusEntries(Array.isArray(data) ? data.filter((e: StatusEntry) => e.status !== "form_incomplete") : []))
       .catch(() => {});
   }, []);
 
