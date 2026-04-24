@@ -10,7 +10,7 @@ import {
 } from "@workspace/api-client-react";
 import {
   Shield, Package, ShoppingBag, Truck, Users, Gift, LogOut, Plus, Pencil, Trash2, ChevronDown,
-  TrendingUp, Star, Calendar, X, Check, BarChart3, Sparkles, Bell, Pin, Ticket, Eye, EyeOff, Tag, AlertTriangle,
+  TrendingUp, Star, Calendar, X, Check, BarChart3, Sparkles, Bell, Pin, Ticket, Eye, EyeOff, Tag, AlertTriangle, Copy,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -809,7 +809,16 @@ function OrdersTab() {
                       </span>
                     )}
                   </div>
-                  <p className="text-xs text-muted-foreground mt-0.5">{order.memberPhone} · {formatDate(order.createdAt)}</p>
+                  <div className="flex items-center gap-1.5 mt-0.5">
+                    <span className="text-xs text-muted-foreground">{order.memberPhone} · {formatDate(order.createdAt)}</span>
+                    <button
+                      className="text-muted-foreground hover:text-foreground transition-colors shrink-0"
+                      onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(order.memberPhone); }}
+                      title="Copy số điện thoại"
+                    >
+                      <Copy size={11} />
+                    </button>
+                  </div>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
                   <span className="font-black text-sm text-primary">{formatPrice(order.totalAmount)}</span>
