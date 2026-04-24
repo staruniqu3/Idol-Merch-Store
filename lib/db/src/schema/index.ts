@@ -7,3 +7,4 @@ export * from "./preorder";
 export * from "./notices";
 export * from "./booking-notes";
 export * from "./coupons";
+export * from "./order-status";

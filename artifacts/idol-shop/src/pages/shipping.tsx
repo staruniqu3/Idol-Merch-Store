@@ -233,6 +233,22 @@ function formatVND(n: number) {
 }
 
 type NoticeItem = { id: number; title: string; content: string; type: string; isPinned: boolean; createdAt: string };
+type StatusEntry = { id: number; phone: string; customerName: string | null; status: string; note: string | null; updatedAt: string };
+
+const STATUS_CFG: Record<string, { label: string; dot: string; badge: string }> = {
+  pending:   { label: "⏳ Chờ xác nhận",          dot: "bg-amber-400",   badge: "bg-amber-100 text-amber-700" },
+  confirmed: { label: "✅ Đã xác nhận thông tin",  dot: "bg-green-400",   badge: "bg-green-100 text-green-700" },
+  preparing: { label: "📦 Đang chuẩn bị hàng",    dot: "bg-blue-400",    badge: "bg-blue-100 text-blue-700" },
+  shipped:   { label: "🚚 Đã giao ĐVVC",           dot: "bg-violet-400",  badge: "bg-violet-100 text-violet-700" },
+  done:      { label: "🎉 Hoàn thành",             dot: "bg-emerald-400", badge: "bg-emerald-100 text-emerald-700" },
+  cancelled: { label: "❌ Đã huỷ",                 dot: "bg-muted-foreground", badge: "bg-muted text-muted-foreground" },
+};
+
+function maskPhone(p: string) {
+  const d = p.replace(/\D/g, "");
+  if (d.length >= 7) return d.slice(0, 4) + "***" + d.slice(-3);
+  return p;
+}
 
 export default function ShippingPage() {
   const { data: updates, isLoading: updatesLoading } = useListShippingUpdates();
@@ -246,6 +262,7 @@ export default function ShippingPage() {
   const [lookupError, setLookupError] = useState("");
   const [notices, setNotices] = useState<NoticeItem[]>([]);
   const [expandedNotice, setExpandedNotice] = useState<number | null>(null);
+  const [statusEntries, setStatusEntries] = useState<StatusEntry[]>([]);
 
   const normalizePhone = (p: string) => p.replace(/\D/g, "").replace(/^84/, "0");
 
@@ -292,6 +309,13 @@ export default function ShippingPage() {
       .catch(() => {});
   }, []);
 
+  useEffect(() => {
+    fetch(`${getBaseUrl()}/api/order-status`, { cache: "no-store" })
+      .then((r) => r.ok ? r.json() : [])
+      .then((data) => setStatusEntries(Array.isArray(data) ? data : []))
+      .catch(() => {});
+  }, []);
+
   const sorted = updates ? [...updates].reverse() : [];
 
   const filteredSheet = sheetData;
@@ -328,6 +352,39 @@ export default function ShippingPage() {
       </div>
 
       <div className="px-4 py-4 -mt-2 space-y-5 pb-28">
+
+        {/* Order Status Board */}
+        {statusEntries.length > 0 && (
+          <div>
+            <div className="flex items-center gap-2 mb-3">
+              <span className="text-base">📋</span>
+              <h2 className="text-sm font-bold text-foreground">Trạng thái đơn</h2>
+              <span className="text-[10px] bg-primary/10 text-primary font-bold px-1.5 py-0.5 rounded-full">{statusEntries.length} đơn</span>
+            </div>
+            <div className="bg-card border border-border rounded-2xl overflow-hidden">
+              {statusEntries.map((e, i) => {
+                const cfg = STATUS_CFG[e.status] ?? { label: e.status, dot: "bg-muted-foreground", badge: "bg-muted text-muted-foreground" };
+                return (
+                  <div key={e.id} className={`flex items-center gap-3 px-4 py-3 ${i < statusEntries.length - 1 ? "border-b border-border" : ""}`}>
+                    <div className={`w-2 h-2 rounded-full shrink-0 ${cfg.dot}`} />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-mono font-bold text-sm">{maskPhone(e.phone)}</span>
+                        {e.customerName && (
+                          <span className="text-xs text-muted-foreground truncate max-w-[100px]">{e.customerName}</span>
+                        )}
+                      </div>
+                      {e.note && <p className="text-[11px] text-muted-foreground mt-0.5 truncate">{e.note}</p>}
+                    </div>
+                    <span className={`text-[10px] font-bold px-2 py-1 rounded-full shrink-0 ${cfg.badge}`}>
+                      {cfg.label}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {/* Phone-based tracking lookup */}
         <div>

@@ -10,7 +10,7 @@ import {
 } from "@workspace/api-client-react";
 import {
   Shield, Package, ShoppingBag, Truck, Users, Gift, LogOut, Plus, Pencil, Trash2, ChevronDown,
-  TrendingUp, Star, Calendar, X, Check, BarChart3, Sparkles, Bell, Pin, Ticket, Eye, EyeOff, Tag,
+  TrendingUp, Star, Calendar, X, Check, BarChart3, Sparkles, Bell, Pin, Ticket, Eye, EyeOff, Tag, ListChecks,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -2303,6 +2303,163 @@ function CouponTab() {
   );
 }
 
+// ===================== Order Status Board =====================
+type OrderStatusEntry = { id: number; phone: string; customerName: string | null; status: string; note: string | null; updatedAt: string };
+
+const STATUS_OPTIONS = [
+  { value: "pending", label: "⏳ Chờ xác nhận" },
+  { value: "confirmed", label: "✅ Đã xác nhận thông tin" },
+  { value: "preparing", label: "📦 Đang chuẩn bị hàng" },
+  { value: "shipped", label: "🚚 Đã giao ĐVVC" },
+  { value: "done", label: "🎉 Hoàn thành" },
+  { value: "cancelled", label: "❌ Đã huỷ" },
+];
+
+const STATUS_BADGE: Record<string, string> = {
+  pending: "bg-amber-100 text-amber-700",
+  confirmed: "bg-green-100 text-green-700",
+  preparing: "bg-blue-100 text-blue-700",
+  shipped: "bg-violet-100 text-violet-700",
+  done: "bg-emerald-100 text-emerald-700",
+  cancelled: "bg-muted text-muted-foreground",
+};
+
+function OrderStatusTab() {
+  const [entries, setEntries] = useState<OrderStatusEntry[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [open, setOpen] = useState(false);
+  const [editId, setEditId] = useState<number | null>(null);
+  const [form, setForm] = useState({ phone: "", customerName: "", status: "pending", note: "" });
+  const { toast } = useToast();
+  const base = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
+
+  const load = async () => {
+    setLoading(true);
+    try {
+      const r = await fetch(`${base}/api/order-status`, { cache: "no-store" });
+      const d = await r.json();
+      setEntries(Array.isArray(d) ? d : []);
+    } catch { /* ignore */ } finally { setLoading(false); }
+  };
+
+  useEffect(() => { load(); }, []);
+
+  const resetForm = () => { setForm({ phone: "", customerName: "", status: "pending", note: "" }); setEditId(null); };
+
+  const openEdit = (e: OrderStatusEntry) => {
+    setForm({ phone: e.phone, customerName: e.customerName ?? "", status: e.status, note: e.note ?? "" });
+    setEditId(e.id);
+    setOpen(true);
+  };
+
+  const handleSave = async () => {
+    if (!form.phone.trim()) { toast({ title: "Vui lòng nhập số điện thoại", variant: "destructive" }); return; }
+    try {
+      const payload = { phone: form.phone.trim(), customerName: form.customerName.trim() || null, status: form.status, note: form.note.trim() || null };
+      const url = editId ? `${base}/api/order-status/${editId}` : `${base}/api/order-status`;
+      const method = editId ? "PATCH" : "POST";
+      const r = await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+      if (!r.ok) throw new Error();
+      toast({ title: editId ? "Đã cập nhật" : "Đã thêm trạng thái" });
+      setOpen(false); resetForm(); load();
+    } catch { toast({ title: "Lỗi khi lưu", variant: "destructive" }); }
+  };
+
+  const handleDelete = async (id: number) => {
+    if (!confirm("Xoá dòng này?")) return;
+    try {
+      await fetch(`${base}/api/order-status/${id}`, { method: "DELETE" });
+      toast({ title: "Đã xoá" }); load();
+    } catch { toast({ title: "Lỗi khi xoá", variant: "destructive" }); }
+  };
+
+  const statusLabel = (s: string) => STATUS_OPTIONS.find((o) => o.value === s)?.label ?? s;
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-base font-bold">Bảng trạng thái đơn</h2>
+          <p className="text-xs text-muted-foreground mt-0.5">Hiển thị công khai trang Vận chuyển cho khách tra cứu</p>
+        </div>
+        <Button size="sm" onClick={() => { resetForm(); setOpen(true); }} className="flex items-center gap-1.5">
+          <Plus size={14} /> Thêm
+        </Button>
+      </div>
+
+      {loading && <div className="space-y-2">{Array.from({ length: 3 }).map((_, i) => <div key={i} className="h-16 bg-muted rounded-2xl animate-pulse" />)}</div>}
+
+      {!loading && entries.length === 0 && (
+        <div className="bg-card border border-border rounded-2xl p-8 text-center">
+          <ListChecks size={28} strokeWidth={1.2} className="mx-auto mb-2 text-muted-foreground" />
+          <p className="text-sm text-muted-foreground">Chưa có dòng nào. Nhấn + Thêm để bắt đầu.</p>
+        </div>
+      )}
+
+      {!loading && entries.length > 0 && (
+        <div className="space-y-2">
+          {entries.map((e) => (
+            <div key={e.id} className="bg-card border border-border rounded-2xl p-3 flex items-center gap-3">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap mb-0.5">
+                  <span className="font-mono font-bold text-sm">{e.phone}</span>
+                  {e.customerName && <span className="text-xs text-muted-foreground">{e.customerName}</span>}
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ml-auto ${STATUS_BADGE[e.status] ?? "bg-muted text-muted-foreground"}`}>
+                    {statusLabel(e.status)}
+                  </span>
+                </div>
+                {e.note && <p className="text-xs text-muted-foreground truncate">{e.note}</p>}
+                <p className="text-[10px] text-muted-foreground/60 mt-0.5">{new Date(e.updatedAt).toLocaleString("vi-VN")}</p>
+              </div>
+              <div className="flex gap-1 shrink-0">
+                <button onClick={() => openEdit(e)} className="w-8 h-8 rounded-xl bg-muted flex items-center justify-center hover:bg-primary/10 transition-colors">
+                  <Pencil size={13} className="text-muted-foreground" />
+                </button>
+                <button onClick={() => handleDelete(e.id)} className="w-8 h-8 rounded-xl bg-muted flex items-center justify-center hover:bg-destructive/10 transition-colors">
+                  <Trash2 size={13} className="text-destructive" />
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <Dialog open={open} onOpenChange={(v) => { if (!v) { setOpen(false); resetForm(); } }}>
+        <DialogContent className="max-w-sm mx-auto">
+          <DialogHeader><DialogTitle>{editId ? "Sửa trạng thái" : "Thêm trạng thái đơn"}</DialogTitle></DialogHeader>
+          <div className="space-y-3 pt-1">
+            <div>
+              <Label className="text-xs font-semibold mb-1 block">Số điện thoại *</Label>
+              <Input placeholder="0912345678" value={form.phone} onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))} className="font-mono" />
+            </div>
+            <div>
+              <Label className="text-xs font-semibold mb-1 block">Tên khách (tuỳ chọn)</Label>
+              <Input placeholder="Nguyễn Văn A" value={form.customerName} onChange={(e) => setForm((f) => ({ ...f, customerName: e.target.value }))} />
+            </div>
+            <div>
+              <Label className="text-xs font-semibold mb-1 block">Trạng thái</Label>
+              <Select value={form.status} onValueChange={(v) => setForm((f) => ({ ...f, status: v }))}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {STATUS_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-xs font-semibold mb-1 block">Ghi chú (tuỳ chọn)</Label>
+              <Input placeholder="VD: Chờ xác nhận địa chỉ" value={form.note} onChange={(e) => setForm((f) => ({ ...f, note: e.target.value }))} />
+            </div>
+            <div className="flex gap-2 pt-1">
+              <Button variant="outline" className="flex-1" onClick={() => { setOpen(false); resetForm(); }}>Huỷ</Button>
+              <Button className="flex-1" onClick={handleSave}>{editId ? "Lưu" : "Thêm"}</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
 // ===================== Main Admin =====================
 const tabs = [
   { id: "dashboard", label: "Tổng quan", icon: BarChart3 },
@@ -2316,6 +2473,7 @@ const tabs = [
   { id: "notices", label: "Thông báo", icon: Bell },
   { id: "booking", label: "Booking Vé", icon: Ticket },
   { id: "coupon", label: "Coupon", icon: Tag },
+  { id: "orderstatus", label: "Trạng thái đơn", icon: ListChecks },
 ];
 
 export default function AdminPage() {
@@ -2388,6 +2546,7 @@ export default function AdminPage() {
         {activeTab === "notices" && <NoticesTab />}
         {activeTab === "booking" && <BookingTab />}
         {activeTab === "coupon" && <CouponTab />}
+        {activeTab === "orderstatus" && <OrderStatusTab />}
       </div>
     </div>
   );
