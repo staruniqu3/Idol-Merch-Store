@@ -617,6 +617,12 @@ components:
           description: "preorder or pickup"
         notes:
           type: ["string", "null"]
+        memberCode:
+          type: ["string", "null"]
+          description: Sovereign Club member code (e.g. TCD0000003)
+        sheetChecked:
+          type: boolean
+          description: Admin has verified this order against Google Sheet
         pointsEarned:
           type: integer
         createdAt:
@@ -625,7 +631,7 @@ components:
         updatedAt:
           type: string
           format: date-time
-      required: [id, memberName, memberPhone, items, totalAmount, status, orderType, pointsEarned, createdAt, updatedAt]
+      required: [id, memberName, memberPhone, items, totalAmount, status, orderType, sheetChecked, pointsEarned, createdAt, updatedAt]
 
     CreateOrderBody:
       type: object
@@ -653,6 +659,11 @@ components:
           type: string
         notes:
           type: ["string", "null"]
+        memberCode:
+          type: ["string", "null"]
+          description: Sovereign Club member code
+        sheetChecked:
+          type: boolean
 
     OrderSummary:
       type: object

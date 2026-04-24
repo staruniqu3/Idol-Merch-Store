@@ -10,4 +10,10 @@ export interface UpdateOrderBody {
   status?: string;
   /** @nullable */
   notes?: string | null;
+  /**
+   * Sovereign Club member code
+   * @nullable
+   */
+  memberCode?: string | null;
+  sheetChecked?: boolean;
 }

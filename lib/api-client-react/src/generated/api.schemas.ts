@@ -68,6 +68,13 @@ export interface Order {
   orderType: string;
   /** @nullable */
   notes?: string | null;
+  /**
+   * Sovereign Club member code (e.g. TCD0000003)
+   * @nullable
+   */
+  memberCode?: string | null;
+  /** Admin has verified this order against Google Sheet */
+  sheetChecked: boolean;
   pointsEarned: number;
   createdAt: string;
   updatedAt: string;
@@ -89,6 +96,12 @@ export interface UpdateOrderBody {
   status?: string;
   /** @nullable */
   notes?: string | null;
+  /**
+   * Sovereign Club member code
+   * @nullable
+   */
+  memberCode?: string | null;
+  sheetChecked?: boolean;
 }
 
 export interface OrderSummary {

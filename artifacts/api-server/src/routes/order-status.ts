@@ -13,6 +13,7 @@ router.get("/order-status", async (_req, res): Promise<void> => {
       id: ordersTable.id,
       phone: ordersTable.memberPhone,
       customerName: ordersTable.memberName,
+      memberCode: ordersTable.memberCode,
       status: ordersTable.status,
       items: ordersTable.items,
       updatedAt: ordersTable.updatedAt,

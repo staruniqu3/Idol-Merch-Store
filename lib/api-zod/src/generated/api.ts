@@ -132,6 +132,13 @@ export const ListOrdersResponseItem = zod.object({
     .describe("pending, confirmed, shipped, delivered, cancelled"),
   orderType: zod.string().describe("preorder or pickup"),
   notes: zod.string().nullish(),
+  memberCode: zod
+    .string()
+    .nullish()
+    .describe("Sovereign Club member code (e.g. TCD0000003)"),
+  sheetChecked: zod
+    .boolean()
+    .describe("Admin has verified this order against Google Sheet"),
   pointsEarned: zod.number(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
@@ -170,6 +177,13 @@ export const GetOrderResponse = zod.object({
     .describe("pending, confirmed, shipped, delivered, cancelled"),
   orderType: zod.string().describe("preorder or pickup"),
   notes: zod.string().nullish(),
+  memberCode: zod
+    .string()
+    .nullish()
+    .describe("Sovereign Club member code (e.g. TCD0000003)"),
+  sheetChecked: zod
+    .boolean()
+    .describe("Admin has verified this order against Google Sheet"),
   pointsEarned: zod.number(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
@@ -185,6 +199,8 @@ export const UpdateOrderParams = zod.object({
 export const UpdateOrderBody = zod.object({
   status: zod.string().optional(),
   notes: zod.string().nullish(),
+  memberCode: zod.string().nullish().describe("Sovereign Club member code"),
+  sheetChecked: zod.boolean().optional(),
 });
 
 export const UpdateOrderResponse = zod.object({
@@ -199,6 +215,13 @@ export const UpdateOrderResponse = zod.object({
     .describe("pending, confirmed, shipped, delivered, cancelled"),
   orderType: zod.string().describe("preorder or pickup"),
   notes: zod.string().nullish(),
+  memberCode: zod
+    .string()
+    .nullish()
+    .describe("Sovereign Club member code (e.g. TCD0000003)"),
+  sheetChecked: zod
+    .boolean()
+    .describe("Admin has verified this order against Google Sheet"),
   pointsEarned: zod.number(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),

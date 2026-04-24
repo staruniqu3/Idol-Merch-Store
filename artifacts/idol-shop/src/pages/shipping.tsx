@@ -233,7 +233,7 @@ function formatVND(n: number) {
 }
 
 type NoticeItem = { id: number; title: string; content: string; type: string; isPinned: boolean; createdAt: string };
-type StatusEntry = { id: number; phone: string; customerName: string | null; status: string; items: string | null; updatedAt: string };
+type StatusEntry = { id: number; phone: string; customerName: string | null; memberCode?: string | null; status: string; items: string | null; updatedAt: string };
 
 const STATUS_CFG: Record<string, { label: string; dot: string; badge: string }> = {
   awaiting:  { label: "⏳ Chờ xác nhận",      dot: "bg-amber-400",        badge: "bg-amber-100 text-amber-700" },
@@ -304,10 +304,13 @@ function StatusCarousel({ entries }: { entries: StatusEntry[] }) {
           className="px-4 pt-3 pb-2.5 transition-all duration-300"
           style={{ opacity: visible ? 1 : 0, transform: visible ? "translateY(0)" : "translateY(-6px)" }}
         >
-          {/* Phone + status row */}
+          {/* Member identifier + status row */}
           <div className="flex items-center gap-2 mb-2">
             <div className={`w-2 h-2 rounded-full shrink-0 ${cfg.dot}`} />
-            <span className="font-mono font-bold text-sm flex-1 min-w-0">{maskPhone(e.phone)}</span>
+            {e.memberCode
+              ? <span className="font-mono font-bold text-sm flex-1 min-w-0 text-primary">{e.memberCode}</span>
+              : <span className="font-mono font-bold text-sm flex-1 min-w-0">{maskPhone(e.phone)}</span>
+            }
             {e.customerName && e.customerName !== e.phone && (
               <span className="text-[11px] text-muted-foreground truncate max-w-[80px]">{e.customerName}</span>
             )}

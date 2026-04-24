@@ -669,6 +669,57 @@ function TrackingFieldsEditor({ orderId, order }: { orderId: number; order: Orde
   );
 }
 
+function MemberCodeEditor({ orderId, currentCode }: { orderId: number; currentCode: string | null }) {
+  const [editing, setEditing] = useState(false);
+  const [val, setVal] = useState(currentCode ?? "");
+  const updateOrder = useUpdateOrder();
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  useEffect(() => { setVal(currentCode ?? ""); }, [currentCode]);
+
+  const handleSave = () => {
+    updateOrder.mutate({ id: orderId, data: { memberCode: val.trim() || null } }, {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getListOrdersQueryKey() });
+        setEditing(false);
+        toast({ title: "Đã lưu mã thành viên" });
+      },
+    });
+  };
+
+  if (!editing) {
+    return (
+      <button
+        className="w-full flex items-center gap-2 text-xs py-2 px-3 rounded-xl bg-muted/50 border border-border hover:bg-muted transition-colors text-left"
+        onClick={(e) => { e.stopPropagation(); setEditing(true); }}
+      >
+        <span className="text-muted-foreground shrink-0">Mã thành viên:</span>
+        {currentCode
+          ? <span className="font-bold font-mono text-primary flex-1">{currentCode}</span>
+          : <span className="text-muted-foreground italic flex-1">Chưa có — nhấn để thêm</span>
+        }
+        <Pencil size={11} className="text-muted-foreground shrink-0" />
+      </button>
+    );
+  }
+
+  return (
+    <div className="flex gap-2 items-center" onClick={(e) => e.stopPropagation()}>
+      <Input
+        autoFocus
+        value={val}
+        onChange={(e) => setVal(e.target.value)}
+        placeholder="VD: TCD0000003"
+        className="rounded-xl h-8 text-xs font-mono flex-1"
+        onKeyDown={(e) => { if (e.key === "Enter") handleSave(); if (e.key === "Escape") setEditing(false); }}
+      />
+      <Button size="sm" className="rounded-xl h-8 px-3 text-xs" onClick={handleSave} disabled={updateOrder.isPending}>Lưu</Button>
+      <Button size="sm" variant="ghost" className="rounded-xl h-8 px-2 text-xs" onClick={() => setEditing(false)}>Huỷ</Button>
+    </div>
+  );
+}
+
 function OrdersTab() {
   const { data: orders } = useListOrders();
   const updateOrder = useUpdateOrder();
@@ -694,7 +745,7 @@ function OrdersTab() {
     if (!orders || sheetPhones.size === 0) return new Set<number>();
     const matched = new Set<number>();
     for (const o of orders) {
-      if (sheetPhones.has(normPhone(o.memberPhone ?? ""))) matched.add(o.id);
+      if (!(o as any).sheetChecked && sheetPhones.has(normPhone(o.memberPhone ?? ""))) matched.add(o.id);
     }
     return matched;
   }, [orders, sheetPhones]);
@@ -703,7 +754,7 @@ function OrdersTab() {
     if (!orders || sheetPhones.size === 0) return [] as string[];
     const seen = new Set<string>();
     return orders
-      .filter((o) => sheetPhones.has(normPhone(o.memberPhone ?? "")))
+      .filter((o) => !(o as any).sheetChecked && sheetPhones.has(normPhone(o.memberPhone ?? "")))
       .map((o) => o.memberPhone ?? "")
       .filter((p) => { const k = normPhone(p); if (seen.has(k)) return false; seen.add(k); return true; });
   }, [orders, sheetPhones]);
@@ -752,6 +803,11 @@ function OrdersTab() {
                         <AlertTriangle size={9} /> Sheet
                       </span>
                     )}
+                    {(order as any).memberCode && (
+                      <span className="inline-flex items-center gap-1 text-[9px] font-bold bg-primary/10 text-primary px-1.5 py-0.5 rounded-full border border-primary/20 font-mono">
+                        {(order as any).memberCode}
+                      </span>
+                    )}
                   </div>
                   <p className="text-xs text-muted-foreground mt-0.5">{order.memberPhone} · {formatDate(order.createdAt)}</p>
                 </div>
@@ -778,6 +834,23 @@ function OrdersTab() {
                       <span>Mã vận đơn: <span className="font-bold text-foreground font-mono">{order.trackingNumber}</span></span>
                     )}
                   </div>
+                  {/* Member code input */}
+                  <MemberCodeEditor orderId={order.id} currentCode={(order as any).memberCode ?? null} />
+                  {/* Sheet checked button */}
+                  {hasCrossRef && (
+                    <button
+                      className="w-full flex items-center justify-center gap-2 text-xs font-bold py-2 px-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-700 hover:bg-green-50 hover:border-green-300 hover:text-green-700 transition-colors"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        updateOrder.mutate({ id: order.id, data: { sheetChecked: true } }, {
+                          onSuccess: () => { queryClient.invalidateQueries({ queryKey: getListOrdersQueryKey() }); toast({ title: "Đã đánh dấu kiểm tra Sheet" }); },
+                        });
+                      }}
+                    >
+                      <AlertTriangle size={12} className="text-amber-500" />
+                      Đánh dấu đã kiểm tra Google Sheet
+                    </button>
+                  )}
                   <div>
                     <Label className="text-xs">Cập nhật trạng thái</Label>
                     <Select value={order.status} onValueChange={(v) => {

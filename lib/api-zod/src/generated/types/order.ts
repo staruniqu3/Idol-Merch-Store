@@ -21,6 +21,13 @@ export interface Order {
   orderType: string;
   /** @nullable */
   notes?: string | null;
+  /**
+   * Sovereign Club member code (e.g. TCD0000003)
+   * @nullable
+   */
+  memberCode?: string | null;
+  /** Admin has verified this order against Google Sheet */
+  sheetChecked: boolean;
   pointsEarned: number;
   createdAt: Date;
   updatedAt: Date;
