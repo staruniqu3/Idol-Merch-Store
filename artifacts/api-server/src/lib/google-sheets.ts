@@ -99,7 +99,7 @@ export async function getMemberOrdersByPhone(phone: string): Promise<SheetOrder[
   const normalizePhone = (p: string) => p.replace(/\D/g, "").replace(/^0/, "84");
   const searchPhone = normalizePhone(phone);
 
-  const [resp1, resp2] = await Promise.all([
+  const [result1, result2] = await Promise.allSettled([
     sheets.spreadsheets.values.get({ spreadsheetId: ORDERS_SHEET_ID, range: `${ORDERS_SHEET_NAME}!A:P` }),
     sheets.spreadsheets.values.get({ spreadsheetId: ORDERS_SHEET_2_ID, range: `${ORDERS_SHEET_2_NAME}!A:L` }),
   ]);
@@ -110,7 +110,7 @@ export async function getMemberOrdersByPhone(phone: string): Promise<SheetOrder[
   };
 
   // Sheet 1 — old form layout
-  const rows1 = (resp1.data.values ?? []).slice(1);
+  const rows1 = result1.status === "fulfilled" ? (result1.value.data.values ?? []).slice(1) : [];
   const from1: SheetOrder[] = rows1
     .filter((row) => matchPhone(row[2] ?? ""))
     .map((row) => ({
@@ -126,7 +126,8 @@ export async function getMemberOrdersByPhone(phone: string): Promise<SheetOrder[
     }));
 
   // Sheet 2 — new form layout (different columns)
-  const rows2 = (resp2.data.values ?? []).slice(1);
+  // Falls back to empty if sheet is inaccessible (e.g. service account not yet granted access)
+  const rows2 = result2.status === "fulfilled" ? (result2.value.data.values ?? []).slice(1) : [];
   const from2: SheetOrder[] = rows2
     .filter((row) => matchPhone(row[2] ?? ""))
     .map((row) => ({
@@ -141,7 +142,16 @@ export async function getMemberOrdersByPhone(phone: string): Promise<SheetOrder[
       notes: row[10] ?? "",
     }));
 
-  return [...from1, ...from2].sort(
+  // Deduplicate by (timestamp + products) to avoid duplicates when same order exists in both sheets
+  const seen = new Set<string>();
+  const combined = [...from1, ...from2].filter((o) => {
+    const key = `${o.timestamp}|${o.products}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+
+  return combined.sort(
     (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
   );
 }
