@@ -361,14 +361,14 @@ function ProductsTab() {
                             className="rounded-lg h-7 text-xs w-16 bg-muted/50 shrink-0"
                           />
                         )}
-                        <button
-                          type="button"
-                          title={v.soldOut ? "Bỏ Sold Out" : "Đánh dấu Sold Out"}
-                          onClick={() => setForm((f) => ({ ...f, variants: f.variants.map((vv, i) => i === idx ? { ...vv, soldOut: !vv.soldOut } : vv) }))}
-                          className={`text-[9px] font-bold px-2 h-6 rounded-lg border shrink-0 transition-colors ${v.soldOut ? "bg-red-100 text-red-600 border-red-300 hover:bg-red-200" : "bg-muted/60 text-muted-foreground border-border hover:bg-red-50 hover:text-red-500 hover:border-red-200"}`}
-                        >
-                          {v.soldOut ? "✓ Sold" : "Sold?"}
-                        </button>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <Switch
+                            checked={!!v.soldOut}
+                            onCheckedChange={() => setForm((f) => ({ ...f, variants: f.variants.map((vv, i) => i === idx ? { ...vv, soldOut: !vv.soldOut } : vv) }))}
+                            className="data-[state=checked]:bg-red-500 scale-75 origin-right"
+                          />
+                          <span className={`text-[9px] font-bold shrink-0 transition-colors ${v.soldOut ? "text-red-500" : "text-muted-foreground"}`}>Sold</span>
+                        </div>
                         <button
                           type="button"
                           onClick={() => setForm((f) => ({ ...f, variants: f.variants.filter((_, i) => i !== idx) }))}
