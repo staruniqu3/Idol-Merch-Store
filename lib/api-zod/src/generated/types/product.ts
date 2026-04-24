@@ -17,6 +17,7 @@ export interface Product {
   category: string;
   stock: number;
   isAvailable: boolean;
+  isSoldOut: boolean;
   /** preorder or pickup */
   orderType: string;
   createdAt: Date;

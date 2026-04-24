@@ -157,7 +157,7 @@ function ProductsTab() {
   const [open, setOpen] = useState(false);
   const [editId, setEditId] = useState<number | null>(null);
   type VariantDraft = { name: string; price?: number; stock?: number };
-  const [form, setForm] = useState({ name: "", description: "", price: "", category: "Kpop", stock: "0", isAvailable: true, orderType: "preorder", orderLabel: "", orderName: "", imageUrl: "", tags: [] as string[], variants: [] as VariantDraft[] });
+  const [form, setForm] = useState({ name: "", description: "", price: "", category: "Kpop", stock: "0", isAvailable: true, isSoldOut: false, orderType: "preorder", orderLabel: "", orderName: "", imageUrl: "", tags: [] as string[], variants: [] as VariantDraft[] });
   const [customTagInput, setCustomTagInput] = useState("");
   const [customVariantInput, setCustomVariantInput] = useState({ name: "", price: "", stock: "" });
   const [customCategoryInput, setCustomCategoryInput] = useState("");
@@ -192,7 +192,7 @@ function ProductsTab() {
     "Weverse Album", "Limited Edition", "Merch Bundle",
   ];
 
-  const resetForm = () => { setForm({ name: "", description: "", price: "", category: "Kpop", stock: "0", isAvailable: true, orderType: "preorder", orderLabel: "", orderName: "", imageUrl: "", tags: [], variants: [] }); setCustomTagInput(""); setCustomVariantInput({ name: "", price: "", stock: "" }); };
+  const resetForm = () => { setForm({ name: "", description: "", price: "", category: "Kpop", stock: "0", isAvailable: true, isSoldOut: false, orderType: "preorder", orderLabel: "", orderName: "", imageUrl: "", tags: [], variants: [] }); setCustomTagInput(""); setCustomVariantInput({ name: "", price: "", stock: "" }); };
 
   const addCustomTag = () => {
     const tag = customTagInput.trim();
@@ -203,7 +203,7 @@ function ProductsTab() {
 
   const openEdit = (p: NonNullable<typeof products>[0]) => {
     setEditId(p.id);
-    setForm({ name: p.name, description: p.description ?? "", price: String(p.price), category: p.category, stock: String(p.stock), isAvailable: p.isAvailable, orderType: p.orderType, orderLabel: (p as any).orderLabel ?? "", orderName: (p as any).orderName ?? "", imageUrl: p.imageUrl ?? "", tags: p.tags ?? [], variants: (p.variants ?? []).map((v: any) => ({ name: v.name, price: v.price ?? undefined, stock: v.stock ?? undefined })) });
+    setForm({ name: p.name, description: p.description ?? "", price: String(p.price), category: p.category, stock: String(p.stock), isAvailable: p.isAvailable, isSoldOut: (p as any).isSoldOut ?? false, orderType: p.orderType, orderLabel: (p as any).orderLabel ?? "", orderName: (p as any).orderName ?? "", imageUrl: p.imageUrl ?? "", tags: p.tags ?? [], variants: (p.variants ?? []).map((v: any) => ({ name: v.name, price: v.price ?? undefined, stock: v.stock ?? undefined })) });
     setOpen(true);
   };
 
@@ -225,7 +225,7 @@ function ProductsTab() {
       const stock = hasVariantStock
         ? cleanVariants.reduce((s, v) => s + (v.stock ?? 0), 0)
         : parseInt(form.stock) || 0;
-      const data = { name: form.name, description: form.description || null, price, category: form.category, stock, isAvailable: form.isAvailable, orderType: form.orderType, orderLabel: form.orderLabel.trim() || null, orderName: form.orderName.trim() || null, imageUrl: form.imageUrl || null, tags: form.tags.length > 0 ? form.tags : null, variants: cleanVariants.length > 0 ? cleanVariants : null };
+      const data = { name: form.name, description: form.description || null, price, category: form.category, stock, isAvailable: form.isAvailable, isSoldOut: form.orderType === "preorder" ? form.isSoldOut : false, orderType: form.orderType, orderLabel: form.orderLabel.trim() || null, orderName: form.orderName.trim() || null, imageUrl: form.imageUrl || null, tags: form.tags.length > 0 ? form.tags : null, variants: cleanVariants.length > 0 ? cleanVariants : null };
       if (editId) {
         updateProduct.mutate({ id: editId, data }, {
           onSuccess: () => { queryClient.invalidateQueries({ queryKey: getListProductsQueryKey() }); setOpen(false); resetForm(); setEditId(null); toast({ title: "Đã cập nhật sản phẩm" }); },
@@ -531,6 +531,22 @@ function ProductsTab() {
               <Switch checked={form.isAvailable} onCheckedChange={(v) => setForm({ ...form, isAvailable: v })} id="avail" />
               <Label htmlFor="avail">Đang bán</Label>
             </div>
+            {form.orderType === "preorder" && (
+              <div className={`flex items-center gap-3 py-1 px-3 rounded-xl border transition-colors ${form.isSoldOut ? "bg-red-50 border-red-200" : "bg-muted/40 border-border"}`}>
+                <Switch
+                  checked={form.isSoldOut}
+                  onCheckedChange={(v) => setForm({ ...form, isSoldOut: v })}
+                  id="sold-out"
+                  className="data-[state=checked]:bg-red-500"
+                />
+                <div>
+                  <Label htmlFor="sold-out" className={form.isSoldOut ? "text-red-600 font-bold" : ""}>
+                    Sold Out
+                  </Label>
+                  <p className="text-[10px] text-muted-foreground leading-none mt-0.5">Hiện badge đỏ, khoá đặt hàng</p>
+                </div>
+              </div>
+            )}
             <Button className="w-full rounded-xl" onClick={handleSave} data-testid="button-save-product">Lưu</Button>
           </div>
         </DialogContent>
@@ -558,6 +574,7 @@ function ProductsTab() {
                   {(p as any).orderLabel ?? p.orderType}
                 </span>
                 {!p.isAvailable && <Badge variant="secondary" className="text-[10px] bg-red-50 text-red-600">Tắt</Badge>}
+                {(p as any).isSoldOut && <Badge variant="secondary" className="text-[10px] bg-red-100 text-red-700 font-bold border border-red-200">SOLD OUT</Badge>}
               </div>
               {p.tags && p.tags.length > 0 && (
                 <div className="flex flex-wrap gap-1 mt-1">

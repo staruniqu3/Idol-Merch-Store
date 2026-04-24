@@ -424,6 +424,11 @@ export default function ShopPage() {
                           Gần hết
                         </Badge>
                       )}
+                      {product.orderType === "preorder" && (product as any).isSoldOut && (
+                        <Badge className="text-[10px] bg-red-500 text-white border-red-600 font-black px-2 py-0 shrink-0 tracking-wide" variant="outline">
+                          SOLD OUT
+                        </Badge>
+                      )}
                     </div>
                     {/* Row 2: name */}
                     <p className="text-sm font-bold leading-snug text-foreground">{product.name}</p>
@@ -492,11 +497,11 @@ export default function ShopPage() {
             <Button
               size="sm"
               className="shrink-0 rounded-xl font-bold px-3 mt-0.5"
-              disabled={!product.isAvailable || (product.orderType !== "preorder" && product.stock === 0)}
+              disabled={!product.isAvailable || (product.orderType !== "preorder" && product.stock === 0) || (product.orderType === "preorder" && !!(product as any).isSoldOut)}
               onClick={() => addToCart(product)}
               data-testid={`button-add-cart-${product.id}`}
             >
-              {product.orderType !== "preorder" && product.stock === 0 ? "Hết" : <><Plus size={13} className="mr-1" />Thêm</>}
+              {(product.orderType !== "preorder" && product.stock === 0) || (product.orderType === "preorder" && !!(product as any).isSoldOut) ? "Hết hàng" : <><Plus size={13} className="mr-1" />Thêm</>}
             </Button>
           </div>
         ))}

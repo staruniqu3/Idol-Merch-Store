@@ -20,12 +20,9 @@ export interface Product {
   category: string;
   stock: number;
   isAvailable: boolean;
+  isSoldOut: boolean;
   /** preorder or pickup */
   orderType: string;
-  /** @nullable */
-  orderLabel?: string | null;
-  /** @nullable */
-  orderName?: string | null;
   createdAt: string;
 }
 
@@ -40,10 +37,6 @@ export interface CreateProductBody {
   stock: number;
   isAvailable: boolean;
   orderType: string;
-  /** @nullable */
-  orderLabel?: string | null;
-  /** @nullable */
-  orderName?: string | null;
 }
 
 export interface UpdateProductBody {
@@ -56,11 +49,8 @@ export interface UpdateProductBody {
   category?: string;
   stock?: number;
   isAvailable?: boolean;
+  isSoldOut?: boolean;
   orderType?: string;
-  /** @nullable */
-  orderLabel?: string | null;
-  /** @nullable */
-  orderName?: string | null;
 }
 
 export interface Order {

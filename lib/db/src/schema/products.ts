@@ -14,6 +14,7 @@ export const productsTable = pgTable("products", {
   orderType: text("order_type").notNull().default("preorder"),
   orderLabel: text("order_label"),
   orderName: text("order_name"),
+  isSoldOut: boolean("is_sold_out").notNull().default(false),
   tags: text("tags").array(),
   variants: jsonb("variants").$type<Array<{ name: string; price?: number; stock?: number }>>(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

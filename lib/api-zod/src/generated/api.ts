@@ -7,13 +7,6 @@
  */
 import * as zod from "zod";
 
-export const VariantOption = zod.object({
-  name: zod.string(),
-  price: zod.number().nullish(),
-  stock: zod.number().nullish(),
-});
-export type VariantOptionType = zod.infer<typeof VariantOption>;
-
 /**
  * @summary Health check
  */
@@ -38,11 +31,8 @@ export const ListProductsResponseItem = zod.object({
   category: zod.string(),
   stock: zod.number(),
   isAvailable: zod.boolean(),
+  isSoldOut: zod.boolean(),
   orderType: zod.string().describe("preorder or pickup"),
-  orderLabel: zod.string().nullish(),
-  orderName: zod.string().nullish(),
-  tags: zod.array(zod.string()).nullish(),
-  variants: zod.array(VariantOption).nullish(),
   createdAt: zod.coerce.date(),
 });
 export const ListProductsResponse = zod.array(ListProductsResponseItem);
@@ -59,10 +49,6 @@ export const CreateProductBody = zod.object({
   stock: zod.number(),
   isAvailable: zod.boolean(),
   orderType: zod.string(),
-  orderLabel: zod.string().nullish(),
-  orderName: zod.string().nullish(),
-  tags: zod.array(zod.string()).nullish(),
-  variants: zod.array(VariantOption).nullish(),
 });
 
 /**
@@ -81,11 +67,8 @@ export const GetProductResponse = zod.object({
   category: zod.string(),
   stock: zod.number(),
   isAvailable: zod.boolean(),
+  isSoldOut: zod.boolean(),
   orderType: zod.string().describe("preorder or pickup"),
-  orderLabel: zod.string().nullish(),
-  orderName: zod.string().nullish(),
-  tags: zod.array(zod.string()).nullish(),
-  variants: zod.array(VariantOption).nullish(),
   createdAt: zod.coerce.date(),
 });
 
@@ -104,11 +87,8 @@ export const UpdateProductBody = zod.object({
   category: zod.string().optional(),
   stock: zod.number().optional(),
   isAvailable: zod.boolean().optional(),
+  isSoldOut: zod.boolean().optional(),
   orderType: zod.string().optional(),
-  orderLabel: zod.string().nullish(),
-  orderName: zod.string().nullish(),
-  tags: zod.array(zod.string()).nullish(),
-  variants: zod.array(VariantOption).nullish(),
 });
 
 export const UpdateProductResponse = zod.object({
@@ -120,11 +100,8 @@ export const UpdateProductResponse = zod.object({
   category: zod.string(),
   stock: zod.number(),
   isAvailable: zod.boolean(),
+  isSoldOut: zod.boolean(),
   orderType: zod.string().describe("preorder or pickup"),
-  orderLabel: zod.string().nullish(),
-  orderName: zod.string().nullish(),
-  tags: zod.array(zod.string()).nullish(),
-  variants: zod.array(VariantOption).nullish(),
   createdAt: zod.coerce.date(),
 });
 
@@ -155,9 +132,6 @@ export const ListOrdersResponseItem = zod.object({
     .describe("pending, confirmed, shipped, delivered, cancelled"),
   orderType: zod.string().describe("preorder or pickup"),
   notes: zod.string().nullish(),
-  shippingCarrier: zod.string().nullish(),
-  trackingNumber: zod.string().nullish(),
-  shippingFee: zod.number().nullish(),
   pointsEarned: zod.number(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
@@ -196,9 +170,6 @@ export const GetOrderResponse = zod.object({
     .describe("pending, confirmed, shipped, delivered, cancelled"),
   orderType: zod.string().describe("preorder or pickup"),
   notes: zod.string().nullish(),
-  shippingCarrier: zod.string().nullish(),
-  trackingNumber: zod.string().nullish(),
-  shippingFee: zod.number().nullish(),
   pointsEarned: zod.number(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
@@ -214,9 +185,6 @@ export const UpdateOrderParams = zod.object({
 export const UpdateOrderBody = zod.object({
   status: zod.string().optional(),
   notes: zod.string().nullish(),
-  shippingCarrier: zod.string().nullish(),
-  trackingNumber: zod.string().nullish(),
-  shippingFee: zod.number().nullish(),
 });
 
 export const UpdateOrderResponse = zod.object({
@@ -231,9 +199,6 @@ export const UpdateOrderResponse = zod.object({
     .describe("pending, confirmed, shipped, delivered, cancelled"),
   orderType: zod.string().describe("preorder or pickup"),
   notes: zod.string().nullish(),
-  shippingCarrier: zod.string().nullish(),
-  trackingNumber: zod.string().nullish(),
-  shippingFee: zod.number().nullish(),
   pointsEarned: zod.number(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
@@ -252,24 +217,6 @@ export const GetOrderSummaryResponse = zod.object({
 });
 
 /**
- * @summary Tracking lookup by phone (public – no personal data)
- */
-export const TrackingLookupQuery = zod.object({
-  phone: zod.string().min(1),
-});
-
-export const TrackingLookupItem = zod.object({
-  orderCode: zod.string(),
-  trackingNumber: zod.string().nullish(),
-  shippingCarrier: zod.string().nullish(),
-  shippingFee: zod.number().nullish(),
-  status: zod.string(),
-  orderType: zod.string(),
-  orderDate: zod.coerce.date(),
-});
-export const TrackingLookupResponse = zod.array(TrackingLookupItem);
-
-/**
  * @summary List shipping schedule updates
  */
 export const ListShippingUpdatesResponseItem = zod.object({
@@ -278,7 +225,6 @@ export const ListShippingUpdatesResponseItem = zod.object({
   description: zod.string(),
   status: zod.string().describe("preparing, in_transit, arrived, delivered"),
   estimatedDate: zod.string().nullish(),
-  returnedAt: zod.coerce.date().nullish(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -316,7 +262,6 @@ export const UpdateShippingUpdateResponse = zod.object({
   description: zod.string(),
   status: zod.string().describe("preparing, in_transit, arrived, delivered"),
   estimatedDate: zod.string().nullish(),
-  returnedAt: zod.coerce.date().nullish(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });

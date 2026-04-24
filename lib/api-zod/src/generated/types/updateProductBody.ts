@@ -16,9 +16,6 @@ export interface UpdateProductBody {
   category?: string;
   stock?: number;
   isAvailable?: boolean;
+  isSoldOut?: boolean;
   orderType?: string;
-  /** @nullable */
-  orderLabel?: string | null;
-  /** @nullable */
-  orderName?: string | null;
 }
