@@ -10,7 +10,7 @@ import {
 } from "@workspace/api-client-react";
 import {
   Shield, Package, ShoppingBag, Truck, Users, Gift, LogOut, Plus, Pencil, Trash2, ChevronDown,
-  TrendingUp, Star, Calendar, X, Check, BarChart3, Sparkles, Bell, Pin, Ticket, Eye, EyeOff, Tag, AlertTriangle, Copy, History,
+  TrendingUp, Star, Calendar, X, Check, BarChart3, Sparkles, Bell, Pin, Ticket, Eye, EyeOff, Tag, AlertTriangle, Copy, History, Receipt,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -2593,7 +2593,209 @@ function CouponTab() {
   );
 }
 
-// ===================== Main Admin =====================
+// ===================== Cost Tab =====================
+const COST_ENTRIES_KEY = "admin_cost_entries";
+
+const COST_CATEGORIES = ["Hàng hóa", "Vận chuyển", "Bao bì", "Phí dịch vụ", "Tiếp thị", "Khác"] as const;
+type CostCategory = typeof COST_CATEGORIES[number];
+
+type CostEntry = {
+  id: string;
+  date: string;
+  category: CostCategory;
+  description: string;
+  amount: number;
+  note: string;
+  createdAt: string;
+};
+
+const CATEGORY_COLORS: Record<CostCategory, string> = {
+  "Hàng hóa":    "bg-blue-100 text-blue-700 border-blue-200",
+  "Vận chuyển":  "bg-violet-100 text-violet-700 border-violet-200",
+  "Bao bì":      "bg-amber-100 text-amber-700 border-amber-200",
+  "Phí dịch vụ": "bg-pink-100 text-pink-700 border-pink-200",
+  "Tiếp thị":    "bg-emerald-100 text-emerald-700 border-emerald-200",
+  "Khác":        "bg-gray-100 text-gray-600 border-gray-200",
+};
+
+function CostTab() {
+  const [entries, setEntries] = useState<CostEntry[]>(() => {
+    try { return JSON.parse(localStorage.getItem(COST_ENTRIES_KEY) || "[]"); } catch { return []; }
+  });
+  const [showForm, setShowForm] = useState(false);
+  const [editId, setEditId] = useState<string | null>(null);
+  const [filterCat, setFilterCat] = useState<CostCategory | "Tất cả">("Tất cả");
+  const [form, setForm] = useState({ date: new Date().toISOString().slice(0, 10), category: "Hàng hóa" as CostCategory, description: "", amount: "", note: "" });
+
+  const save = (entries: CostEntry[]) => {
+    setEntries(entries);
+    localStorage.setItem(COST_ENTRIES_KEY, JSON.stringify(entries));
+  };
+
+  const handleSave = () => {
+    if (!form.description.trim() || !form.amount || isNaN(Number(form.amount))) return;
+    if (editId) {
+      save(entries.map((e) => e.id === editId ? { ...e, ...form, amount: Number(form.amount) } : e));
+      setEditId(null);
+    } else {
+      const entry: CostEntry = { id: crypto.randomUUID(), ...form, amount: Number(form.amount), createdAt: new Date().toISOString() };
+      save([entry, ...entries]);
+    }
+    setForm({ date: new Date().toISOString().slice(0, 10), category: "Hàng hóa", description: "", amount: "", note: "" });
+    setShowForm(false);
+  };
+
+  const handleEdit = (e: CostEntry) => {
+    setForm({ date: e.date, category: e.category, description: e.description, amount: String(e.amount), note: e.note });
+    setEditId(e.id);
+    setShowForm(true);
+  };
+
+  const handleDelete = (id: string) => {
+    if (!confirm("Xoá chi phí này?")) return;
+    save(entries.filter((e) => e.id !== id));
+  };
+
+  const filtered = filterCat === "Tất cả" ? entries : entries.filter((e) => e.category === filterCat);
+  const totalAll = entries.reduce((s, e) => s + e.amount, 0);
+  const totalFiltered = filtered.reduce((s, e) => s + e.amount, 0);
+
+  const byCategory = COST_CATEGORIES.map((cat) => ({
+    cat,
+    total: entries.filter((e) => e.category === cat).reduce((s, e) => s + e.amount, 0),
+    count: entries.filter((e) => e.category === cat).length,
+  })).filter((r) => r.count > 0);
+
+  return (
+    <div className="space-y-4">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <h3 className="font-bold">Chi Phí Order</h3>
+        <button
+          type="button"
+          onClick={() => { setShowForm((v) => !v); setEditId(null); setForm({ date: new Date().toISOString().slice(0, 10), category: "Hàng hóa", description: "", amount: "", note: "" }); }}
+          className="flex items-center gap-1.5 bg-primary text-white text-xs font-bold px-3 py-1.5 rounded-xl hover:bg-primary/90 transition-colors"
+        >
+          <Plus size={13} /> Thêm chi phí
+        </button>
+      </div>
+
+      {/* Summary card */}
+      <div className="bg-card border border-border rounded-2xl p-4 space-y-3">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center shrink-0">
+            <Receipt size={18} className="text-primary" />
+          </div>
+          <div>
+            <p className="text-2xl font-black">{formatPrice(totalAll)}</p>
+            <p className="text-xs text-muted-foreground">Tổng chi phí · {entries.length} khoản</p>
+          </div>
+        </div>
+        {byCategory.length > 0 && (
+          <div className="grid grid-cols-2 gap-1.5 pt-1">
+            {byCategory.map(({ cat, total, count }) => (
+              <div key={cat} className="flex items-center justify-between bg-muted/50 rounded-xl px-2.5 py-1.5">
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <Badge variant="outline" className={`text-[9px] px-1.5 py-0 shrink-0 ${CATEGORY_COLORS[cat]}`}>{cat}</Badge>
+                  <span className="text-[10px] text-muted-foreground shrink-0">{count}</span>
+                </div>
+                <span className="text-xs font-bold ml-1 shrink-0">{formatPrice(total)}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Add/Edit form */}
+      {showForm && (
+        <div className="bg-card border border-primary/30 rounded-2xl p-4 space-y-3">
+          <h4 className="text-sm font-bold">{editId ? "Sửa chi phí" : "Thêm chi phí mới"}</h4>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <Label className="text-xs">Ngày</Label>
+              <Input type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} className="mt-1 rounded-xl text-xs" />
+            </div>
+            <div>
+              <Label className="text-xs">Danh mục</Label>
+              <Select value={form.category} onValueChange={(v) => setForm({ ...form, category: v as CostCategory })}>
+                <SelectTrigger className="mt-1 rounded-xl text-xs"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {COST_CATEGORIES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div>
+            <Label className="text-xs">Mô tả *</Label>
+            <Input value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="VD: Đặt lightstick BTS lô 3" className="mt-1 rounded-xl" />
+          </div>
+          <div>
+            <Label className="text-xs">Số tiền (VNĐ) *</Label>
+            <Input type="number" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} placeholder="0" className="mt-1 rounded-xl" />
+          </div>
+          <div>
+            <Label className="text-xs">Ghi chú</Label>
+            <Textarea value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} placeholder="Tuỳ chọn..." rows={2} className="mt-1 rounded-xl resize-none" />
+          </div>
+          <div className="flex gap-2">
+            <Button onClick={handleSave} className="flex-1 rounded-xl text-xs h-9">Lưu</Button>
+            <Button variant="outline" onClick={() => { setShowForm(false); setEditId(null); }} className="rounded-xl text-xs h-9 px-4">Huỷ</Button>
+          </div>
+        </div>
+      )}
+
+      {/* Filter pills */}
+      {entries.length > 0 && (
+        <div className="flex gap-1.5 flex-wrap">
+          {(["Tất cả", ...COST_CATEGORIES] as const).map((cat) => (
+            <button
+              key={cat}
+              type="button"
+              onClick={() => setFilterCat(cat as CostCategory | "Tất cả")}
+              className={`text-[11px] font-bold px-2.5 py-1 rounded-lg border transition-all ${
+                filterCat === cat ? "bg-primary text-white border-primary" : "bg-card border-border text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {cat}
+            </button>
+          ))}
+          {filterCat !== "Tất cả" && (
+            <span className="text-[11px] text-muted-foreground self-center ml-1">{formatPrice(totalFiltered)}</span>
+          )}
+        </div>
+      )}
+
+      {/* Entries list */}
+      {filtered.length === 0 ? (
+        <div className="text-center py-10 text-muted-foreground">
+          <Receipt size={28} strokeWidth={1.2} className="mx-auto mb-2" />
+          <p className="text-sm">Chưa có chi phí nào</p>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {filtered.map((entry) => (
+            <div key={entry.id} className="bg-card border border-border rounded-2xl p-3 flex items-start gap-3">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap mb-0.5">
+                  <Badge variant="outline" className={`text-[9px] px-1.5 py-0 shrink-0 ${CATEGORY_COLORS[entry.category]}`}>{entry.category}</Badge>
+                  <span className="text-[10px] text-muted-foreground">{new Date(entry.date).toLocaleDateString("vi-VN")}</span>
+                </div>
+                <p className="text-sm font-bold leading-tight">{entry.description}</p>
+                {entry.note && <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{entry.note}</p>}
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <span className="font-black text-sm text-primary">{formatPrice(entry.amount)}</span>
+                <button type="button" onClick={() => handleEdit(entry)} className="text-muted-foreground hover:text-foreground transition-colors"><Pencil size={13} /></button>
+                <button type="button" onClick={() => handleDelete(entry.id)} className="text-muted-foreground hover:text-destructive transition-colors"><Trash2 size={13} /></button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 const tabs = [
   { id: "dashboard", label: "Tổng quan", icon: BarChart3 },
   { id: "products", label: "Sản phẩm", icon: Package },
@@ -2606,6 +2808,7 @@ const tabs = [
   { id: "notices", label: "Thông báo", icon: Bell },
   { id: "booking", label: "Booking Vé", icon: Ticket },
   { id: "coupon", label: "Coupon", icon: Tag },
+  { id: "cost", label: "Chi phí Order", icon: Receipt },
 ];
 
 export default function AdminPage() {
@@ -2678,6 +2881,7 @@ export default function AdminPage() {
         {activeTab === "notices" && <NoticesTab />}
         {activeTab === "booking" && <BookingTab />}
         {activeTab === "coupon" && <CouponTab />}
+        {activeTab === "cost" && <CostTab />}
       </div>
     </div>
   );
