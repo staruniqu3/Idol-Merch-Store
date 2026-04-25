@@ -2921,13 +2921,13 @@ function CostTab() {
             <input
               type="number"
               min="0"
-              placeholder={calcServiceMode === "percent" ? "VD: 5 (= 5% tiền hàng)" : "Nhập số tiền VNĐ..."}
+              placeholder={calcServiceMode === "percent" ? "VD: 5 (= 5% tiền hàng)" : `Số ${calcCurrency}...`}
               value={calcServiceValue}
               onChange={(e) => setCalcServiceValue(e.target.value)}
-              className="w-full text-sm border border-border rounded-xl px-3 py-2 pr-10 bg-background outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50 transition-all"
+              className="w-full text-sm border border-border rounded-xl px-3 py-2 pr-14 bg-background outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50 transition-all"
             />
-            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground pointer-events-none">
-              {calcServiceMode === "percent" ? "%" : "₫"}
+            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground pointer-events-none font-semibold">
+              {calcServiceMode === "percent" ? "%" : calcCurrency}
             </span>
           </div>
         </div>
@@ -2940,117 +2940,121 @@ function CostTab() {
           const svcVal = parseFloat(calcServiceValue) || 0;
           if (amt <= 0 && grams <= 0 && ship <= 0) return null;
 
-          const row = CURRENCY_ROWS.find((r) => r.code === calcCurrency)!;
-          const weightRate = manual[calcCurrency]?.weight ? parseFloat(manual[calcCurrency]!.weight!) : null;
+          const cur = calcCurrency;
+          const row = CURRENCY_ROWS.find((r) => r.code === cur)!;
+          const weightRate = manual[cur]?.weight ? parseFloat(manual[cur]!.weight!) : null;
           const weightFee  = (grams > 0 && weightRate) ? (grams / 1000) * weightRate : 0;
 
           const vnd = (n: number) => new Intl.NumberFormat("vi-VN").format(Math.round(n));
+          const fmtForeign = (n: number) => new Intl.NumberFormat("vi-VN").format(n);
 
-          // profit tier on subtotal (before profit)
-          const profitTier = (subtotal: number) => subtotal < 500_000 ? 0.10 : subtotal <= 2_000_000 ? 0.08 : 0.05;
+          // service fee in foreign currency
+          const svcFeeForeign = svcVal > 0
+            ? (calcServiceMode === "percent" ? amt * svcVal / 100 : svcVal)
+            : 0;
+          const totalForeign = amt + svcFeeForeign; // hàng + phí mua hộ (cùng tiền tệ)
 
-          // shared renderer
-          const renderResult = (
-            accentClass: string,
-            borderClass: string,
-            textClass: string,
-            rows: { label: string; amount: number; color?: string }[],
-            subtotal: number,
-            baseVnd: number,
-          ) => {
-            const svcFee    = svcVal > 0 ? (calcServiceMode === "percent" ? baseVnd * svcVal / 100 : svcVal) : 0;
-            const afterSvc  = subtotal + svcFee;
-            const pct       = profitTier(afterSvc);
-            const profit    = afterSvc * pct;
-            const grandTotal = afterSvc + profit;
+          // profit tier on subtotal before profit
+          const profitTier = (s: number) => s < 500_000 ? 0.10 : s <= 2_000_000 ? 0.08 : 0.05;
+
+          const ResultBox = ({
+            bg, border, accent, rate, rateLabel,
+          }: { bg: string; border: string; accent: string; rate: number; rateLabel: string }) => {
+            const baseVnd  = totalForeign * rate;
+            const fee4     = calcMode === "checkout" ? baseVnd * 0.04 : 0;
+            const shipVnd  = ship * rate;
+            const subtotal = baseVnd + fee4 + weightFee + shipVnd;
+            const pct      = profitTier(subtotal);
+            const profit   = subtotal * pct;
+            const grand    = subtotal + profit;
 
             return (
-              <div className={`${accentClass} ${borderClass} rounded-xl p-3 space-y-1.5`}>
-                {rows.map(({ label, amount, color }, i) => amount > 0 ? (
-                  <div key={i} className="flex justify-between text-xs">
-                    <span className="text-muted-foreground">{label}</span>
-                    <span className={`font-semibold ${color ?? ""}`}>+ {vnd(amount)} ₫</span>
-                  </div>
-                ) : null)}
-
-                {/* subtotal line */}
-                {(svcFee > 0 || profit > 0) && (
-                  <div className="flex justify-between text-xs border-t border-dashed border-current/20 pt-1">
-                    <span className="text-muted-foreground">Chi phí cộng dồn</span>
-                    <span className="font-semibold">{vnd(subtotal)} ₫</span>
+              <div className={`${bg} border ${border} rounded-xl p-3 space-y-1.5`}>
+                {/* Tiền hàng + phí mua hộ line */}
+                {amt > 0 && svcFeeForeign === 0 && (
+                  <div className="flex justify-between text-xs">
+                    <span className="text-muted-foreground">{fmtForeign(amt)} {cur} × {rateLabel}</span>
+                    <span className="font-semibold">{vnd(amt * rate)} ₫</span>
                   </div>
                 )}
+                {amt > 0 && svcFeeForeign > 0 && (
+                  <>
+                    <div className="flex justify-between text-xs">
+                      <span className="text-muted-foreground">{fmtForeign(amt)} {cur} (hàng)</span>
+                      <span className="font-semibold">{vnd(amt * rate)} ₫</span>
+                    </div>
+                    <div className="flex justify-between text-xs">
+                      <span className="text-muted-foreground">
+                        Phí mua hộ: {fmtForeign(svcFeeForeign)} {cur}
+                        {calcServiceMode === "percent" ? ` (${svcVal}%)` : " (cố định)"}
+                      </span>
+                      <span className="font-semibold text-pink-600">+ {vnd(svcFeeForeign * rate)} ₫</span>
+                    </div>
+                    <div className="flex justify-between text-xs border-t border-dashed border-current/10 pt-1">
+                      <span className="text-muted-foreground">{fmtForeign(totalForeign)} {cur} × {rateLabel}</span>
+                      <span className="font-semibold">{vnd(baseVnd)} ₫</span>
+                    </div>
+                  </>
+                )}
 
-                {svcFee > 0 && (
+                {calcMode === "checkout" && fee4 > 0 && (
                   <div className="flex justify-between text-xs">
-                    <span className="text-muted-foreground">
-                      Phí mua hộ {calcServiceMode === "percent" ? `${svcVal}% tiền hàng` : "cố định"}
-                    </span>
-                    <span className="font-semibold text-pink-600">+ {vnd(svcFee)} ₫</span>
+                    <span className="text-muted-foreground">Phí 4%</span>
+                    <span className="font-semibold text-orange-600">+ {vnd(fee4)} ₫</span>
+                  </div>
+                )}
+                {grams > 0 && weightRate && (
+                  <div className="flex justify-between text-xs">
+                    <span className="text-muted-foreground">Phí cân: {fmtForeign(grams)}g × {vnd(weightRate)}/kg</span>
+                    <span className="font-semibold text-amber-700">+ {vnd(weightFee)} ₫</span>
+                  </div>
+                )}
+                {ship > 0 && (
+                  <div className="flex justify-between text-xs">
+                    <span className="text-muted-foreground">Ship nội địa: {fmtForeign(ship)} {cur} × {rateLabel}</span>
+                    <span className="font-semibold text-green-700">+ {vnd(shipVnd)} ₫</span>
                   </div>
                 )}
 
                 {profit > 0 && (
-                  <div className="flex justify-between text-xs">
-                    <span className="text-muted-foreground">
-                      Tiền lời {(pct * 100).toFixed(0)}%
-                      {afterSvc < 500_000 ? " (< 500k)" : afterSvc <= 2_000_000 ? " (500k–2tr)" : " (> 2tr)"}
-                    </span>
-                    <span className={`font-semibold ${textClass}`}>+ {vnd(profit)} ₫</span>
-                  </div>
+                  <>
+                    <div className="flex justify-between text-xs border-t border-dashed border-current/10 pt-1">
+                      <span className="text-muted-foreground">Chi phí cộng dồn</span>
+                      <span className="font-semibold">{vnd(subtotal)} ₫</span>
+                    </div>
+                    <div className="flex justify-between text-xs">
+                      <span className="text-muted-foreground">
+                        Tiền lời {(pct * 100).toFixed(0)}%
+                        {subtotal < 500_000 ? " (< 500k)" : subtotal <= 2_000_000 ? " (500k–2tr)" : " (> 2tr)"}
+                      </span>
+                      <span className={`font-semibold ${accent}`}>+ {vnd(profit)} ₫</span>
+                    </div>
+                  </>
                 )}
 
-                <div className={`border-t ${borderClass} pt-1.5 flex justify-between`}>
-                  <span className={`text-xs font-bold ${textClass}`}>Tổng KH trả</span>
-                  <span className={`text-base font-black ${textClass}`}>{vnd(grandTotal)} ₫</span>
+                <div className={`border-t border-${border} pt-1.5 flex justify-between`}>
+                  <span className={`text-xs font-bold ${accent}`}>Tổng KH trả</span>
+                  <span className={`text-base font-black ${accent}`}>{vnd(grand)} ₫</span>
                 </div>
               </div>
             );
           };
 
           if (calcMode === "checkout") {
-            const rt = realtimeRates[calcCurrency];
+            const rt = realtimeRates[cur];
             if (!rt && (amt > 0 || ship > 0)) return (
-              <p className="text-xs text-muted-foreground text-center py-2">Chưa có tỷ giá Realtime cho {calcCurrency}</p>
+              <p className="text-xs text-muted-foreground text-center py-2">Chưa có tỷ giá Realtime cho {cur}</p>
             );
-            const base    = amt  * (rt ?? 0);
-            const fee4    = base * 0.04;
-            const shipVnd = ship * (rt ?? 0);
-            const subtotal = base + fee4 + weightFee + shipVnd;
-
-            return renderResult(
-              "bg-blue-50", "border border-blue-200", "text-blue-700",
-              [
-                { label: `${amt > 0 ? amt.toLocaleString("vi-VN") + " " + calcCurrency + " × " + fmtRate(rt!) : ""}`, amount: base },
-                { label: "Phí 4%", amount: fee4, color: "text-orange-600" },
-                { label: `Phí cân: ${grams.toLocaleString("vi-VN")}g × ${weightRate ? vnd(weightRate) : 0}/kg`, amount: weightFee, color: "text-amber-700" },
-                { label: `Ship nội địa: ${ship.toLocaleString("vi-VN")} ${calcCurrency} × ${rt ? fmtRate(rt) : 0}`, amount: shipVnd, color: "text-green-700" },
-              ],
-              subtotal,
-              base,
-            );
+            return <ResultBox bg="bg-blue-50" border="blue-200" accent="text-blue-700" rate={rt ?? 0} rateLabel={fmtRate(rt!)} />;
           } else {
-            const pickupStr = manual[calcCurrency]?.pickup;
+            const pickupStr = manual[cur]?.pickup;
             if (!pickupStr && (amt > 0 || ship > 0)) return (
               <div className="bg-amber-50 border border-amber-200 rounded-xl px-3 py-2.5 text-xs text-amber-700">
-                Chưa nhập tỷ giá Pickup cho {row.flag} {calcCurrency}. Bấm vào cột Pickup ở bảng trên để thêm.
+                Chưa nhập tỷ giá Pickup cho {row.flag} {cur}. Bấm vào cột Pickup ở bảng trên để thêm.
               </div>
             );
             const pickupRate = pickupStr ? parseFloat(pickupStr) : 0;
-            const base       = amt  * pickupRate;
-            const shipVnd    = ship * pickupRate;
-            const subtotal   = base + weightFee + shipVnd;
-
-            return renderResult(
-              "bg-violet-50", "border border-violet-200", "text-violet-700",
-              [
-                { label: `${amt > 0 ? amt.toLocaleString("vi-VN") + " " + calcCurrency + " × " + vnd(pickupRate) + " (pickup)" : ""}`, amount: base },
-                { label: `Phí cân: ${grams.toLocaleString("vi-VN")}g × ${weightRate ? vnd(weightRate) : 0}/kg`, amount: weightFee, color: "text-amber-700" },
-                { label: `Ship nội địa: ${ship.toLocaleString("vi-VN")} ${calcCurrency} × ${vnd(pickupRate)} (pickup)`, amount: shipVnd, color: "text-green-700" },
-              ],
-              subtotal,
-              base,
-            );
+            return <ResultBox bg="bg-violet-50" border="violet-200" accent="text-violet-700" rate={pickupRate} rateLabel={`${vnd(pickupRate)} (pickup)`} />;
           }
         })()}
       </div>
