@@ -34,7 +34,10 @@ router.get("/orders/summary", async (_req, res): Promise<void> => {
   const allOrders = await db.select().from(ordersTable);
   const [memberCount] = await db.select({ count: count() }).from(membersTable);
 
-  const totalRevenue = allOrders.reduce((sum, o) => sum + parseFloat(o.totalAmount), 0);
+  const EXCLUDED_FROM_REVENUE = ["cancelled", "form_incomplete"];
+  const totalRevenue = allOrders
+    .filter((o) => !EXCLUDED_FROM_REVENUE.includes(o.status))
+    .reduce((sum, o) => sum + parseFloat(o.totalAmount), 0);
   const pending = allOrders.filter((o) => o.status === "pending").length;
   const shipped = allOrders.filter((o) => o.status === "shipped").length;
   const delivered = allOrders.filter((o) => o.status === "delivered").length;
