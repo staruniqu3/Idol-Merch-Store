@@ -11,6 +11,7 @@ import noticesRouter from "./notices";
 import bookingNotesRouter from "./booking-notes";
 import couponsRouter from "./coupons";
 import orderStatusRouter from "./order-status";
+import exchangeRatesRouter from "./exchange-rates";
 
 const router: IRouter = Router();
 
@@ -26,5 +27,6 @@ router.use(noticesRouter);
 router.use(bookingNotesRouter);
 router.use(couponsRouter);
 router.use(orderStatusRouter);
+router.use(exchangeRatesRouter);
 
 export default router;

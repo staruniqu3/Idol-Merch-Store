@@ -2594,204 +2594,208 @@ function CouponTab() {
 }
 
 // ===================== Cost Tab =====================
-const COST_ENTRIES_KEY = "admin_cost_entries";
+const COST_MANUAL_KEY = "admin_cost_manual_rates";
 
-const COST_CATEGORIES = ["Hàng hóa", "Vận chuyển", "Bao bì", "Phí dịch vụ", "Tiếp thị", "Khác"] as const;
-type CostCategory = typeof COST_CATEGORIES[number];
+const CURRENCY_ROWS: { code: string; label: string; flag: string }[] = [
+  { code: "KRW", label: "KRW - VND", flag: "🇰🇷" },
+  { code: "THB", label: "THB - VND", flag: "🇹🇭" },
+  { code: "USD", label: "USD - VND", flag: "🇺🇸" },
+  { code: "JPY", label: "JPY - VND", flag: "🇯🇵" },
+  { code: "GBP", label: "GBP - VND", flag: "🇬🇧" },
+  { code: "EUR", label: "EUR - VND", flag: "🇪🇺" },
+  { code: "CNY", label: "CNY - VND", flag: "🇨🇳" },
+  { code: "HKD", label: "HKD - VND", flag: "🇭🇰" },
+  { code: "MYR", label: "MYR - VND", flag: "🇲🇾" },
+  { code: "PHP", label: "PHP - VND", flag: "🇵🇭" },
+  { code: "INR", label: "INR - VND", flag: "🇮🇳" },
+  { code: "TWD", label: "TWD - VND", flag: "🇹🇼" },
+];
 
-type CostEntry = {
-  id: string;
-  date: string;
-  category: CostCategory;
-  description: string;
-  amount: number;
-  note: string;
-  createdAt: string;
-};
+type ManualRates = Record<string, { pickup?: string; weight?: string }>;
 
-const CATEGORY_COLORS: Record<CostCategory, string> = {
-  "Hàng hóa":    "bg-blue-100 text-blue-700 border-blue-200",
-  "Vận chuyển":  "bg-violet-100 text-violet-700 border-violet-200",
-  "Bao bì":      "bg-amber-100 text-amber-700 border-amber-200",
-  "Phí dịch vụ": "bg-pink-100 text-pink-700 border-pink-200",
-  "Tiếp thị":    "bg-emerald-100 text-emerald-700 border-emerald-200",
-  "Khác":        "bg-gray-100 text-gray-600 border-gray-200",
-};
+type RateEditState = { code: string; field: "pickup" | "weight" } | null;
+
+function fmtRate(n: number) {
+  if (n >= 1000) return new Intl.NumberFormat("vi-VN").format(Math.round(n));
+  return n.toFixed(2);
+}
 
 function CostTab() {
-  const [entries, setEntries] = useState<CostEntry[]>(() => {
-    try { return JSON.parse(localStorage.getItem(COST_ENTRIES_KEY) || "[]"); } catch { return []; }
+  const base = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
+  const [realtimeRates, setRealtimeRates] = useState<Record<string, number>>({});
+  const [updatedAt, setUpdatedAt] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  const [manual, setManual] = useState<ManualRates>(() => {
+    try { return JSON.parse(localStorage.getItem(COST_MANUAL_KEY) || "{}"); } catch { return {}; }
   });
-  const [showForm, setShowForm] = useState(false);
-  const [editId, setEditId] = useState<string | null>(null);
-  const [filterCat, setFilterCat] = useState<CostCategory | "Tất cả">("Tất cả");
-  const [form, setForm] = useState({ date: new Date().toISOString().slice(0, 10), category: "Hàng hóa" as CostCategory, description: "", amount: "", note: "" });
+  const [editing, setEditing] = useState<RateEditState>(null);
+  const [editVal, setEditVal] = useState("");
 
-  const save = (entries: CostEntry[]) => {
-    setEntries(entries);
-    localStorage.setItem(COST_ENTRIES_KEY, JSON.stringify(entries));
+  useEffect(() => {
+    fetch(`${base}/api/exchange-rates`, { cache: "no-store" })
+      .then((r) => r.json())
+      .then((d) => {
+        setRealtimeRates(d.rates ?? {});
+        setUpdatedAt(d.updatedAt ?? "");
+      })
+      .catch(() => setError("Không thể tải tỷ giá. Kiểm tra kết nối mạng."))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const saveManual = (next: ManualRates) => {
+    setManual(next);
+    localStorage.setItem(COST_MANUAL_KEY, JSON.stringify(next));
   };
 
-  const handleSave = () => {
-    if (!form.description.trim() || !form.amount || isNaN(Number(form.amount))) return;
-    if (editId) {
-      save(entries.map((e) => e.id === editId ? { ...e, ...form, amount: Number(form.amount) } : e));
-      setEditId(null);
-    } else {
-      const entry: CostEntry = { id: crypto.randomUUID(), ...form, amount: Number(form.amount), createdAt: new Date().toISOString() };
-      save([entry, ...entries]);
-    }
-    setForm({ date: new Date().toISOString().slice(0, 10), category: "Hàng hóa", description: "", amount: "", note: "" });
-    setShowForm(false);
+  const startEdit = (code: string, field: "pickup" | "weight") => {
+    setEditing({ code, field });
+    setEditVal(manual[code]?.[field] ?? "");
   };
 
-  const handleEdit = (e: CostEntry) => {
-    setForm({ date: e.date, category: e.category, description: e.description, amount: String(e.amount), note: e.note });
-    setEditId(e.id);
-    setShowForm(true);
+  const commitEdit = () => {
+    if (!editing) return;
+    const next: ManualRates = {
+      ...manual,
+      [editing.code]: { ...manual[editing.code], [editing.field]: editVal },
+    };
+    saveManual(next);
+    setEditing(null);
   };
 
-  const handleDelete = (id: string) => {
-    if (!confirm("Xoá chi phí này?")) return;
-    save(entries.filter((e) => e.id !== id));
+  const fmtDate = (s: string) => {
+    if (!s) return "";
+    try {
+      return new Date(s).toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric" });
+    } catch { return s; }
   };
-
-  const filtered = filterCat === "Tất cả" ? entries : entries.filter((e) => e.category === filterCat);
-  const totalAll = entries.reduce((s, e) => s + e.amount, 0);
-  const totalFiltered = filtered.reduce((s, e) => s + e.amount, 0);
-
-  const byCategory = COST_CATEGORIES.map((cat) => ({
-    cat,
-    total: entries.filter((e) => e.category === cat).reduce((s, e) => s + e.amount, 0),
-    count: entries.filter((e) => e.category === cat).length,
-  })).filter((r) => r.count > 0);
 
   return (
     <div className="space-y-4">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <h3 className="font-bold">Chi Phí Order</h3>
+      <div className="flex items-start justify-between">
+        <div>
+          <h3 className="font-bold">Chi Phí Order</h3>
+          {updatedAt && (
+            <p className="text-[11px] text-muted-foreground mt-0.5">Cập nhật: {fmtDate(updatedAt)}</p>
+          )}
+        </div>
         <button
           type="button"
-          onClick={() => { setShowForm((v) => !v); setEditId(null); setForm({ date: new Date().toISOString().slice(0, 10), category: "Hàng hóa", description: "", amount: "", note: "" }); }}
-          className="flex items-center gap-1.5 bg-primary text-white text-xs font-bold px-3 py-1.5 rounded-xl hover:bg-primary/90 transition-colors"
+          onClick={() => { setLoading(true); setError("");
+            fetch(`${base}/api/exchange-rates`, { cache: "no-store" })
+              .then((r) => r.json())
+              .then((d) => { setRealtimeRates(d.rates ?? {}); setUpdatedAt(d.updatedAt ?? ""); })
+              .catch(() => setError("Lỗi tải lại tỷ giá"))
+              .finally(() => setLoading(false));
+          }}
+          className="flex items-center gap-1 text-xs text-primary border border-primary/30 bg-primary/5 px-2.5 py-1.5 rounded-xl hover:bg-primary/10 transition-colors"
         >
-          <Plus size={13} /> Thêm chi phí
+          <TrendingUp size={12} /> Làm mới
         </button>
       </div>
 
-      {/* Summary card */}
-      <div className="bg-card border border-border rounded-2xl p-4 space-y-3">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center shrink-0">
-            <Receipt size={18} className="text-primary" />
-          </div>
-          <div>
-            <p className="text-2xl font-black">{formatPrice(totalAll)}</p>
-            <p className="text-xs text-muted-foreground">Tổng chi phí · {entries.length} khoản</p>
-          </div>
+      {error && (
+        <p className="text-xs text-destructive bg-destructive/10 border border-destructive/20 rounded-xl px-3 py-2">{error}</p>
+      )}
+
+      {/* Rate table */}
+      <div className="bg-card border border-border rounded-2xl overflow-hidden">
+        {/* Column headers */}
+        <div className="grid grid-cols-[1fr_1fr_1fr_1fr] gap-0 bg-muted/60 border-b border-border">
+          <div className="px-3 py-2 text-[10px] font-bold text-muted-foreground uppercase">Tiền tệ</div>
+          <div className="px-3 py-2 text-[10px] font-bold text-blue-600 uppercase text-right">Realtime</div>
+          <div className="px-3 py-2 text-[10px] font-bold text-violet-600 uppercase text-right">Pickup</div>
+          <div className="px-3 py-2 text-[10px] font-bold text-amber-600 uppercase text-right">Tiền cân</div>
         </div>
-        {byCategory.length > 0 && (
-          <div className="grid grid-cols-2 gap-1.5 pt-1">
-            {byCategory.map(({ cat, total, count }) => (
-              <div key={cat} className="flex items-center justify-between bg-muted/50 rounded-xl px-2.5 py-1.5">
-                <div className="flex items-center gap-1.5 min-w-0">
-                  <Badge variant="outline" className={`text-[9px] px-1.5 py-0 shrink-0 ${CATEGORY_COLORS[cat]}`}>{cat}</Badge>
-                  <span className="text-[10px] text-muted-foreground shrink-0">{count}</span>
+
+        {loading ? (
+          <div className="py-10 text-center text-sm text-muted-foreground">Đang tải tỷ giá…</div>
+        ) : (
+          CURRENCY_ROWS.map((row, idx) => {
+            const rt = realtimeRates[row.code];
+            const pickupVal = manual[row.code]?.pickup ?? "";
+            const weightVal = manual[row.code]?.weight ?? "";
+            const isEditingPickup = editing?.code === row.code && editing.field === "pickup";
+            const isEditingWeight = editing?.code === row.code && editing.field === "weight";
+
+            return (
+              <div
+                key={row.code}
+                className={`grid grid-cols-[1fr_1fr_1fr_1fr] gap-0 items-center border-b border-border/50 last:border-b-0 ${idx % 2 === 0 ? "" : "bg-muted/20"}`}
+              >
+                {/* Currency name */}
+                <div className="px-3 py-2.5 flex items-center gap-1.5">
+                  <span className="text-base leading-none">{row.flag}</span>
+                  <div>
+                    <p className="text-xs font-bold leading-tight">{row.label}</p>
+                  </div>
                 </div>
-                <span className="text-xs font-bold ml-1 shrink-0">{formatPrice(total)}</span>
+
+                {/* Realtime rate */}
+                <div className="px-3 py-2.5 text-right">
+                  {rt != null ? (
+                    <span className="text-xs font-bold text-blue-700">{fmtRate(rt)}</span>
+                  ) : (
+                    <span className="text-xs text-muted-foreground">—</span>
+                  )}
+                </div>
+
+                {/* Pickup rate - editable */}
+                <div className="px-2 py-1.5 text-right">
+                  {isEditingPickup ? (
+                    <input
+                      autoFocus
+                      type="number"
+                      value={editVal}
+                      onChange={(e) => setEditVal(e.target.value)}
+                      onBlur={commitEdit}
+                      onKeyDown={(e) => { if (e.key === "Enter") commitEdit(); if (e.key === "Escape") setEditing(null); }}
+                      className="w-full text-xs text-right border border-violet-400 rounded-lg px-1.5 py-1 bg-violet-50 outline-none focus:ring-1 focus:ring-violet-400"
+                    />
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => startEdit(row.code, "pickup")}
+                      className="text-xs font-semibold text-violet-700 hover:bg-violet-50 px-1.5 py-0.5 rounded-lg transition-colors w-full text-right"
+                    >
+                      {pickupVal ? new Intl.NumberFormat("vi-VN").format(Number(pickupVal)) : <span className="text-muted-foreground/50 font-normal">—</span>}
+                    </button>
+                  )}
+                </div>
+
+                {/* Weight cost - editable */}
+                <div className="px-2 py-1.5 text-right">
+                  {isEditingWeight ? (
+                    <input
+                      autoFocus
+                      type="number"
+                      value={editVal}
+                      onChange={(e) => setEditVal(e.target.value)}
+                      onBlur={commitEdit}
+                      onKeyDown={(e) => { if (e.key === "Enter") commitEdit(); if (e.key === "Escape") setEditing(null); }}
+                      className="w-full text-xs text-right border border-amber-400 rounded-lg px-1.5 py-1 bg-amber-50 outline-none focus:ring-1 focus:ring-amber-400"
+                    />
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => startEdit(row.code, "weight")}
+                      className="text-xs font-semibold text-amber-700 hover:bg-amber-50 px-1.5 py-0.5 rounded-lg transition-colors w-full text-right"
+                    >
+                      {weightVal ? new Intl.NumberFormat("vi-VN").format(Number(weightVal)) : <span className="text-muted-foreground/50 font-normal">—</span>}
+                    </button>
+                  )}
+                </div>
               </div>
-            ))}
-          </div>
+            );
+          })
         )}
       </div>
 
-      {/* Add/Edit form */}
-      {showForm && (
-        <div className="bg-card border border-primary/30 rounded-2xl p-4 space-y-3">
-          <h4 className="text-sm font-bold">{editId ? "Sửa chi phí" : "Thêm chi phí mới"}</h4>
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <Label className="text-xs">Ngày</Label>
-              <Input type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} className="mt-1 rounded-xl text-xs" />
-            </div>
-            <div>
-              <Label className="text-xs">Danh mục</Label>
-              <Select value={form.category} onValueChange={(v) => setForm({ ...form, category: v as CostCategory })}>
-                <SelectTrigger className="mt-1 rounded-xl text-xs"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {COST_CATEGORIES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          <div>
-            <Label className="text-xs">Mô tả *</Label>
-            <Input value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="VD: Đặt lightstick BTS lô 3" className="mt-1 rounded-xl" />
-          </div>
-          <div>
-            <Label className="text-xs">Số tiền (VNĐ) *</Label>
-            <Input type="number" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} placeholder="0" className="mt-1 rounded-xl" />
-          </div>
-          <div>
-            <Label className="text-xs">Ghi chú</Label>
-            <Textarea value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} placeholder="Tuỳ chọn..." rows={2} className="mt-1 rounded-xl resize-none" />
-          </div>
-          <div className="flex gap-2">
-            <Button onClick={handleSave} className="flex-1 rounded-xl text-xs h-9">Lưu</Button>
-            <Button variant="outline" onClick={() => { setShowForm(false); setEditId(null); }} className="rounded-xl text-xs h-9 px-4">Huỷ</Button>
-          </div>
-        </div>
-      )}
-
-      {/* Filter pills */}
-      {entries.length > 0 && (
-        <div className="flex gap-1.5 flex-wrap">
-          {(["Tất cả", ...COST_CATEGORIES] as const).map((cat) => (
-            <button
-              key={cat}
-              type="button"
-              onClick={() => setFilterCat(cat as CostCategory | "Tất cả")}
-              className={`text-[11px] font-bold px-2.5 py-1 rounded-lg border transition-all ${
-                filterCat === cat ? "bg-primary text-white border-primary" : "bg-card border-border text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              {cat}
-            </button>
-          ))}
-          {filterCat !== "Tất cả" && (
-            <span className="text-[11px] text-muted-foreground self-center ml-1">{formatPrice(totalFiltered)}</span>
-          )}
-        </div>
-      )}
-
-      {/* Entries list */}
-      {filtered.length === 0 ? (
-        <div className="text-center py-10 text-muted-foreground">
-          <Receipt size={28} strokeWidth={1.2} className="mx-auto mb-2" />
-          <p className="text-sm">Chưa có chi phí nào</p>
-        </div>
-      ) : (
-        <div className="space-y-2">
-          {filtered.map((entry) => (
-            <div key={entry.id} className="bg-card border border-border rounded-2xl p-3 flex items-start gap-3">
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 flex-wrap mb-0.5">
-                  <Badge variant="outline" className={`text-[9px] px-1.5 py-0 shrink-0 ${CATEGORY_COLORS[entry.category]}`}>{entry.category}</Badge>
-                  <span className="text-[10px] text-muted-foreground">{new Date(entry.date).toLocaleDateString("vi-VN")}</span>
-                </div>
-                <p className="text-sm font-bold leading-tight">{entry.description}</p>
-                {entry.note && <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{entry.note}</p>}
-              </div>
-              <div className="flex items-center gap-2 shrink-0">
-                <span className="font-black text-sm text-primary">{formatPrice(entry.amount)}</span>
-                <button type="button" onClick={() => handleEdit(entry)} className="text-muted-foreground hover:text-foreground transition-colors"><Pencil size={13} /></button>
-                <button type="button" onClick={() => handleDelete(entry.id)} className="text-muted-foreground hover:text-destructive transition-colors"><Trash2 size={13} /></button>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
+      <p className="text-[10px] text-muted-foreground text-center">
+        Tỷ giá Realtime theo thị trường quốc tế (cập nhật hàng ngày). Pickup và Tiền cân cập nhật thủ công.
+      </p>
     </div>
   );
 }
