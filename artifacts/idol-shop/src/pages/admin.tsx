@@ -10,7 +10,7 @@ import {
 } from "@workspace/api-client-react";
 import {
   Shield, Package, ShoppingBag, Truck, Users, Gift, LogOut, Plus, Pencil, Trash2, ChevronDown,
-  TrendingUp, Star, Calendar, X, Check, BarChart3, Sparkles, Bell, Pin, Ticket, Eye, EyeOff, Tag, AlertTriangle, Copy,
+  TrendingUp, Star, Calendar, X, Check, BarChart3, Sparkles, Bell, Pin, Ticket, Eye, EyeOff, Tag, AlertTriangle, Copy, History,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -1232,6 +1232,14 @@ function PreorderTab() {
 // ===================== Statistics =====================
 const STATS_ACCOUNTED_KEY = "stats_accounted_order_ids";
 const STATS_ORDERED_ITEMS_KEY = "stats_ordered_items";
+const STATS_BATCH_HISTORY_KEY = "stats_batch_history";
+
+type BatchRecord = {
+  completedAt: string;
+  orderCount: number;
+  totalQty: number;
+  items: Array<{ name: string; qty: number; revenue: number }>;
+};
 
 function StatsTab() {
   const { data: orders } = useListOrders();
@@ -1242,6 +1250,11 @@ function StatsTab() {
   const [orderedItems, setOrderedItems] = useState<Set<string>>(() => {
     try { return new Set(JSON.parse(localStorage.getItem(STATS_ORDERED_ITEMS_KEY) || "[]")); } catch { return new Set(); }
   });
+  const [batchHistory, setBatchHistory] = useState<BatchRecord[]>(() => {
+    try { return JSON.parse(localStorage.getItem(STATS_BATCH_HISTORY_KEY) || "[]"); } catch { return []; }
+  });
+  const [expandedBatch, setExpandedBatch] = useState<number | null>(null);
+  const [showHistory, setShowHistory] = useState(false);
 
   const activeOrders = (orders ?? []).filter(
     (o) => (o.status === "confirmed" || o.status === "pending") && !accountedIds.has(o.id)
@@ -1269,6 +1282,19 @@ function StatsTab() {
   };
 
   const handleComplete = () => {
+    const snapshot = Object.entries(itemMap)
+      .sort((a, b) => b[1].qty - a[1].qty)
+      .map(([name, { qty, revenue }]) => ({ name, qty, revenue }));
+    const record: BatchRecord = {
+      completedAt: new Date().toISOString(),
+      orderCount: activeOrders.length,
+      totalQty: snapshot.reduce((s, i) => s + i.qty, 0),
+      items: snapshot,
+    };
+    const newHistory = [record, ...batchHistory];
+    setBatchHistory(newHistory);
+    localStorage.setItem(STATS_BATCH_HISTORY_KEY, JSON.stringify(newHistory));
+
     const newAccounted = new Set([...accountedIds, ...activeOrders.map((o) => o.id)]);
     setAccountedIds(newAccounted);
     localStorage.setItem(STATS_ACCOUNTED_KEY, JSON.stringify([...newAccounted]));
@@ -1282,6 +1308,12 @@ function StatsTab() {
   const sorted = [...pending, ...done];
   const totalItems = allEntries.reduce((s, [, v]) => s + v.qty, 0);
   const pendingItems = pending.reduce((s, [, v]) => s + v.qty, 0);
+
+  const formatBatchDate = (iso: string) => {
+    const d = new Date(iso);
+    return d.toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric" })
+      + " · " + d.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" });
+  };
 
   return (
     <div className="space-y-3">
@@ -1371,6 +1403,89 @@ function StatsTab() {
           })}
         </div>
       )}
+
+      {/* Batch history */}
+      <div className="pt-2">
+        <button
+          type="button"
+          onClick={() => setShowHistory((v) => !v)}
+          className="w-full flex items-center justify-between px-3 py-2.5 bg-card border border-border rounded-2xl text-left hover:bg-muted/40 transition-colors"
+        >
+          <div className="flex items-center gap-2">
+            <History size={15} className="text-muted-foreground" />
+            <span className="text-sm font-bold">Lịch sử lô hàng đã đặt</span>
+            {batchHistory.length > 0 && (
+              <Badge variant="secondary" className="text-[10px] bg-primary/10 text-primary border-primary/20 font-bold">
+                {batchHistory.length}
+              </Badge>
+            )}
+          </div>
+          <ChevronDown size={14} className={`text-muted-foreground transition-transform ${showHistory ? "rotate-180" : ""}`} />
+        </button>
+
+        {showHistory && (
+          <div className="mt-2 space-y-2">
+            {batchHistory.length === 0 ? (
+              <p className="text-center text-sm text-muted-foreground py-6">Chưa có lô hàng nào được hoàn thành</p>
+            ) : (
+              batchHistory.map((batch, idx) => {
+                const isOpen = expandedBatch === idx;
+                const batchRevenue = batch.items.reduce((s, i) => s + i.revenue, 0);
+                return (
+                  <div key={idx} className="bg-card border border-border rounded-2xl overflow-hidden">
+                    <button
+                      type="button"
+                      onClick={() => setExpandedBatch(isOpen ? null : idx)}
+                      className="w-full p-3 flex items-center gap-3 text-left"
+                    >
+                      <div className="w-8 h-8 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+                        <span className="text-xs font-black text-primary">#{batchHistory.length - idx}</span>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-bold">{formatBatchDate(batch.completedAt)}</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          {batch.orderCount} đơn · {batch.totalQty} sản phẩm · {formatPrice(batchRevenue)}
+                        </p>
+                      </div>
+                      <ChevronDown size={14} className={`text-muted-foreground transition-transform shrink-0 ${isOpen ? "rotate-180" : ""}`} />
+                    </button>
+                    {isOpen && (
+                      <div className="border-t border-border bg-muted/20 p-3 space-y-1.5">
+                        {batch.items.map((item, i) => (
+                          <div key={i} className="flex items-center justify-between text-sm">
+                            <span className="text-foreground font-medium truncate pr-2">{item.name}</span>
+                            <div className="flex items-center gap-2 shrink-0">
+                              <Badge variant="secondary" className="text-[10px] font-black bg-primary/10 text-primary border-primary/20">×{item.qty}</Badge>
+                              <span className="text-xs text-muted-foreground">{formatPrice(item.revenue)}</span>
+                            </div>
+                          </div>
+                        ))}
+                        <div className="pt-1 border-t border-border/50 flex justify-between text-xs font-bold text-foreground">
+                          <span>Tổng cộng</span>
+                          <span>{formatPrice(batchRevenue)}</span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })
+            )}
+            {batchHistory.length > 0 && (
+              <button
+                type="button"
+                onClick={() => {
+                  if (!confirm("Xoá toàn bộ lịch sử lô hàng?")) return;
+                  setBatchHistory([]);
+                  localStorage.removeItem(STATS_BATCH_HISTORY_KEY);
+                }}
+                className="w-full text-xs text-muted-foreground hover:text-destructive transition-colors py-1 text-center"
+              >
+                Xoá lịch sử
+              </button>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
