@@ -2954,98 +2954,122 @@ function CostTab() {
             : 0;
           const totalForeign = amt + svcFeeForeign; // hàng + phí mua hộ (cùng tiền tệ)
 
-          // profit tier on subtotal before profit
-          const profitTier = (s: number) => s < 500_000 ? 0.10 : s <= 2_000_000 ? 0.08 : 0.05;
+          // profit tier: reduction=0 → khách lẻ, reduction=0.01 → khách sỉ
+          const profitTier = (s: number, reduction = 0) =>
+            (s < 500_000 ? 0.10 : s <= 2_000_000 ? 0.08 : 0.05) - reduction;
 
           const ResultBox = ({
-            bg, border, accent, rate, rateLabel,
-          }: { bg: string; border: string; accent: string; rate: number; rateLabel: string }) => {
+            bg, border, accent, rate, rateLabel, label, labelBg, reduction = 0,
+          }: {
+            bg: string; border: string; accent: string;
+            rate: number; rateLabel: string;
+            label: string; labelBg: string;
+            reduction?: number;
+          }) => {
             const baseVnd  = totalForeign * rate;
             const fee4     = calcMode === "checkout" ? baseVnd * 0.04 : 0;
             const shipVnd  = ship * rate;
             const subtotal = baseVnd + fee4 + weightFee + shipVnd;
-            const pct      = profitTier(subtotal);
+            const pct      = profitTier(subtotal, reduction);
             const profit   = subtotal * pct;
             const grand    = subtotal + profit;
 
             return (
-              <div className={`${bg} border ${border} rounded-xl p-3 space-y-1.5`}>
-                {/* Tiền hàng + phí mua hộ line */}
-                {amt > 0 && svcFeeForeign === 0 && (
-                  <div className="flex justify-between text-xs">
-                    <span className="text-muted-foreground">{fmtForeign(amt)} {cur} × {rateLabel}</span>
-                    <span className="font-semibold">{vnd(amt * rate)} ₫</span>
-                  </div>
-                )}
-                {amt > 0 && svcFeeForeign > 0 && (
-                  <>
+              <div className={`${bg} border ${border} rounded-xl overflow-hidden`}>
+                {/* Label badge */}
+                <div className={`${labelBg} px-3 py-1.5 flex items-center justify-between`}>
+                  <span className={`text-[10px] font-black uppercase tracking-wide ${accent}`}>{label}</span>
+                  <span className={`text-[10px] font-semibold ${accent} opacity-70`}>
+                    Lời {(pct * 100).toFixed(0)}%
+                    {subtotal < 500_000 ? " (< 500k)" : subtotal <= 2_000_000 ? " (500k–2tr)" : " (> 2tr)"}
+                  </span>
+                </div>
+
+                <div className="p-3 space-y-1.5">
+                  {/* Tiền hàng */}
+                  {amt > 0 && svcFeeForeign === 0 && (
                     <div className="flex justify-between text-xs">
-                      <span className="text-muted-foreground">{fmtForeign(amt)} {cur} (hàng)</span>
+                      <span className="text-muted-foreground">{fmtForeign(amt)} {cur} × {rateLabel}</span>
                       <span className="font-semibold">{vnd(amt * rate)} ₫</span>
                     </div>
+                  )}
+                  {amt > 0 && svcFeeForeign > 0 && (
+                    <>
+                      <div className="flex justify-between text-xs">
+                        <span className="text-muted-foreground">{fmtForeign(amt)} {cur} (hàng)</span>
+                        <span className="font-semibold">{vnd(amt * rate)} ₫</span>
+                      </div>
+                      <div className="flex justify-between text-xs">
+                        <span className="text-muted-foreground">
+                          Phí mua hộ: {fmtForeign(svcFeeForeign)} {cur}
+                          {calcServiceMode === "percent" ? ` (${svcVal}%)` : " (cố định)"}
+                        </span>
+                        <span className="font-semibold text-pink-600">+ {vnd(svcFeeForeign * rate)} ₫</span>
+                      </div>
+                      <div className="flex justify-between text-xs border-t border-dashed border-current/10 pt-1">
+                        <span className="text-muted-foreground">{fmtForeign(totalForeign)} {cur} × {rateLabel}</span>
+                        <span className="font-semibold">{vnd(baseVnd)} ₫</span>
+                      </div>
+                    </>
+                  )}
+                  {calcMode === "checkout" && fee4 > 0 && (
                     <div className="flex justify-between text-xs">
-                      <span className="text-muted-foreground">
-                        Phí mua hộ: {fmtForeign(svcFeeForeign)} {cur}
-                        {calcServiceMode === "percent" ? ` (${svcVal}%)` : " (cố định)"}
-                      </span>
-                      <span className="font-semibold text-pink-600">+ {vnd(svcFeeForeign * rate)} ₫</span>
+                      <span className="text-muted-foreground">Phí 4%</span>
+                      <span className="font-semibold text-orange-600">+ {vnd(fee4)} ₫</span>
                     </div>
-                    <div className="flex justify-between text-xs border-t border-dashed border-current/10 pt-1">
-                      <span className="text-muted-foreground">{fmtForeign(totalForeign)} {cur} × {rateLabel}</span>
-                      <span className="font-semibold">{vnd(baseVnd)} ₫</span>
-                    </div>
-                  </>
-                )}
-
-                {calcMode === "checkout" && fee4 > 0 && (
-                  <div className="flex justify-between text-xs">
-                    <span className="text-muted-foreground">Phí 4%</span>
-                    <span className="font-semibold text-orange-600">+ {vnd(fee4)} ₫</span>
-                  </div>
-                )}
-                {grams > 0 && weightRate && (
-                  <div className="flex justify-between text-xs">
-                    <span className="text-muted-foreground">Phí cân: {fmtForeign(grams)}g × {vnd(weightRate)}/kg</span>
-                    <span className="font-semibold text-amber-700">+ {vnd(weightFee)} ₫</span>
-                  </div>
-                )}
-                {ship > 0 && (
-                  <div className="flex justify-between text-xs">
-                    <span className="text-muted-foreground">Ship nội địa: {fmtForeign(ship)} {cur} × {rateLabel}</span>
-                    <span className="font-semibold text-green-700">+ {vnd(shipVnd)} ₫</span>
-                  </div>
-                )}
-
-                {profit > 0 && (
-                  <>
-                    <div className="flex justify-between text-xs border-t border-dashed border-current/10 pt-1">
-                      <span className="text-muted-foreground">Chi phí cộng dồn</span>
-                      <span className="font-semibold">{vnd(subtotal)} ₫</span>
-                    </div>
+                  )}
+                  {grams > 0 && weightRate && (
                     <div className="flex justify-between text-xs">
-                      <span className="text-muted-foreground">
-                        Tiền lời {(pct * 100).toFixed(0)}%
-                        {subtotal < 500_000 ? " (< 500k)" : subtotal <= 2_000_000 ? " (500k–2tr)" : " (> 2tr)"}
-                      </span>
-                      <span className={`font-semibold ${accent}`}>+ {vnd(profit)} ₫</span>
+                      <span className="text-muted-foreground">Phí cân: {fmtForeign(grams)}g × {vnd(weightRate)}/kg</span>
+                      <span className="font-semibold text-amber-700">+ {vnd(weightFee)} ₫</span>
                     </div>
-                  </>
-                )}
-
-                <div className={`border-t border-${border} pt-1.5 flex justify-between`}>
-                  <span className={`text-xs font-bold ${accent}`}>Tổng KH trả</span>
-                  <span className={`text-base font-black ${accent}`}>{vnd(grand)} ₫</span>
+                  )}
+                  {ship > 0 && (
+                    <div className="flex justify-between text-xs">
+                      <span className="text-muted-foreground">Ship nội địa: {fmtForeign(ship)} {cur} × {rateLabel}</span>
+                      <span className="font-semibold text-green-700">+ {vnd(shipVnd)} ₫</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between text-xs border-t border-dashed border-current/10 pt-1">
+                    <span className="text-muted-foreground">Chi phí cộng dồn</span>
+                    <span className="font-semibold">{vnd(subtotal)} ₫</span>
+                  </div>
+                  <div className="flex justify-between text-xs">
+                    <span className="text-muted-foreground">Tiền lời {(pct * 100).toFixed(0)}%</span>
+                    <span className={`font-semibold ${accent}`}>+ {vnd(profit)} ₫</span>
+                  </div>
+                  <div className={`border-t border-${border} pt-1.5 flex justify-between`}>
+                    <span className={`text-xs font-bold ${accent}`}>Tổng KH trả</span>
+                    <span className={`text-base font-black ${accent}`}>{vnd(grand)} ₫</span>
+                  </div>
                 </div>
               </div>
             );
           };
+
+          const renderPair = (rate: number, rateLabel: string, mainBg: string, mainBorder: string, mainAccent: string) => (
+            <div className="space-y-2">
+              <ResultBox
+                bg={mainBg} border={mainBorder} accent={mainAccent}
+                rate={rate} rateLabel={rateLabel}
+                label="Khách lẻ" labelBg={mainBg.replace("50", "100")}
+                reduction={0}
+              />
+              <ResultBox
+                bg="bg-red-50" border="red-200" accent="text-red-700"
+                rate={rate} rateLabel={rateLabel}
+                label="Khách sỉ (lời -1%)" labelBg="bg-red-100"
+                reduction={0.01}
+              />
+            </div>
+          );
 
           if (calcMode === "checkout") {
             const rt = realtimeRates[cur];
             if (!rt && (amt > 0 || ship > 0)) return (
               <p className="text-xs text-muted-foreground text-center py-2">Chưa có tỷ giá Realtime cho {cur}</p>
             );
-            return <ResultBox bg="bg-blue-50" border="blue-200" accent="text-blue-700" rate={rt ?? 0} rateLabel={fmtRate(rt!)} />;
+            return renderPair(rt ?? 0, fmtRate(rt!), "bg-blue-50", "blue-200", "text-blue-700");
           } else {
             const pickupStr = manual[cur]?.pickup;
             if (!pickupStr && (amt > 0 || ship > 0)) return (
@@ -3054,7 +3078,7 @@ function CostTab() {
               </div>
             );
             const pickupRate = pickupStr ? parseFloat(pickupStr) : 0;
-            return <ResultBox bg="bg-violet-50" border="violet-200" accent="text-violet-700" rate={pickupRate} rateLabel={`${vnd(pickupRate)} (pickup)`} />;
+            return renderPair(pickupRate, `${vnd(pickupRate)} (pickup)`, "bg-violet-50", "violet-200", "text-violet-700");
           }
         })()}
       </div>
