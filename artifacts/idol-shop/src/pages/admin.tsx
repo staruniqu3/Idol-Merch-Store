@@ -1244,7 +1244,7 @@ function StatsTab() {
   });
 
   const activeOrders = (orders ?? []).filter(
-    (o) => o.status === "confirmed" && !accountedIds.has(o.id)
+    (o) => (o.status === "confirmed" || o.status === "pending") && !accountedIds.has(o.id)
   );
 
   const itemMap: Record<string, { qty: number; revenue: number }> = {};
@@ -1289,7 +1289,7 @@ function StatsTab() {
         <div>
           <h3 className="font-bold">Thống Kê Số Lượng Hàng Cần Đặt</h3>
           {activeOrders.length > 0 && (
-            <p className="text-xs text-muted-foreground mt-0.5">{activeOrders.length} đơn Đã chuyển khoản</p>
+            <p className="text-xs text-muted-foreground mt-0.5">{activeOrders.length} đơn cần đặt hàng</p>
           )}
         </div>
         <div className="flex items-center gap-2">
@@ -1327,7 +1327,7 @@ function StatsTab() {
           <BarChart3 size={28} strokeWidth={1.2} className="mx-auto mb-2" />
           <p className="text-sm">
             {orders && orders.length > 0
-              ? "Không có đơn Đã chuyển khoản mới"
+              ? "Không có đơn cần đặt hàng mới"
               : "Chưa có đơn hàng nào"}
           </p>
         </div>
