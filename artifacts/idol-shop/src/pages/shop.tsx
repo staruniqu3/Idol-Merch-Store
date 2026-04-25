@@ -214,6 +214,9 @@ export default function ShopPage() {
                     <p className="text-sm text-muted-foreground mt-1">
                       Shop đã nhận đơn của bạn.<br />Vui lòng chuyển khoản và điền form xác nhận.
                     </p>
+                    <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2 mt-2">
+                      ⚠️ Nếu bạn không chuyển khoản và điền form, đơn hàng sẽ không được đặt thành công.
+                    </p>
                   </div>
 
                   <a
