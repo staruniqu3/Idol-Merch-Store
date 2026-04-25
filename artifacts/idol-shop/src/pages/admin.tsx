@@ -2699,6 +2699,11 @@ function CostTab() {
   const [newExpName, setNewExpName] = useState("");
   const [newExpAmt, setNewExpAmt] = useState("");
 
+  const currentMonth = new Date().toISOString().slice(0, 7);
+  const [expandedMonths, setExpandedMonths] = useState<Set<string>>(() => new Set([currentMonth]));
+  const toggleMonth = (m: string) => setExpandedMonths((prev) => { const s = new Set(prev); s.has(m) ? s.delete(m) : s.add(m); return s; });
+  const [selectedSummaryMonth, setSelectedSummaryMonth] = useState(currentMonth);
+
   const saveProfitEntries = (next: ProfitEntry[]) => { setProfitEntries(next); localStorage.setItem(PROFIT_ENTRIES_KEY, JSON.stringify(next)); };
   const saveProfitExpenses = (next: FixedExpense[]) => { setProfitExpenses(next); localStorage.setItem(PROFIT_EXPENSES_KEY, JSON.stringify(next)); };
 
@@ -3240,39 +3245,99 @@ function CostTab() {
             className="w-full text-sm border border-border rounded-xl px-3 py-2 bg-background outline-none focus:ring-2 focus:ring-primary/30 transition-all"
           />
 
-          {/* Entries list */}
-          {profitEntries.length > 0 && (
-            <div className="space-y-1.5 max-h-48 overflow-y-auto">
-              {profitEntries.map((e) => {
-                const vnd2 = (n: number) => new Intl.NumberFormat("vi-VN").format(Math.round(n));
-                return (
-                  <div key={e.id} className="flex items-center gap-2 bg-muted/30 rounded-xl px-3 py-2">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-lg ${e.type === "le" ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700"}`}>
-                          {e.type === "le" ? "lẻ" : "sỉ"}
-                        </span>
-                        <span className="text-[10px] text-muted-foreground">{new Date(e.date).toLocaleDateString("vi-VN")}</span>
-                        {e.note && <span className="text-[10px] text-muted-foreground truncate">{e.note}</span>}
-                      </div>
-                      <div className="flex items-center gap-2 mt-0.5">
-                        <span className="text-xs text-muted-foreground">{vnd2(e.amount)} ₫</span>
-                        <span className="text-[10px] text-muted-foreground">→ lời {(e.profitPct * 100).toFixed(0)}%</span>
-                        <span className="text-xs font-bold text-emerald-700">+{vnd2(e.profitAmount)} ₫</span>
-                      </div>
+          {/* Entries grouped by month */}
+          {profitEntries.length > 0 && (() => {
+            const vnd2 = (n: number) => new Intl.NumberFormat("vi-VN").format(Math.round(n));
+            const grouped = profitEntries.reduce((acc, e) => {
+              const key = e.date.slice(0, 7);
+              if (!acc[key]) acc[key] = [];
+              acc[key].push(e);
+              return acc;
+            }, {} as Record<string, ProfitEntry[]>);
+            const months = Object.keys(grouped).sort((a, b) => b.localeCompare(a));
+
+            return (
+              <div className="space-y-1.5">
+                {months.map((month) => {
+                  const entries = grouped[month];
+                  const mRevenue = entries.reduce((s, e) => s + e.amount, 0);
+                  const mProfit  = entries.reduce((s, e) => s + e.profitAmount, 0);
+                  const isOpen   = expandedMonths.has(month);
+                  const [yr, mo] = month.split("-");
+                  const isCurrentMonth = month === currentMonth;
+
+                  return (
+                    <div key={month} className={`rounded-2xl border overflow-hidden ${isCurrentMonth ? "border-emerald-300 bg-emerald-50/50" : "border-border bg-muted/20"}`}>
+                      {/* Month header — clickable */}
+                      <button
+                        type="button"
+                        onClick={() => toggleMonth(month)}
+                        className="w-full flex items-center justify-between px-3 py-2.5 hover:bg-black/5 transition-colors"
+                      >
+                        <div className="flex items-center gap-2">
+                          <ChevronDown size={13} className={`text-muted-foreground transition-transform ${isOpen ? "" : "-rotate-90"}`} />
+                          <span className="text-xs font-bold">Tháng {parseInt(mo)}/{yr}</span>
+                          {isCurrentMonth && <span className="text-[9px] font-black bg-emerald-600 text-white px-1.5 py-0.5 rounded-full">hiện tại</span>}
+                          <span className="text-[10px] text-muted-foreground">{entries.length} đơn</span>
+                        </div>
+                        <div className="flex items-center gap-3 text-right">
+                          <div>
+                            <p className="text-[9px] text-muted-foreground leading-none">Doanh thu</p>
+                            <p className="text-xs font-bold">{vnd2(mRevenue)} ₫</p>
+                          </div>
+                          <div>
+                            <p className="text-[9px] text-muted-foreground leading-none">Lợi nhuận</p>
+                            <p className="text-xs font-black text-emerald-700">+{vnd2(mProfit)} ₫</p>
+                          </div>
+                        </div>
+                      </button>
+
+                      {/* Entry rows */}
+                      {isOpen && (
+                        <div className="border-t border-border/50 divide-y divide-border/30">
+                          {entries.map((e) => (
+                            <div key={e.id} className="flex items-center gap-2 px-3 py-2 bg-background/60">
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-lg ${e.type === "le" ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700"}`}>
+                                    {e.type === "le" ? "lẻ" : "sỉ"}
+                                  </span>
+                                  <span className="text-[10px] text-muted-foreground">{new Date(e.date).toLocaleDateString("vi-VN")}</span>
+                                  {e.note && <span className="text-[10px] text-muted-foreground italic truncate">{e.note}</span>}
+                                </div>
+                                <div className="flex items-center gap-2 mt-0.5">
+                                  <span className="text-xs text-muted-foreground">{vnd2(e.amount)} ₫</span>
+                                  <span className="text-[10px] text-muted-foreground">→ lời {(e.profitPct * 100).toFixed(0)}%</span>
+                                  <span className="text-xs font-bold text-emerald-700">+{vnd2(e.profitAmount)} ₫</span>
+                                </div>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => saveProfitEntries(profitEntries.filter((x) => x.id !== e.id))}
+                                className="text-muted-foreground hover:text-destructive transition-colors shrink-0"
+                              >
+                                <Trash2 size={12} />
+                              </button>
+                            </div>
+                          ))}
+                          {/* Delete whole month */}
+                          <div className="px-3 py-1.5 bg-background/40">
+                            <button
+                              type="button"
+                              onClick={() => { if (confirm(`Xoá toàn bộ ${entries.length} đơn tháng ${parseInt(mo)}/${yr}?`)) saveProfitEntries(profitEntries.filter((x) => x.date.slice(0, 7) !== month)); }}
+                              className="text-[10px] text-muted-foreground hover:text-destructive transition-colors"
+                            >
+                              Xoá tháng {parseInt(mo)}/{yr}
+                            </button>
+                          </div>
+                        </div>
+                      )}
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => saveProfitEntries(profitEntries.filter((x) => x.id !== e.id))}
-                      className="text-muted-foreground hover:text-destructive transition-colors shrink-0"
-                    >
-                      <Trash2 size={12} />
-                    </button>
-                  </div>
-                );
-              })}
-            </div>
-          )}
+                  );
+                })}
+              </div>
+            );
+          })()}
         </div>
 
         {/* ── Chi phí cố định ── */}
@@ -3342,23 +3407,61 @@ function CostTab() {
         {/* ── Tổng kết tháng ── */}
         {(() => {
           const vnd2 = (n: number) => new Intl.NumberFormat("vi-VN").format(Math.round(n));
-          const totalRevenue = profitEntries.reduce((s, e) => s + e.amount, 0);
-          const totalProfit  = profitEntries.reduce((s, e) => s + e.profitAmount, 0);
+          const monthEntries = profitEntries.filter((e) => e.date.startsWith(selectedSummaryMonth));
+          const totalRevenue = monthEntries.reduce((s, e) => s + e.amount, 0);
+          const totalProfit  = monthEntries.reduce((s, e) => s + e.profitAmount, 0);
           const totalFixed   = profitExpenses.reduce((s, e) => s + e.monthlyAmount, 0);
           const netProfit    = totalProfit - totalFixed;
           if (profitEntries.length === 0 && profitExpenses.length === 0) return null;
 
+          const availableMonths = [...new Set(profitEntries.map((e) => e.date.slice(0, 7)))].sort((a, b) => b.localeCompare(a));
+          if (!availableMonths.includes(selectedSummaryMonth) && availableMonths.length > 0 && monthEntries.length === 0) {
+            /* fall through — show zeroes if no data for selected month */
+          }
+
+          const [yr, mo] = selectedSummaryMonth.split("-");
+
           return (
             <div className="bg-card border border-border rounded-2xl p-4 space-y-2.5">
-              <h5 className="text-sm font-bold">Tổng kết tháng</h5>
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <h5 className="text-sm font-bold">Tổng kết</h5>
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    disabled={availableMonths.indexOf(selectedSummaryMonth) >= availableMonths.length - 1}
+                    onClick={() => { const i = availableMonths.indexOf(selectedSummaryMonth); if (i < availableMonths.length - 1) setSelectedSummaryMonth(availableMonths[i + 1]); }}
+                    className="w-6 h-6 flex items-center justify-center rounded-lg bg-muted hover:bg-muted/80 disabled:opacity-30 transition-colors"
+                  >
+                    <ChevronDown size={11} className="rotate-90" />
+                  </button>
+                  <span className="text-xs font-semibold min-w-[7rem] text-center">
+                    {`Tháng ${parseInt(mo)}/${yr}`}
+                    {selectedSummaryMonth === currentMonth && <span className="ml-1 text-[9px] text-emerald-600">(hiện tại)</span>}
+                  </span>
+                  <button
+                    type="button"
+                    disabled={availableMonths.indexOf(selectedSummaryMonth) <= 0}
+                    onClick={() => { const i = availableMonths.indexOf(selectedSummaryMonth); if (i > 0) setSelectedSummaryMonth(availableMonths[i - 1]); }}
+                    className="w-6 h-6 flex items-center justify-center rounded-lg bg-muted hover:bg-muted/80 disabled:opacity-30 transition-colors"
+                  >
+                    <ChevronDown size={11} className="-rotate-90" />
+                  </button>
+                </div>
+              </div>
+
+              {monthEntries.length === 0 && (
+                <p className="text-[10px] text-muted-foreground italic bg-muted/40 rounded-xl px-3 py-2">
+                  Chưa có đơn nào trong tháng {parseInt(mo)}/{yr}.
+                </p>
+              )}
 
               <div className="space-y-1.5">
                 <div className="flex justify-between text-xs">
-                  <span className="text-muted-foreground">Tổng doanh thu</span>
+                  <span className="text-muted-foreground">Doanh thu ({monthEntries.length} đơn)</span>
                   <span className="font-semibold">{vnd2(totalRevenue)} ₫</span>
                 </div>
                 <div className="flex justify-between text-xs">
-                  <span className="text-muted-foreground">Tổng lợi nhuận gộp</span>
+                  <span className="text-muted-foreground">Lợi nhuận gộp</span>
                   <span className="font-semibold text-emerald-700">+ {vnd2(totalProfit)} ₫</span>
                 </div>
                 {totalFixed > 0 && (
