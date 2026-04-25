@@ -2714,7 +2714,7 @@ function CostTab() {
           <div className="px-3 py-2 text-[10px] font-bold text-muted-foreground uppercase">Tiền tệ</div>
           <div className="px-3 py-2 text-[10px] font-bold text-blue-600 uppercase text-right">Realtime</div>
           <div className="px-3 py-2 text-[10px] font-bold text-violet-600 uppercase text-right">Pickup</div>
-          <div className="px-3 py-2 text-[10px] font-bold text-amber-600 uppercase text-right">Tiền cân</div>
+          <div className="px-3 py-2 text-[10px] font-bold text-amber-600 uppercase text-right">Tiền cân/kg</div>
         </div>
 
         {loading ? (
@@ -2903,7 +2903,7 @@ function CostTab() {
 
           const row = CURRENCY_ROWS.find((r) => r.code === calcCurrency)!;
           const weightRate = manual[calcCurrency]?.weight ? parseFloat(manual[calcCurrency]!.weight!) : null;
-          const weightFee = (grams > 0 && weightRate) ? grams * weightRate : 0;
+          const weightFee = (grams > 0 && weightRate) ? (grams / 1000) * weightRate : 0;
 
           const vnd = (n: number) => new Intl.NumberFormat("vi-VN").format(Math.round(n));
 
@@ -2933,7 +2933,7 @@ function CostTab() {
                 )}
                 {grams > 0 && weightRate && (
                   <div className="flex justify-between text-xs">
-                    <span className="text-muted-foreground">Phí cân: {grams.toLocaleString("vi-VN")}g × {vnd(weightRate)}/g</span>
+                    <span className="text-muted-foreground">Phí cân: {grams.toLocaleString("vi-VN")}g × {vnd(weightRate)}/kg</span>
                     <span className="font-semibold text-amber-700">+ {vnd(weightFee)} ₫</span>
                   </div>
                 )}
@@ -2971,7 +2971,7 @@ function CostTab() {
                 )}
                 {grams > 0 && weightRate && (
                   <div className="flex justify-between text-xs">
-                    <span className="text-muted-foreground">Phí cân: {grams.toLocaleString("vi-VN")}g × {vnd(weightRate)}/g</span>
+                    <span className="text-muted-foreground">Phí cân: {grams.toLocaleString("vi-VN")}g × {vnd(weightRate)}/kg</span>
                     <span className="font-semibold text-amber-700">+ {vnd(weightFee)} ₫</span>
                   </div>
                 )}
