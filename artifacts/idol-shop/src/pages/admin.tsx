@@ -2633,6 +2633,11 @@ function CostTab() {
   const [editing, setEditing] = useState<RateEditState>(null);
   const [editVal, setEditVal] = useState("");
 
+  // Calculator state
+  const [calcAmount, setCalcAmount] = useState("");
+  const [calcCurrency, setCalcCurrency] = useState("KRW");
+  const [calcMode, setCalcMode] = useState<"checkout" | "staff">("checkout");
+
   useEffect(() => {
     fetch(`${base}/api/exchange-rates`, { cache: "no-store" })
       .then((r) => r.json())
@@ -2796,6 +2801,120 @@ function CostTab() {
       <p className="text-[10px] text-muted-foreground text-center">
         Tỷ giá Realtime theo thị trường quốc tế (cập nhật hàng ngày). Pickup và Tiền cân cập nhật thủ công.
       </p>
+
+      {/* ── Calculator ── */}
+      <div className="bg-card border border-border rounded-2xl p-4 space-y-3">
+        <h4 className="text-sm font-bold">Tính toán giá trị</h4>
+
+        {/* Mode badges */}
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => setCalcMode("checkout")}
+            className={`flex-1 text-xs font-bold py-2 rounded-xl border transition-all ${
+              calcMode === "checkout"
+                ? "bg-blue-600 text-white border-blue-600 shadow-sm"
+                : "bg-card text-muted-foreground border-border hover:border-blue-300 hover:text-blue-600"
+            }`}
+          >
+            Tự Checkout
+          </button>
+          <button
+            type="button"
+            onClick={() => setCalcMode("staff")}
+            className={`flex-1 text-xs font-bold py-2 rounded-xl border transition-all ${
+              calcMode === "staff"
+                ? "bg-violet-600 text-white border-violet-600 shadow-sm"
+                : "bg-card text-muted-foreground border-border hover:border-violet-300 hover:text-violet-600"
+            }`}
+          >
+            Nhờ Staff
+          </button>
+        </div>
+
+        {/* Mode description */}
+        <p className="text-[10px] text-muted-foreground">
+          {calcMode === "checkout"
+            ? "Tỷ giá Realtime + phí 4% (phí xử lý thanh toán quốc tế)"
+            : "Tỷ giá Pickup do bạn nhập thủ công ở bảng trên"}
+        </p>
+
+        {/* Inputs row */}
+        <div className="flex gap-2">
+          <input
+            type="number"
+            min="0"
+            placeholder="Nhập số tiền..."
+            value={calcAmount}
+            onChange={(e) => setCalcAmount(e.target.value)}
+            className="flex-1 text-sm border border-border rounded-xl px-3 py-2 bg-background outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50 transition-all"
+          />
+          <select
+            value={calcCurrency}
+            onChange={(e) => setCalcCurrency(e.target.value)}
+            className="shrink-0 text-sm border border-border rounded-xl px-2.5 py-2 bg-background outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50 transition-all"
+          >
+            {CURRENCY_ROWS.map((r) => (
+              <option key={r.code} value={r.code}>{r.flag} {r.code}</option>
+            ))}
+          </select>
+        </div>
+
+        {/* Result */}
+        {(() => {
+          const amt = parseFloat(calcAmount);
+          if (!calcAmount || isNaN(amt) || amt <= 0) return null;
+
+          const row = CURRENCY_ROWS.find((r) => r.code === calcCurrency)!;
+
+          if (calcMode === "checkout") {
+            const rt = realtimeRates[calcCurrency];
+            if (!rt) return (
+              <p className="text-xs text-muted-foreground text-center py-2">Chưa có tỷ giá Realtime cho {calcCurrency}</p>
+            );
+            const base = amt * rt;
+            const fee = base * 0.04;
+            const total = base + fee;
+            return (
+              <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 space-y-1.5">
+                <div className="flex justify-between text-xs">
+                  <span className="text-muted-foreground">{amt.toLocaleString("vi-VN")} {calcCurrency} × {fmtRate(rt)}</span>
+                  <span className="font-semibold">{new Intl.NumberFormat("vi-VN").format(Math.round(base))} ₫</span>
+                </div>
+                <div className="flex justify-between text-xs">
+                  <span className="text-muted-foreground">Phí 4%</span>
+                  <span className="font-semibold text-orange-600">+ {new Intl.NumberFormat("vi-VN").format(Math.round(fee))} ₫</span>
+                </div>
+                <div className="border-t border-blue-200 pt-1.5 flex justify-between">
+                  <span className="text-xs font-bold text-blue-800">Tổng</span>
+                  <span className="text-base font-black text-blue-700">{new Intl.NumberFormat("vi-VN").format(Math.round(total))} ₫</span>
+                </div>
+              </div>
+            );
+          } else {
+            const pickupStr = manual[calcCurrency]?.pickup;
+            if (!pickupStr) return (
+              <div className="bg-amber-50 border border-amber-200 rounded-xl px-3 py-2.5 text-xs text-amber-700">
+                Chưa nhập tỷ giá Pickup cho {row.flag} {calcCurrency}. Bấm vào cột Pickup ở bảng trên để thêm.
+              </div>
+            );
+            const pickupRate = parseFloat(pickupStr);
+            const total = amt * pickupRate;
+            return (
+              <div className="bg-violet-50 border border-violet-200 rounded-xl p-3 space-y-1.5">
+                <div className="flex justify-between text-xs">
+                  <span className="text-muted-foreground">{amt.toLocaleString("vi-VN")} {calcCurrency} × {new Intl.NumberFormat("vi-VN").format(pickupRate)} (pickup)</span>
+                  <span className="font-semibold">{new Intl.NumberFormat("vi-VN").format(Math.round(total))} ₫</span>
+                </div>
+                <div className="border-t border-violet-200 pt-1.5 flex justify-between">
+                  <span className="text-xs font-bold text-violet-800">Tổng</span>
+                  <span className="text-base font-black text-violet-700">{new Intl.NumberFormat("vi-VN").format(Math.round(total))} ₫</span>
+                </div>
+              </div>
+            );
+          }
+        })()}
+      </div>
     </div>
   );
 }
