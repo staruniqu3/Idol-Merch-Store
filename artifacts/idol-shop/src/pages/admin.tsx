@@ -2620,6 +2620,21 @@ function fmtRate(n: number) {
   return n.toFixed(2);
 }
 
+type ProfitEntry = {
+  id: string; date: string; amount: number;
+  type: "le" | "si"; profitPct: number; profitAmount: number; note: string;
+};
+type FixedExpense = { id: string; name: string; monthlyAmount: number };
+
+const PROFIT_ENTRIES_KEY  = "admin_profit_entries";
+const PROFIT_EXPENSES_KEY = "admin_profit_expenses";
+const PROFIT_JAR_KEY      = "admin_profit_jar";
+
+function tierPct(amount: number, type: "le" | "si") {
+  const base = amount < 500_000 ? 0.10 : amount <= 2_000_000 ? 0.08 : 0.05;
+  return type === "si" ? base - 0.01 : base;
+}
+
 function CostTab() {
   const base = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
   const [realtimeRates, setRealtimeRates] = useState<Record<string, number>>({});
@@ -2641,6 +2656,45 @@ function CostTab() {
   const [calcShip, setCalcShip] = useState("");
   const [calcServiceMode, setCalcServiceMode] = useState<"percent" | "fixed">("percent");
   const [calcServiceValue, setCalcServiceValue] = useState("");
+
+  // Monthly profit state
+  const [profitEntries, setProfitEntries] = useState<ProfitEntry[]>(() => {
+    try { return JSON.parse(localStorage.getItem(PROFIT_ENTRIES_KEY) || "[]"); } catch { return []; }
+  });
+  const [profitExpenses, setProfitExpenses] = useState<FixedExpense[]>(() => {
+    try { return JSON.parse(localStorage.getItem(PROFIT_EXPENSES_KEY) || "[]"); } catch { return []; }
+  });
+  const [jarName, setJarName] = useState(() => localStorage.getItem(PROFIT_JAR_KEY) || "Hũ tích lũy");
+  const [editingJar, setEditingJar] = useState(false);
+
+  const [newSaleAmt, setNewSaleAmt] = useState("");
+  const [newSaleType, setNewSaleType] = useState<"le" | "si">("le");
+  const [newSaleNote, setNewSaleNote] = useState("");
+
+  const [newExpName, setNewExpName] = useState("");
+  const [newExpAmt, setNewExpAmt] = useState("");
+
+  const saveProfitEntries = (next: ProfitEntry[]) => { setProfitEntries(next); localStorage.setItem(PROFIT_ENTRIES_KEY, JSON.stringify(next)); };
+  const saveProfitExpenses = (next: FixedExpense[]) => { setProfitExpenses(next); localStorage.setItem(PROFIT_EXPENSES_KEY, JSON.stringify(next)); };
+
+  const addProfitEntry = () => {
+    const amount = parseFloat(newSaleAmt);
+    if (!amount || amount <= 0) return;
+    const pct = tierPct(amount, newSaleType);
+    const entry: ProfitEntry = {
+      id: crypto.randomUUID(), date: new Date().toISOString().slice(0, 10),
+      amount, type: newSaleType, profitPct: pct, profitAmount: amount * pct, note: newSaleNote,
+    };
+    saveProfitEntries([entry, ...profitEntries]);
+    setNewSaleAmt(""); setNewSaleNote("");
+  };
+
+  const addExpense = () => {
+    const amt = parseFloat(newExpAmt);
+    if (!newExpName.trim() || !amt || amt <= 0) return;
+    saveProfitExpenses([...profitExpenses, { id: crypto.randomUUID(), name: newExpName.trim(), monthlyAmount: amt }]);
+    setNewExpName(""); setNewExpAmt("");
+  };
 
   useEffect(() => {
     fetch(`${base}/api/exchange-rates`, { cache: "no-store" })
@@ -3080,6 +3134,273 @@ function CostTab() {
             const pickupRate = pickupStr ? parseFloat(pickupStr) : 0;
             return renderPair(pickupRate, `${vnd(pickupRate)} (pickup)`, "bg-violet-50", "violet-200", "text-violet-700");
           }
+        })()}
+      </div>
+
+      {/* ══════════════════════════════════════
+          PHẦN LỢI NHUẬN THÁNG
+      ══════════════════════════════════════ */}
+      <div className="space-y-3">
+        <div className="flex items-center gap-2">
+          <div className="flex-1 h-px bg-border" />
+          <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Lợi Nhuận Tháng</span>
+          <div className="flex-1 h-px bg-border" />
+        </div>
+
+        {/* ── Nhập doanh thu ── */}
+        <div className="bg-card border border-border rounded-2xl p-4 space-y-3">
+          <h5 className="text-sm font-bold">Nhập doanh thu</h5>
+
+          {/* Toggle khách lẻ / sỉ */}
+          <div className="flex gap-2">
+            {(["le", "si"] as const).map((t) => (
+              <button
+                key={t}
+                type="button"
+                onClick={() => setNewSaleType(t)}
+                className={`flex-1 text-xs font-bold py-1.5 rounded-xl border transition-all ${
+                  newSaleType === t
+                    ? t === "le" ? "bg-emerald-600 text-white border-emerald-600" : "bg-red-500 text-white border-red-500"
+                    : "bg-card text-muted-foreground border-border"
+                }`}
+              >
+                {t === "le" ? "Khách lẻ" : "Khách sỉ"}
+              </button>
+            ))}
+          </div>
+
+          {/* Amount input */}
+          <div className="flex gap-2">
+            <input
+              type="number" min="0"
+              placeholder="Doanh thu (VNĐ)..."
+              value={newSaleAmt}
+              onChange={(e) => setNewSaleAmt(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && addProfitEntry()}
+              className="flex-1 text-sm border border-border rounded-xl px-3 py-2 bg-background outline-none focus:ring-2 focus:ring-primary/30 transition-all"
+            />
+            <button
+              type="button" onClick={addProfitEntry}
+              className="shrink-0 bg-primary text-white text-xs font-bold px-3 rounded-xl hover:bg-primary/90 transition-colors"
+            >
+              <Plus size={14} />
+            </button>
+          </div>
+
+          {/* Profit preview */}
+          {(() => {
+            const a = parseFloat(newSaleAmt);
+            if (!a || a <= 0) return null;
+            const pct = tierPct(a, newSaleType);
+            const profit = a * pct;
+            const vnd2 = (n: number) => new Intl.NumberFormat("vi-VN").format(Math.round(n));
+            return (
+              <div className={`flex items-center justify-between px-3 py-2 rounded-xl text-xs ${newSaleType === "le" ? "bg-emerald-50 border border-emerald-200" : "bg-red-50 border border-red-200"}`}>
+                <span className="text-muted-foreground">
+                  {vnd2(a)} ₫ × {(pct * 100).toFixed(0)}% {newSaleType === "le" ? "(lẻ)" : "(sỉ)"}
+                </span>
+                <span className={`font-black ${newSaleType === "le" ? "text-emerald-700" : "text-red-700"}`}>
+                  = {vnd2(profit)} ₫
+                </span>
+              </div>
+            );
+          })()}
+
+          {/* Note input */}
+          <input
+            type="text" placeholder="Ghi chú (tuỳ chọn)..."
+            value={newSaleNote}
+            onChange={(e) => setNewSaleNote(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && addProfitEntry()}
+            className="w-full text-sm border border-border rounded-xl px-3 py-2 bg-background outline-none focus:ring-2 focus:ring-primary/30 transition-all"
+          />
+
+          {/* Entries list */}
+          {profitEntries.length > 0 && (
+            <div className="space-y-1.5 max-h-48 overflow-y-auto">
+              {profitEntries.map((e) => {
+                const vnd2 = (n: number) => new Intl.NumberFormat("vi-VN").format(Math.round(n));
+                return (
+                  <div key={e.id} className="flex items-center gap-2 bg-muted/30 rounded-xl px-3 py-2">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-lg ${e.type === "le" ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700"}`}>
+                          {e.type === "le" ? "lẻ" : "sỉ"}
+                        </span>
+                        <span className="text-[10px] text-muted-foreground">{new Date(e.date).toLocaleDateString("vi-VN")}</span>
+                        {e.note && <span className="text-[10px] text-muted-foreground truncate">{e.note}</span>}
+                      </div>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <span className="text-xs text-muted-foreground">{vnd2(e.amount)} ₫</span>
+                        <span className="text-[10px] text-muted-foreground">→ lời {(e.profitPct * 100).toFixed(0)}%</span>
+                        <span className="text-xs font-bold text-emerald-700">+{vnd2(e.profitAmount)} ₫</span>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => saveProfitEntries(profitEntries.filter((x) => x.id !== e.id))}
+                      className="text-muted-foreground hover:text-destructive transition-colors shrink-0"
+                    >
+                      <Trash2 size={12} />
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* ── Chi phí cố định ── */}
+        <div className="bg-card border border-border rounded-2xl p-4 space-y-3">
+          <h5 className="text-sm font-bold">Chi phí cố định / tháng</h5>
+
+          <div className="flex gap-2">
+            <input
+              type="text" placeholder="Tên khoản chi (VD: Thuê kho)..."
+              value={newExpName}
+              onChange={(e) => setNewExpName(e.target.value)}
+              className="flex-1 text-sm border border-border rounded-xl px-3 py-2 bg-background outline-none focus:ring-2 focus:ring-primary/30 transition-all"
+            />
+            <input
+              type="number" min="0" placeholder="₫/tháng"
+              value={newExpAmt}
+              onChange={(e) => setNewExpAmt(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && addExpense()}
+              className="w-28 text-sm border border-border rounded-xl px-3 py-2 bg-background outline-none focus:ring-2 focus:ring-primary/30 transition-all"
+            />
+            <button
+              type="button" onClick={addExpense}
+              className="shrink-0 bg-primary text-white text-xs font-bold px-3 rounded-xl hover:bg-primary/90 transition-colors"
+            >
+              <Plus size={14} />
+            </button>
+          </div>
+
+          {profitExpenses.length === 0 ? (
+            <p className="text-xs text-muted-foreground text-center py-2">Chưa có khoản chi cố định nào</p>
+          ) : (
+            <div className="space-y-1">
+              {/* Header */}
+              <div className="grid grid-cols-[1fr_auto_auto_auto] gap-2 px-2 text-[10px] font-bold text-muted-foreground uppercase">
+                <span>Khoản chi</span>
+                <span className="text-right">/tháng</span>
+                <span className="text-right">/ngày</span>
+                <span />
+              </div>
+              {profitExpenses.map((exp) => {
+                const vnd2 = (n: number) => new Intl.NumberFormat("vi-VN").format(Math.round(n));
+                return (
+                  <div key={exp.id} className="grid grid-cols-[1fr_auto_auto_auto] gap-2 items-center bg-muted/30 rounded-xl px-3 py-2">
+                    <span className="text-xs font-semibold truncate">{exp.name}</span>
+                    <span className="text-xs text-muted-foreground text-right">{vnd2(exp.monthlyAmount)} ₫</span>
+                    <span className="text-xs font-bold text-orange-600 text-right">{vnd2(exp.monthlyAmount / 30)} ₫</span>
+                    <button
+                      type="button"
+                      onClick={() => saveProfitExpenses(profitExpenses.filter((x) => x.id !== exp.id))}
+                      className="text-muted-foreground hover:text-destructive transition-colors"
+                    >
+                      <Trash2 size={12} />
+                    </button>
+                  </div>
+                );
+              })}
+              <div className="flex justify-between px-3 pt-1 border-t border-border text-xs font-bold">
+                <span>Tổng</span>
+                <span className="text-orange-700">
+                  {new Intl.NumberFormat("vi-VN").format(Math.round(profitExpenses.reduce((s, e) => s + e.monthlyAmount, 0)))} ₫/tháng
+                </span>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* ── Tổng kết tháng ── */}
+        {(() => {
+          const vnd2 = (n: number) => new Intl.NumberFormat("vi-VN").format(Math.round(n));
+          const totalRevenue = profitEntries.reduce((s, e) => s + e.amount, 0);
+          const totalProfit  = profitEntries.reduce((s, e) => s + e.profitAmount, 0);
+          const totalFixed   = profitExpenses.reduce((s, e) => s + e.monthlyAmount, 0);
+          const netProfit    = totalProfit - totalFixed;
+          if (profitEntries.length === 0 && profitExpenses.length === 0) return null;
+
+          return (
+            <div className="bg-card border border-border rounded-2xl p-4 space-y-2.5">
+              <h5 className="text-sm font-bold">Tổng kết tháng</h5>
+
+              <div className="space-y-1.5">
+                <div className="flex justify-between text-xs">
+                  <span className="text-muted-foreground">Tổng doanh thu</span>
+                  <span className="font-semibold">{vnd2(totalRevenue)} ₫</span>
+                </div>
+                <div className="flex justify-between text-xs">
+                  <span className="text-muted-foreground">Tổng lợi nhuận gộp</span>
+                  <span className="font-semibold text-emerald-700">+ {vnd2(totalProfit)} ₫</span>
+                </div>
+                {totalFixed > 0 && (
+                  <div className="flex justify-between text-xs">
+                    <span className="text-muted-foreground">Chi phí cố định ({profitExpenses.length} khoản)</span>
+                    <span className="font-semibold text-orange-600">− {vnd2(totalFixed)} ₫</span>
+                  </div>
+                )}
+
+                {/* Expense breakdown (daily contribution) */}
+                {profitExpenses.length > 0 && (
+                  <div className="ml-3 space-y-0.5">
+                    {profitExpenses.map((exp) => (
+                      <div key={exp.id} className="flex justify-between text-[10px] text-muted-foreground">
+                        <span>└ {exp.name}</span>
+                        <span>{vnd2(exp.monthlyAmount / 30)} ₫/ngày → {vnd2(exp.monthlyAmount)} ₫/tháng</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <div className="border-t border-border pt-2 flex justify-between items-center">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs font-bold">Vào</span>
+                    {editingJar ? (
+                      <input
+                        autoFocus
+                        type="text"
+                        value={jarName}
+                        onChange={(e) => setJarName(e.target.value)}
+                        onBlur={() => { setEditingJar(false); localStorage.setItem(PROFIT_JAR_KEY, jarName); }}
+                        onKeyDown={(e) => { if (e.key === "Enter" || e.key === "Escape") { setEditingJar(false); localStorage.setItem(PROFIT_JAR_KEY, jarName); } }}
+                        className="text-xs border border-primary rounded-lg px-2 py-0.5 w-28 outline-none bg-background"
+                      />
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setEditingJar(true)}
+                        className="text-xs font-bold text-primary underline underline-offset-2 hover:no-underline transition-all"
+                      >
+                        🫙 {jarName}
+                      </button>
+                    )}
+                  </div>
+                  <span className={`text-base font-black ${netProfit >= 0 ? "text-emerald-700" : "text-destructive"}`}>
+                    {netProfit >= 0 ? "" : "−"}{vnd2(Math.abs(netProfit))} ₫
+                  </span>
+                </div>
+
+                {netProfit < 0 && (
+                  <p className="text-[10px] text-destructive bg-destructive/10 rounded-lg px-2 py-1">
+                    Chi phí cố định vượt lợi nhuận {vnd2(Math.abs(netProfit))} ₫ — cần tăng doanh thu hoặc giảm chi phí.
+                  </p>
+                )}
+              </div>
+
+              {profitEntries.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => { if (confirm("Xoá toàn bộ lịch sử doanh thu tháng này?")) saveProfitEntries([]); }}
+                  className="w-full text-[10px] text-muted-foreground border border-border rounded-xl py-1.5 hover:border-destructive hover:text-destructive transition-colors"
+                >
+                  Reset doanh thu tháng
+                </button>
+              )}
+            </div>
+          );
         })()}
       </div>
     </div>
