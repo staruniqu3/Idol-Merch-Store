@@ -2628,7 +2628,9 @@ type FixedExpense = { id: string; name: string; monthlyAmount: number };
 
 const PROFIT_ENTRIES_KEY  = "admin_profit_entries";
 const PROFIT_EXPENSES_KEY = "admin_profit_expenses";
-const PROFIT_JAR_KEY      = "admin_profit_jar";
+const PROFIT_JARS_KEY     = "admin_profit_jars";
+
+type ProfitJar = { id: string; name: string; amount: number };
 
 function tierPct(amount: number, type: "le" | "si") {
   const base = amount < 500_000 ? 0.10 : amount <= 2_000_000 ? 0.08 : 0.05;
@@ -2664,8 +2666,31 @@ function CostTab() {
   const [profitExpenses, setProfitExpenses] = useState<FixedExpense[]>(() => {
     try { return JSON.parse(localStorage.getItem(PROFIT_EXPENSES_KEY) || "[]"); } catch { return []; }
   });
-  const [jarName, setJarName] = useState(() => localStorage.getItem(PROFIT_JAR_KEY) || "Hũ tích lũy");
-  const [editingJar, setEditingJar] = useState(false);
+  const [jars, setJars] = useState<ProfitJar[]>(() => {
+    try { return JSON.parse(localStorage.getItem(PROFIT_JARS_KEY) || "[]"); } catch { return []; }
+  });
+  const [newJarName, setNewJarName] = useState("");
+  const [editingJarId, setEditingJarId] = useState<string | null>(null);
+  const [editingJarField, setEditingJarField] = useState<"name" | "amount">("name");
+  const [editingJarVal, setEditingJarVal] = useState("");
+
+  const saveJars = (next: ProfitJar[]) => { setJars(next); localStorage.setItem(PROFIT_JARS_KEY, JSON.stringify(next)); };
+  const addJar = () => {
+    if (!newJarName.trim()) return;
+    saveJars([...jars, { id: crypto.randomUUID(), name: newJarName.trim(), amount: 0 }]);
+    setNewJarName("");
+  };
+  const startEditJar = (id: string, field: "name" | "amount", current: string) => {
+    setEditingJarId(id); setEditingJarField(field); setEditingJarVal(current);
+  };
+  const commitEditJar = () => {
+    if (!editingJarId) return;
+    saveJars(jars.map((j) => j.id === editingJarId
+      ? { ...j, [editingJarField]: editingJarField === "amount" ? parseFloat(editingJarVal) || 0 : editingJarVal }
+      : j
+    ));
+    setEditingJarId(null);
+  };
 
   const [newSaleAmt, setNewSaleAmt] = useState("");
   const [newSaleType, setNewSaleType] = useState<"le" | "si">("le");
@@ -3355,38 +3380,121 @@ function CostTab() {
                   </div>
                 )}
 
+                {/* Net profit line */}
                 <div className="border-t border-border pt-2 flex justify-between items-center">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-xs font-bold">Vào</span>
-                    {editingJar ? (
-                      <input
-                        autoFocus
-                        type="text"
-                        value={jarName}
-                        onChange={(e) => setJarName(e.target.value)}
-                        onBlur={() => { setEditingJar(false); localStorage.setItem(PROFIT_JAR_KEY, jarName); }}
-                        onKeyDown={(e) => { if (e.key === "Enter" || e.key === "Escape") { setEditingJar(false); localStorage.setItem(PROFIT_JAR_KEY, jarName); } }}
-                        className="text-xs border border-primary rounded-lg px-2 py-0.5 w-28 outline-none bg-background"
-                      />
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => setEditingJar(true)}
-                        className="text-xs font-bold text-primary underline underline-offset-2 hover:no-underline transition-all"
-                      >
-                        🫙 {jarName}
-                      </button>
-                    )}
-                  </div>
+                  <span className="text-xs font-bold">Lợi nhuận ròng</span>
                   <span className={`text-base font-black ${netProfit >= 0 ? "text-emerald-700" : "text-destructive"}`}>
-                    {netProfit >= 0 ? "" : "−"}{vnd2(Math.abs(netProfit))} ₫
+                    {netProfit >= 0 ? "+" : "−"}{vnd2(Math.abs(netProfit))} ₫
                   </span>
                 </div>
 
                 {netProfit < 0 && (
                   <p className="text-[10px] text-destructive bg-destructive/10 rounded-lg px-2 py-1">
-                    Chi phí cố định vượt lợi nhuận {vnd2(Math.abs(netProfit))} ₫ — cần tăng doanh thu hoặc giảm chi phí.
+                    Chi phí vượt lợi nhuận {vnd2(Math.abs(netProfit))} ₫ — cần tăng doanh thu hoặc giảm chi phí.
                   </p>
+                )}
+
+                {/* ── Phân bổ hũ ── */}
+                {netProfit > 0 && (
+                  <div className="pt-1 space-y-2">
+                    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide">Phân bổ vào hũ</p>
+
+                    {/* Jar list */}
+                    {jars.length === 0 ? (
+                      <p className="text-[10px] text-muted-foreground italic">Chưa có hũ nào — thêm bên dưới</p>
+                    ) : (
+                      <div className="space-y-1">
+                        {jars.map((jar) => {
+                          const isEditingName   = editingJarId === jar.id && editingJarField === "name";
+                          const isEditingAmount = editingJarId === jar.id && editingJarField === "amount";
+                          return (
+                            <div key={jar.id} className="flex items-center gap-2 bg-muted/30 rounded-xl px-2.5 py-1.5">
+                              <span className="text-sm shrink-0">🫙</span>
+
+                              {/* Name */}
+                              {isEditingName ? (
+                                <input
+                                  autoFocus type="text" value={editingJarVal}
+                                  onChange={(e) => setEditingJarVal(e.target.value)}
+                                  onBlur={commitEditJar}
+                                  onKeyDown={(e) => { if (e.key === "Enter" || e.key === "Escape") commitEditJar(); }}
+                                  className="flex-1 text-xs border border-primary rounded-lg px-2 py-0.5 outline-none bg-background"
+                                />
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => startEditJar(jar.id, "name", jar.name)}
+                                  className="flex-1 text-xs font-semibold text-left hover:text-primary transition-colors truncate"
+                                >
+                                  {jar.name}
+                                </button>
+                              )}
+
+                              {/* Amount */}
+                              {isEditingAmount ? (
+                                <input
+                                  autoFocus type="number" value={editingJarVal}
+                                  onChange={(e) => setEditingJarVal(e.target.value)}
+                                  onBlur={commitEditJar}
+                                  onKeyDown={(e) => { if (e.key === "Enter" || e.key === "Escape") commitEditJar(); }}
+                                  className="w-28 text-xs text-right border border-primary rounded-lg px-2 py-0.5 outline-none bg-background"
+                                />
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => startEditJar(jar.id, "amount", String(jar.amount))}
+                                  className={`text-xs font-bold text-right min-w-[5rem] rounded-lg px-1.5 py-0.5 transition-colors ${
+                                    jar.amount > 0 ? "text-emerald-700 hover:bg-emerald-50" : "text-muted-foreground/50 hover:bg-muted"
+                                  }`}
+                                >
+                                  {jar.amount > 0 ? `${vnd2(jar.amount)} ₫` : "nhập…"}
+                                </button>
+                              )}
+
+                              <button
+                                type="button"
+                                onClick={() => saveJars(jars.filter((x) => x.id !== jar.id))}
+                                className="text-muted-foreground hover:text-destructive transition-colors shrink-0"
+                              >
+                                <Trash2 size={11} />
+                              </button>
+                            </div>
+                          );
+                        })}
+
+                        {/* Allocated vs remaining */}
+                        {(() => {
+                          const allocated = jars.reduce((s, j) => s + j.amount, 0);
+                          const remaining = netProfit - allocated;
+                          return (
+                            <div className="flex justify-between text-[10px] px-2 pt-0.5">
+                              <span className="text-muted-foreground">Đã phân bổ: {vnd2(allocated)} ₫</span>
+                              <span className={remaining < 0 ? "text-destructive font-bold" : remaining === 0 ? "text-emerald-600 font-bold" : "text-muted-foreground"}>
+                                {remaining === 0 ? "✓ Đủ" : remaining > 0 ? `Còn lại: ${vnd2(remaining)} ₫` : `Vượt: ${vnd2(Math.abs(remaining))} ₫`}
+                              </span>
+                            </div>
+                          );
+                        })()}
+                      </div>
+                    )}
+
+                    {/* Add new jar */}
+                    <div className="flex gap-1.5">
+                      <input
+                        type="text" placeholder="Tên hũ mới (VD: Lương, Đầu tư)..."
+                        value={newJarName}
+                        onChange={(e) => setNewJarName(e.target.value)}
+                        onKeyDown={(e) => e.key === "Enter" && addJar()}
+                        className="flex-1 text-xs border border-border rounded-xl px-2.5 py-1.5 bg-background outline-none focus:ring-2 focus:ring-primary/30 transition-all"
+                      />
+                      <button
+                        type="button" onClick={addJar}
+                        className="shrink-0 bg-primary/10 text-primary text-xs font-bold px-2.5 rounded-xl hover:bg-primary/20 transition-colors"
+                      >
+                        <Plus size={13} />
+                      </button>
+                    </div>
+                  </div>
                 )}
               </div>
 
