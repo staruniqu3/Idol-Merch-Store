@@ -2633,6 +2633,7 @@ const PROFIT_EXPENSES_KEY = "admin_profit_expenses";
 const PROFIT_JARS_KEY     = "admin_profit_jars";
 const VARIABLE_EXP_KEY    = "admin_variable_exps";
 const COLLECTIONS_KEY     = "admin_collections";
+const SHIPPER_STAFF_KEY   = "admin_shipper_staff";
 
 type ProfitJar = { id: string; name: string; amount: number };
 
@@ -2762,6 +2763,31 @@ function CostTab() {
     if (!editingColName.trim() || !amt || amt <= 0) { setEditingColId(null); return; }
     saveCollections(collections.map((e) => e.id === editingColId ? { ...e, name: editingColName.trim(), amount: amt } : e));
     setEditingColId(null);
+  };
+
+  // ── Trả cho Shipper Staff ──
+  const [shipperPayments, setShipperPayments] = useState<FlexEntry[]>(() => {
+    try { return JSON.parse(localStorage.getItem(SHIPPER_STAFF_KEY) || "[]"); } catch { return []; }
+  });
+  const [newShipName, setNewShipName] = useState("");
+  const [newShipAmt,  setNewShipAmt]  = useState("");
+  const saveShipperPayments = (next: FlexEntry[]) => { setShipperPayments(next); localStorage.setItem(SHIPPER_STAFF_KEY, JSON.stringify(next)); };
+  const addShipperPayment = () => {
+    const amt = parseFloat(newShipAmt);
+    if (!newShipName.trim() || !amt || amt <= 0) return;
+    saveShipperPayments([...shipperPayments, { id: crypto.randomUUID(), name: newShipName.trim(), amount: amt, date: new Date().toISOString().slice(0, 10) }]);
+    setNewShipName(""); setNewShipAmt("");
+  };
+  const [editingShipId,   setEditingShipId]   = useState<string | null>(null);
+  const [editingShipName, setEditingShipName] = useState("");
+  const [editingShipAmt,  setEditingShipAmt]  = useState("");
+  const startEditShip = (e: FlexEntry) => { setEditingShipId(e.id); setEditingShipName(e.name); setEditingShipAmt(String(e.amount)); };
+  const commitEditShip = () => {
+    if (!editingShipId) return;
+    const amt = parseFloat(editingShipAmt);
+    if (!editingShipName.trim() || !amt || amt <= 0) { setEditingShipId(null); return; }
+    saveShipperPayments(shipperPayments.map((e) => e.id === editingShipId ? { ...e, name: editingShipName.trim(), amount: amt } : e));
+    setEditingShipId(null);
   };
 
   const currentMonth = new Date().toISOString().slice(0, 7);
@@ -3646,6 +3672,74 @@ function CostTab() {
           );
         })()}
 
+        {/* ── Trả cho Shipper Staff ── */}
+        {(() => {
+          const vnd2 = (n: number) => new Intl.NumberFormat("vi-VN").format(Math.round(n));
+          const monthTotal = shipperPayments
+            .filter((e) => e.date.startsWith(selectedSummaryMonth))
+            .reduce((s, e) => s + e.amount, 0);
+
+          const renderRow = (e: FlexEntry) => {
+            const isEditing = editingShipId === e.id;
+            if (isEditing) return (
+              <div key={e.id} className="flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2">
+                <input autoFocus type="text" value={editingShipName} onChange={(ev) => setEditingShipName(ev.target.value)}
+                  onKeyDown={(ev) => { if (ev.key === "Enter") commitEditShip(); if (ev.key === "Escape") setEditingShipId(null); }}
+                  className="flex-1 text-xs border border-amber-300 rounded-lg px-2 py-1 bg-white outline-none focus:ring-1 focus:ring-amber-400 min-w-0" placeholder="Tên / ghi chú" />
+                <input type="number" value={editingShipAmt} onChange={(ev) => setEditingShipAmt(ev.target.value)}
+                  onKeyDown={(ev) => { if (ev.key === "Enter") commitEditShip(); if (ev.key === "Escape") setEditingShipId(null); }}
+                  className="w-28 text-xs text-right border border-amber-300 rounded-lg px-2 py-1 bg-white outline-none shrink-0" placeholder="₫" />
+                <button type="button" onClick={commitEditShip} className="text-emerald-600 hover:text-emerald-700 transition-colors shrink-0"><Check size={14} /></button>
+                <button type="button" onClick={() => setEditingShipId(null)} className="text-muted-foreground hover:text-foreground transition-colors shrink-0"><X size={14} /></button>
+              </div>
+            );
+            return (
+              <div key={e.id} className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-2 items-center bg-muted/30 rounded-xl px-3 py-2">
+                <div className="min-w-0">
+                  <p className="text-xs font-semibold truncate">{e.name}</p>
+                  <p className="text-[10px] text-muted-foreground">{new Date(e.date).toLocaleDateString("vi-VN")}</p>
+                </div>
+                <span className="text-xs font-bold text-amber-700 text-right">{vnd2(e.amount)} ₫</span>
+                <button type="button" onClick={() => startEditShip(e)} className="text-muted-foreground hover:text-violet-600 transition-colors"><Pencil size={12} /></button>
+                <button type="button" onClick={() => saveShipperPayments(shipperPayments.filter((x) => x.id !== e.id))} className="text-muted-foreground hover:text-destructive transition-colors"><Trash2 size={12} /></button>
+              </div>
+            );
+          };
+
+          return (
+            <div className="bg-card border border-border rounded-2xl p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <h5 className="text-sm font-bold">Trả cho Shipper Staff</h5>
+                {monthTotal > 0 && <span className="text-[10px] text-amber-700 font-bold">{vnd2(monthTotal)} ₫ tháng này</span>}
+              </div>
+              <p className="text-[10px] text-muted-foreground -mt-1">Thù lao trả riêng cho nhân viên đi giao hàng…</p>
+
+              <div className="flex gap-2">
+                <input type="text" placeholder="Tên / ghi chú (VD: Ship Hà Nội tháng 4)..." value={newShipName}
+                  onChange={(e) => setNewShipName(e.target.value)}
+                  className="flex-1 text-sm border border-border rounded-xl px-3 py-2 bg-background outline-none focus:ring-2 focus:ring-primary/30 transition-all" />
+                <input type="number" min="0" placeholder="₫" value={newShipAmt}
+                  onChange={(e) => setNewShipAmt(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && addShipperPayment()}
+                  className="w-28 text-sm border border-border rounded-xl px-3 py-2 bg-background outline-none focus:ring-2 focus:ring-primary/30 transition-all" />
+                <button type="button" onClick={addShipperPayment} className="shrink-0 bg-primary text-white text-xs font-bold px-3 rounded-xl hover:bg-primary/90 transition-colors"><Plus size={14} /></button>
+              </div>
+
+              {shipperPayments.length === 0 ? (
+                <p className="text-xs text-muted-foreground text-center py-2">Chưa có khoản thù lao nào</p>
+              ) : (
+                <div className="space-y-1">
+                  {shipperPayments.map(renderRow)}
+                  <div className="flex justify-between px-3 pt-1 border-t border-border text-xs font-bold">
+                    <span>Tổng</span>
+                    <span className="text-amber-700">{vnd2(shipperPayments.reduce((s, e) => s + e.amount, 0))} ₫</span>
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })()}
+
         {/* ── Tổng kết tháng ── */}
         {(() => {
           const vnd2 = (n: number) => new Intl.NumberFormat("vi-VN").format(Math.round(n));
@@ -3655,8 +3749,9 @@ function CostTab() {
           const totalFixed    = profitExpenses.reduce((s, e) => s + e.monthlyAmount, 0);
           const totalVariable = variableExps.filter((e) => e.date.startsWith(selectedSummaryMonth)).reduce((s, e) => s + e.amount, 0);
           const totalCollect  = collections.filter((e) => e.date.startsWith(selectedSummaryMonth)).reduce((s, e) => s + e.amount, 0);
-          const netProfit     = totalProfit - totalFixed - totalVariable + totalCollect;
-          if (profitEntries.length === 0 && profitExpenses.length === 0 && variableExps.length === 0 && collections.length === 0) return null;
+          const totalShipper  = shipperPayments.filter((e) => e.date.startsWith(selectedSummaryMonth)).reduce((s, e) => s + e.amount, 0);
+          const netProfit     = totalProfit - totalFixed - totalVariable + totalCollect - totalShipper;
+          if (profitEntries.length === 0 && profitExpenses.length === 0 && variableExps.length === 0 && collections.length === 0 && shipperPayments.length === 0) return null;
 
           const availableMonths = [...new Set(profitEntries.map((e) => e.date.slice(0, 7)))].sort((a, b) => b.localeCompare(a));
           if (!availableMonths.includes(selectedSummaryMonth) && availableMonths.length > 0 && monthEntries.length === 0) {
@@ -3724,6 +3819,12 @@ function CostTab() {
                   <div className="flex justify-between text-xs">
                     <span className="text-muted-foreground">Thu từ khách tháng này</span>
                     <span className="font-semibold text-teal-600">+ {vnd2(totalCollect)} ₫</span>
+                  </div>
+                )}
+                {totalShipper > 0 && (
+                  <div className="flex justify-between text-xs">
+                    <span className="text-muted-foreground">Trả Shipper Staff tháng này</span>
+                    <span className="font-semibold text-amber-700">− {vnd2(totalShipper)} ₫</span>
                   </div>
                 )}
 
