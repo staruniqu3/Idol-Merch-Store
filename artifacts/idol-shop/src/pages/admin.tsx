@@ -1485,10 +1485,11 @@ function PreorderTab() {
 }
 
 // ===================== Statistics =====================
-const STATS_ACCOUNTED_KEY     = "stats_accounted_order_ids";
-const STATS_ORDERED_ITEMS_KEY  = "stats_ordered_items";
-const STATS_BATCH_HISTORY_KEY  = "stats_batch_history";
-const STATS_RECEIVED_ITEMS_KEY = "stats_received_batch_items";
+const STATS_ACCOUNTED_KEY         = "stats_accounted_order_ids";
+const STATS_ACCOUNTED_MANUAL_KEY  = "stats_accounted_manual_ids";
+const STATS_ORDERED_ITEMS_KEY     = "stats_ordered_items";
+const STATS_BATCH_HISTORY_KEY     = "stats_batch_history";
+const STATS_RECEIVED_ITEMS_KEY    = "stats_received_batch_items";
 
 type BatchRecord = {
   completedAt: string;
@@ -1520,6 +1521,9 @@ function StatsTab() {
   const [accountedIds, setAccountedIds] = useState<Set<number>>(() => {
     try { return new Set(JSON.parse(localStorage.getItem(STATS_ACCOUNTED_KEY) || "[]")); } catch { return new Set(); }
   });
+  const [accountedManualIds, setAccountedManualIds] = useState<Set<string>>(() => {
+    try { return new Set(JSON.parse(localStorage.getItem(STATS_ACCOUNTED_MANUAL_KEY) || "[]")); } catch { return new Set(); }
+  });
   const [orderedItems, setOrderedItems] = useState<Set<string>>(() => {
     try { return new Set(JSON.parse(localStorage.getItem(STATS_ORDERED_ITEMS_KEY) || "[]")); } catch { return new Set(); }
   });
@@ -1529,20 +1533,38 @@ function StatsTab() {
   const [expandedBatch, setExpandedBatch] = useState<number | null>(null);
   const [showHistory, setShowHistory] = useState(false);
 
+  // Load manual orders from localStorage
+  const allManualOrders: ManualOrder[] = (() => {
+    try { return JSON.parse(localStorage.getItem(MANUAL_ORDERS_KEY) || "[]"); } catch { return []; }
+  })();
+  const activeManualOrders = allManualOrders.filter(
+    (o) => (o.status === "confirmed" || o.status === "pending") && !accountedManualIds.has(o.id)
+  );
+
   const activeOrders = (orders ?? []).filter(
     (o) => (o.status === "confirmed" || o.status === "pending") && !accountedIds.has(o.id)
   );
 
-  const itemMap: Record<string, { qty: number; revenue: number }> = {};
+  const itemMap: Record<string, { qty: number; revenue: number; sources: Array<"app" | "manual"> }> = {};
   activeOrders.forEach((order) => {
     try {
       const items: Array<{ name: string; quantity: number; price: number }> = JSON.parse(order.items);
       items.forEach((it) => {
-        if (!itemMap[it.name]) itemMap[it.name] = { qty: 0, revenue: 0 };
+        if (!itemMap[it.name]) itemMap[it.name] = { qty: 0, revenue: 0, sources: [] };
         itemMap[it.name].qty += it.quantity;
         itemMap[it.name].revenue += it.price * it.quantity;
+        if (!itemMap[it.name].sources.includes("app")) itemMap[it.name].sources.push("app");
       });
     } catch {}
+  });
+  activeManualOrders.forEach((order) => {
+    order.items.forEach((it) => {
+      if (!it.name.trim()) return;
+      if (!itemMap[it.name]) itemMap[it.name] = { qty: 0, revenue: 0, sources: [] };
+      itemMap[it.name].qty += it.qty;
+      itemMap[it.name].revenue += it.price * it.qty;
+      if (!itemMap[it.name].sources.includes("manual")) itemMap[it.name].sources.push("manual");
+    });
   });
 
   const toggleOrdered = (name: string) => {
@@ -1560,7 +1582,7 @@ function StatsTab() {
       .map(([name, { qty, revenue }]) => ({ name, qty, revenue }));
     const record: BatchRecord = {
       completedAt: new Date().toISOString(),
-      orderCount: activeOrders.length,
+      orderCount: activeOrders.length + activeManualOrders.length,
       totalQty: snapshot.reduce((s, i) => s + i.qty, 0),
       items: snapshot,
     };
@@ -1571,6 +1593,11 @@ function StatsTab() {
     const newAccounted = new Set([...accountedIds, ...activeOrders.map((o) => o.id)]);
     setAccountedIds(newAccounted);
     localStorage.setItem(STATS_ACCOUNTED_KEY, JSON.stringify([...newAccounted]));
+
+    const newAccountedManual = new Set([...accountedManualIds, ...activeManualOrders.map((o) => o.id)]);
+    setAccountedManualIds(newAccountedManual);
+    localStorage.setItem(STATS_ACCOUNTED_MANUAL_KEY, JSON.stringify([...newAccountedManual]));
+
     setOrderedItems(new Set());
     localStorage.removeItem(STATS_ORDERED_ITEMS_KEY);
   };
@@ -1731,8 +1758,12 @@ function StatsTab() {
       <div className="flex items-center justify-between">
         <div>
           <h3 className="font-bold">Hàng Cần Đặt</h3>
-          {activeOrders.length > 0 && (
-            <p className="text-xs text-muted-foreground mt-0.5">{activeOrders.length} đơn cần đặt hàng</p>
+          {(activeOrders.length > 0 || activeManualOrders.length > 0) && (
+            <p className="text-xs text-muted-foreground mt-0.5">
+              {activeOrders.length > 0 && <>{activeOrders.length} đơn App</>}
+              {activeOrders.length > 0 && activeManualOrders.length > 0 && " + "}
+              {activeManualOrders.length > 0 && <>{activeManualOrders.length} nhập tay</>}
+            </p>
           )}
         </div>
         <div className="flex items-center gap-2">
@@ -1745,7 +1776,7 @@ function StatsTab() {
               Bỏ chọn
             </button>
           )}
-          {activeOrders.length > 0 && (
+          {(activeOrders.length > 0 || activeManualOrders.length > 0) && (
             <button
               type="button"
               onClick={handleComplete}
@@ -1760,10 +1791,15 @@ function StatsTab() {
         <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center">
           <Package size={18} className="text-primary" />
         </div>
-        <div>
+        <div className="flex-1 min-w-0">
           <p className="text-2xl font-black">{pendingItems}<span className="text-sm font-normal text-muted-foreground"> / {totalItems}</span></p>
           <p className="text-xs text-muted-foreground">Còn cần đặt / Tổng sản phẩm</p>
         </div>
+        {activeManualOrders.length > 0 && (
+          <span className="text-[9px] font-black bg-amber-100 text-amber-700 border border-amber-200 px-1.5 py-0.5 rounded-full shrink-0">
+            +{activeManualOrders.length} nhập tay
+          </span>
+        )}
       </div>
       {sorted.length === 0 ? (
         <div className="text-center py-8 text-muted-foreground">
@@ -1776,9 +1812,11 @@ function StatsTab() {
         </div>
       ) : (
         <div className="space-y-2">
-          {sorted.map(([name, { qty, revenue }]) => {
+          {sorted.map(([name, { qty, revenue, sources }]) => {
             const pct = totalItems > 0 ? (qty / totalItems) * 100 : 0;
             const isDone = orderedItems.has(name);
+            const hasManual = sources.includes("manual");
+            const hasApp    = sources.includes("app");
             return (
               <button
                 key={name}
@@ -1797,7 +1835,15 @@ function StatsTab() {
                     }`}>
                       {isDone && <div className="w-2 h-2 rounded-full bg-white" />}
                     </div>
-                    <p className={`font-bold text-sm truncate pr-2 ${isDone ? "line-through" : ""}`}>{name}</p>
+                    <div className="flex-1 min-w-0">
+                      <p className={`font-bold text-sm truncate ${isDone ? "line-through" : ""}`}>{name}</p>
+                      {!isDone && (hasManual || hasApp) && (
+                        <div className="flex items-center gap-1 mt-0.5">
+                          {hasApp    && <span className="text-[9px] font-bold bg-primary/10 text-primary px-1.5 py-0.5 rounded-full border border-primary/20">App</span>}
+                          {hasManual && <span className="text-[9px] font-bold bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full border border-amber-200">Nhập tay</span>}
+                        </div>
+                      )}
+                    </div>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
                     <Badge variant="secondary" className={`text-xs font-black ${isDone ? "bg-muted text-muted-foreground border-muted" : "bg-primary/10 text-primary border-primary/20"}`}>
