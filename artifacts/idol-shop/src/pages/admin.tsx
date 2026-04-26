@@ -759,6 +759,12 @@ function OrdersTab() {
 
   const formTotal = formItems.reduce((s, i) => s + i.qty * i.price, 0);
 
+  const resetForm = () => {
+    setFormName(""); setFormPhone(""); setFormNote(""); setFormStatus("pending");
+    setFormDate(new Date().toISOString().slice(0, 10));
+    setFormItems([{ name: "", qty: 1, price: 0 }]);
+  };
+
   const addFormItem = () => setFormItems((p) => [...p, { name: "", qty: 1, price: 0 }]);
   const removeFormItem = (idx: number) => setFormItems((p) => p.filter((_, i) => i !== idx));
   const setFormItem = (idx: number, field: keyof ManualOrderItem, val: string | number) =>
@@ -799,9 +805,7 @@ function OrdersTab() {
     };
     saveManualOrders([newOrder, ...manualOrders]);
     setShowAddForm(false);
-    setFormName(""); setFormPhone(""); setFormNote(""); setFormStatus("pending");
-    setFormDate(new Date().toISOString().slice(0, 10));
-    setFormItems([{ name: "", qty: 1, price: 0 }]);
+    resetForm();
     toast({ title: "Đã thêm đơn nhập tay" });
   };
 
@@ -868,7 +872,7 @@ function OrdersTab() {
               <h3 className="font-bold">Đơn nhập tay</h3>
               <p className="text-xs text-muted-foreground">Không hiển thị với khách — admin only</p>
             </div>
-            <button type="button" onClick={() => setShowAddForm((v) => !v)}
+            <button type="button" onClick={() => { if (showAddForm) resetForm(); setShowAddForm((v) => !v); }}
               className={`flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-xl transition-colors ${showAddForm ? "bg-muted text-muted-foreground" : "bg-primary text-white hover:bg-primary/90"}`}>
               {showAddForm ? <X size={13} /> : <Plus size={13} />}
               {showAddForm ? "Huỷ" : "Thêm đơn"}
