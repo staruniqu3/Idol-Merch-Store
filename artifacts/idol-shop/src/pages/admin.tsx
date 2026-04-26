@@ -721,7 +721,7 @@ function MemberCodeEditor({ orderId, currentCode }: { orderId: number; currentCo
 
 // ── Manual orders (private, localStorage only) ──
 const MANUAL_ORDERS_KEY = "admin_manual_orders";
-type ManualOrderItem = { name: string; qty: number; price: number };
+type ManualOrderItem = { name: string; qty: number; price: number; variant?: string };
 type ManualOrder = {
   id: string; customerName: string; phone: string;
   items: ManualOrderItem[]; note: string; date: string; status: string;
@@ -764,12 +764,28 @@ function OrdersTab() {
   const setFormItem = (idx: number, field: keyof ManualOrderItem, val: string | number) =>
     setFormItems((p) => p.map((it, i) => i === idx ? { ...it, [field]: val } : it));
 
-  // When product name is picked from datalist — auto-fill price if product exists
+  // When product name is picked from datalist — auto-fill price if product exists, reset variant
   const handleItemNameChange = (idx: number, value: string) => {
     const matched = (products ?? []).find((p) => p.name === value);
     setFormItems((prev) => prev.map((it, i) => {
       if (i !== idx) return it;
-      return matched ? { ...it, name: value, price: matched.price } : { ...it, name: value };
+      if (matched) {
+        // If product has variants, pick first variant by default and use its price
+        const firstVariant = matched.variants?.[0];
+        const price = firstVariant?.price ?? matched.price;
+        return { ...it, name: value, price, variant: firstVariant?.name ?? "" };
+      }
+      return { ...it, name: value, variant: "" };
+    }));
+  };
+
+  // When a variant is chosen — update variant name and price
+  const handleItemVariantChange = (idx: number, variantName: string) => {
+    setFormItems((prev) => prev.map((it, i) => {
+      if (i !== idx) return it;
+      const matched = (products ?? []).find((p) => p.name === it.name);
+      const variant = matched?.variants?.find((v) => v.name === variantName);
+      return { ...it, variant: variantName, price: variant?.price ?? matched?.price ?? it.price };
     }));
   };
 
@@ -883,30 +899,52 @@ function OrdersTab() {
                   Sản phẩm <span className="font-normal normal-case text-muted-foreground/60">— gõ để tìm hoặc nhập tên mới</span>
                 </p>
                 {formItems.map((item, idx) => {
-                  const isFromDB = (products ?? []).some((p) => p.name === item.name);
+                  const matchedProduct = (products ?? []).find((p) => p.name === item.name);
+                  const isFromDB = !!matchedProduct;
+                  const variants = matchedProduct?.variants ?? [];
+                  const hasVariants = variants.length > 0;
                   return (
-                    <div key={idx} className="flex gap-1.5 items-center">
-                      <div className="flex-1 relative">
-                        <input
-                          type="text" list="manual-product-list"
-                          placeholder="Tên sản phẩm" value={item.name}
-                          onChange={(e) => handleItemNameChange(idx, e.target.value)}
-                          className="w-full text-xs border border-border rounded-xl px-2.5 py-2 bg-background outline-none focus:ring-2 focus:ring-primary/30"
-                        />
-                        {isFromDB && (
-                          <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] font-bold text-primary/60 pointer-events-none">✓</span>
+                    <div key={idx} className="space-y-1">
+                      <div className="flex gap-1.5 items-center">
+                        <div className="flex-1 relative min-w-0">
+                          <input
+                            type="text" list="manual-product-list"
+                            placeholder="Tên sản phẩm" value={item.name}
+                            onChange={(e) => handleItemNameChange(idx, e.target.value)}
+                            className="w-full text-xs border border-border rounded-xl px-2.5 py-2 bg-background outline-none focus:ring-2 focus:ring-primary/30"
+                          />
+                          {isFromDB && (
+                            <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] font-bold text-primary/60 pointer-events-none">✓</span>
+                          )}
+                        </div>
+                        <input type="number" min="1" value={item.qty}
+                          onChange={(e) => setFormItem(idx, "qty", parseInt(e.target.value) || 1)}
+                          className="w-10 shrink-0 text-xs text-center border border-border rounded-xl px-1 py-2 bg-background outline-none focus:ring-2 focus:ring-primary/30" />
+                        <input type="number" min="0" placeholder="Giá" value={item.price || ""}
+                          onChange={(e) => setFormItem(idx, "price", parseFloat(e.target.value) || 0)}
+                          className="w-20 shrink-0 text-xs border border-border rounded-xl px-2 py-2 bg-background outline-none focus:ring-2 focus:ring-primary/30" />
+                        {formItems.length > 1 && (
+                          <button type="button" onClick={() => removeFormItem(idx)} className="text-muted-foreground hover:text-destructive transition-colors shrink-0">
+                            <X size={13} />
+                          </button>
                         )}
                       </div>
-                      <input type="number" min="1" value={item.qty}
-                        onChange={(e) => setFormItem(idx, "qty", parseInt(e.target.value) || 1)}
-                        className="w-12 text-xs text-center border border-border rounded-xl px-1 py-2 bg-background outline-none focus:ring-2 focus:ring-primary/30" />
-                      <input type="number" min="0" placeholder="Giá" value={item.price || ""}
-                        onChange={(e) => setFormItem(idx, "price", parseFloat(e.target.value) || 0)}
-                        className="w-24 text-xs border border-border rounded-xl px-2 py-2 bg-background outline-none focus:ring-2 focus:ring-primary/30" />
-                      {formItems.length > 1 && (
-                        <button type="button" onClick={() => removeFormItem(idx)} className="text-muted-foreground hover:text-destructive transition-colors shrink-0">
-                          <X size={13} />
-                        </button>
+                      {hasVariants && (
+                        <div className="flex items-center gap-1.5 pl-0">
+                          <span className="text-[10px] text-muted-foreground shrink-0">Biến thể:</span>
+                          <select
+                            value={item.variant ?? ""}
+                            onChange={(e) => handleItemVariantChange(idx, e.target.value)}
+                            className="flex-1 min-w-0 text-xs border border-primary/30 rounded-xl px-2 py-1.5 bg-primary/5 text-foreground outline-none focus:ring-2 focus:ring-primary/30 font-medium"
+                          >
+                            {variants.map((v) => (
+                              <option key={v.name} value={v.name}>
+                                {v.name}{v.price ? ` — ${v.price.toLocaleString("vi-VN")}₫` : ""}
+                                {v.soldOut ? " (hết)" : ""}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
                       )}
                     </div>
                   );
@@ -982,9 +1020,14 @@ function OrdersTab() {
                       <div className="border-t border-border p-3 space-y-3 bg-muted/30">
                         <div className="space-y-1">
                           {order.items.map((it, i) => (
-                            <div key={i} className="flex justify-between text-sm">
-                              <span>{it.name} ×{it.qty}</span>
-                              <span className="text-muted-foreground font-semibold">{formatPrice(it.qty * it.price)}</span>
+                            <div key={i} className="flex justify-between text-sm gap-2">
+                              <span className="flex flex-wrap items-center gap-1 min-w-0">
+                                <span className="truncate">{it.name} ×{it.qty}</span>
+                                {it.variant && (
+                                  <span className="text-[9px] bg-primary/10 text-primary font-bold px-1.5 py-0.5 rounded-full shrink-0">{it.variant}</span>
+                                )}
+                              </span>
+                              <span className="text-muted-foreground font-semibold shrink-0">{formatPrice(it.qty * it.price)}</span>
                             </div>
                           ))}
                           <div className="pt-1 border-t border-border/50 flex justify-between text-xs font-bold">
