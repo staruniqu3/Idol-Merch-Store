@@ -15,6 +15,7 @@ const ALLOWED_KEYS = new Set([
   "admin_shipper_staff",
   "admin_refunds",
   "admin_year_plans",
+  "admin_intl_ship_rates",
 ]);
 
 router.get("/settings/:key", async (req, res): Promise<void> => {

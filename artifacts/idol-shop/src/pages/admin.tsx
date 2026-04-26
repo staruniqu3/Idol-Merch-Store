@@ -3135,6 +3135,7 @@ type FixedExpense  = { id: string; name: string; monthlyAmount: number };
 type FlexEntry     = { id: string; name: string; amount: number; date: string };
 type RefundEntry   = { id: string; customer: string; reason: string; amount: number; date: string };
 type YearPlan      = { id: string; name: string; year: number; target: number; saved: number; note: string };
+type IntlShipRate  = { id: string; destination: string; pricePerKg: number };
 
 const PROFIT_ENTRIES_KEY  = "admin_profit_entries";
 const PROFIT_EXPENSES_KEY = "admin_profit_expenses";
@@ -3144,6 +3145,7 @@ const COLLECTIONS_KEY     = "admin_collections";
 const SHIPPER_STAFF_KEY   = "admin_shipper_staff";
 const REFUNDS_KEY         = "admin_refunds";
 const YEAR_PLANS_KEY      = "admin_year_plans";
+const INTL_SHIP_RATES_KEY = "admin_intl_ship_rates";
 
 type ProfitJar = { id: string; name: string; amount: number };
 
@@ -3380,6 +3382,40 @@ function CostTab() {
     setEditingPlanId(null);
   };
 
+  // ── Giá gửi quốc tế ──
+  const [intlShipRates, setIntlShipRates] = useState<IntlShipRate[]>(() => {
+    try { return JSON.parse(localStorage.getItem(INTL_SHIP_RATES_KEY) || "[]"); } catch { return []; }
+  });
+  const saveIntlShipRates = (next: IntlShipRate[]) => {
+    setIntlShipRates(next);
+    localStorage.setItem(INTL_SHIP_RATES_KEY, JSON.stringify(next));
+    syncToServer(INTL_SHIP_RATES_KEY, next);
+  };
+  const [newShipDest, setNewShipDest] = useState("");
+  const [newShipPpkg, setNewShipPpkg] = useState("");
+  const addIntlShipRate = () => {
+    if (!newShipDest.trim()) return;
+    const price = parseFloat(newShipPpkg.replace(/\./g, "").replace(",", ".")) || 0;
+    saveIntlShipRates([...intlShipRates, { id: crypto.randomUUID(), destination: newShipDest.trim(), pricePerKg: price }]);
+    setNewShipDest(""); setNewShipPpkg("");
+  };
+  const [editingShipRateId, setEditingShipRateId] = useState<string | null>(null);
+  const [editingShipRateDest, setEditingShipRateDest] = useState("");
+  const [editingShipRatePpkg, setEditingShipRatePpkg] = useState("");
+  const startEditIntlShipRate = (r: IntlShipRate) => {
+    setEditingShipRateId(r.id);
+    setEditingShipRateDest(r.destination);
+    setEditingShipRatePpkg(String(r.pricePerKg));
+  };
+  const commitEditIntlShipRate = () => {
+    if (!editingShipRateId) return;
+    const price = parseFloat(editingShipRatePpkg.replace(/\./g, "").replace(",", ".")) || 0;
+    saveIntlShipRates(intlShipRates.map((r) =>
+      r.id === editingShipRateId ? { ...r, destination: editingShipRateDest.trim() || r.destination, pricePerKg: price } : r
+    ));
+    setEditingShipRateId(null);
+  };
+
   const currentMonth = new Date().toISOString().slice(0, 7);
   const [expandedMonths, setExpandedMonths] = useState<Set<string>>(() => new Set([currentMonth]));
   const toggleMonth = (m: string) => setExpandedMonths((prev) => { const s = new Set(prev); s.has(m) ? s.delete(m) : s.add(m); return s; });
@@ -3448,8 +3484,9 @@ function CostTab() {
       { key: VARIABLE_EXP_KEY,     lsKey: VARIABLE_EXP_KEY },
       { key: COLLECTIONS_KEY,      lsKey: COLLECTIONS_KEY },
       { key: SHIPPER_STAFF_KEY,    lsKey: SHIPPER_STAFF_KEY },
-      { key: REFUNDS_KEY,          lsKey: REFUNDS_KEY },
-      { key: YEAR_PLANS_KEY,       lsKey: YEAR_PLANS_KEY },
+      { key: REFUNDS_KEY,           lsKey: REFUNDS_KEY },
+      { key: YEAR_PLANS_KEY,        lsKey: YEAR_PLANS_KEY },
+      { key: INTL_SHIP_RATES_KEY,   lsKey: INTL_SHIP_RATES_KEY },
     ];
     await Promise.all(keys.map(({ key, lsKey }) => {
       const local = getLocal<unknown>(lsKey);
@@ -3478,6 +3515,7 @@ function CostTab() {
       loadFromServer<FlexEntry[]>(SHIPPER_STAFF_KEY, setShipperPayments, SHIPPER_STAFF_KEY, []),
       loadFromServer<RefundEntry[]>(REFUNDS_KEY, setRefunds, REFUNDS_KEY, []),
       loadFromServer<YearPlan[]>(YEAR_PLANS_KEY, setYearPlans, YEAR_PLANS_KEY, []),
+      loadFromServer<IntlShipRate[]>(INTL_SHIP_RATES_KEY, setIntlShipRates, INTL_SHIP_RATES_KEY, []),
     ]).finally(() => setLoading(false));
   }, []);
 
@@ -3651,6 +3689,86 @@ function CostTab() {
       <p className="text-[10px] text-muted-foreground text-center">
         Tỷ giá Realtime theo thị trường quốc tế (cập nhật hàng ngày). Pickup và Tiền cân cập nhật thủ công.
       </p>
+
+      {/* ── Giá gửi quốc tế ── */}
+      <div className="bg-card border border-border rounded-2xl p-4 space-y-3">
+        <div>
+          <h4 className="text-sm font-bold">Giá gửi quốc tế (₫/kg)</h4>
+          <p className="text-[10px] text-muted-foreground mt-0.5">Ghi chú giá ship từ Việt Nam đến từng quốc gia</p>
+        </div>
+
+        {/* Add form */}
+        <div className="flex gap-2">
+          <input
+            type="text"
+            placeholder="VN → Hàn Quốc, VN → Úc…"
+            value={newShipDest}
+            onChange={(e) => setNewShipDest(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && addIntlShipRate()}
+            className="min-w-0 flex-1 text-xs border border-border rounded-xl px-2.5 py-2 bg-background outline-none focus:ring-2 focus:ring-primary/30"
+          />
+          <input
+            type="text"
+            placeholder="₫/kg"
+            value={newShipPpkg}
+            onChange={(e) => setNewShipPpkg(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && addIntlShipRate()}
+            className="w-24 shrink-0 text-xs border border-border rounded-xl px-2.5 py-2 bg-background outline-none focus:ring-2 focus:ring-primary/30"
+          />
+          <button
+            type="button"
+            onClick={addIntlShipRate}
+            className="shrink-0 bg-primary text-white text-xs font-bold px-3 rounded-xl hover:bg-primary/90 transition-colors"
+          >
+            <Plus size={14} />
+          </button>
+        </div>
+
+        {/* List */}
+        {intlShipRates.length === 0 ? (
+          <p className="text-xs text-muted-foreground text-center py-3">Chưa có tuyến nào — thêm phía trên</p>
+        ) : (
+          <div className="space-y-1">
+            {intlShipRates.map((r) => (
+              <div key={r.id}>
+                {editingShipRateId === r.id ? (
+                  <div className="flex gap-1.5 items-center">
+                    <input
+                      type="text"
+                      value={editingShipRateDest}
+                      onChange={(e) => setEditingShipRateDest(e.target.value)}
+                      className="min-w-0 flex-1 text-xs border border-primary/40 rounded-xl px-2.5 py-1.5 bg-background outline-none focus:ring-2 focus:ring-primary/30"
+                    />
+                    <input
+                      type="text"
+                      value={editingShipRatePpkg}
+                      onChange={(e) => setEditingShipRatePpkg(e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && commitEditIntlShipRate()}
+                      className="w-24 shrink-0 text-xs border border-primary/40 rounded-xl px-2.5 py-1.5 bg-background outline-none focus:ring-2 focus:ring-primary/30"
+                    />
+                    <button type="button" onClick={commitEditIntlShipRate} className="shrink-0 text-primary hover:text-primary/70 transition-colors"><Check size={13} /></button>
+                    <button type="button" onClick={() => setEditingShipRateId(null)} className="shrink-0 text-muted-foreground hover:text-foreground transition-colors"><X size={13} /></button>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-between px-3 py-2 rounded-xl bg-muted/40 hover:bg-muted/60 group transition-colors">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="text-sm">✈️</span>
+                      <span className="text-xs font-medium truncate">{r.destination}</span>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className="text-xs font-bold text-primary">
+                        {r.pricePerKg > 0 ? `${new Intl.NumberFormat("vi-VN").format(r.pricePerKg)} ₫/kg` : "—"}
+                      </span>
+                      <button type="button" onClick={() => startEditIntlShipRate(r)} className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-primary transition-all"><Pencil size={11} /></button>
+                      <button type="button" onClick={() => saveIntlShipRates(intlShipRates.filter((x) => x.id !== r.id))} className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-all"><Trash2 size={11} /></button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
 
       {/* ── Calculator ── */}
       <div className="bg-card border border-border rounded-2xl p-4 space-y-3">
