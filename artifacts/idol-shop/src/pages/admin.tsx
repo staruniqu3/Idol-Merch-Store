@@ -9,7 +9,7 @@ import {
   useGetOrderSummary,
 } from "@workspace/api-client-react";
 import {
-  Shield, Package, ShoppingBag, Truck, Users, Gift, LogOut, Plus, Pencil, Trash2, ChevronDown,
+  Shield, Package, ShoppingBag, ShoppingCart, Truck, Users, Gift, LogOut, Plus, Pencil, Trash2, ChevronDown,
   TrendingUp, Star, Calendar, X, Check, BarChart3, Sparkles, Bell, Pin, Ticket, Eye, EyeOff, Tag, AlertTriangle, Copy, History, Receipt,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -1230,9 +1230,10 @@ function PreorderTab() {
 }
 
 // ===================== Statistics =====================
-const STATS_ACCOUNTED_KEY = "stats_accounted_order_ids";
-const STATS_ORDERED_ITEMS_KEY = "stats_ordered_items";
-const STATS_BATCH_HISTORY_KEY = "stats_batch_history";
+const STATS_ACCOUNTED_KEY     = "stats_accounted_order_ids";
+const STATS_ORDERED_ITEMS_KEY  = "stats_ordered_items";
+const STATS_BATCH_HISTORY_KEY  = "stats_batch_history";
+const STATS_RECEIVED_IDS_KEY   = "stats_received_order_ids";
 
 type BatchRecord = {
   completedAt: string;
@@ -1243,6 +1244,20 @@ type BatchRecord = {
 
 function StatsTab() {
   const { data: orders } = useListOrders();
+
+  const [statsMode, setStatsMode] = useState<"order" | "receive">("order");
+
+  const [receivedIds, setReceivedIds] = useState<Set<number>>(() => {
+    try { return new Set(JSON.parse(localStorage.getItem(STATS_RECEIVED_IDS_KEY) || "[]")); } catch { return new Set(); }
+  });
+  const toggleReceived = (id: number) => {
+    setReceivedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      localStorage.setItem(STATS_RECEIVED_IDS_KEY, JSON.stringify([...next]));
+      return next;
+    });
+  };
 
   const [accountedIds, setAccountedIds] = useState<Set<number>>(() => {
     try { return new Set(JSON.parse(localStorage.getItem(STATS_ACCOUNTED_KEY) || "[]")); } catch { return new Set(); }
@@ -1315,11 +1330,130 @@ function StatsTab() {
       + " · " + d.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" });
   };
 
+  // ── Receiving mode data ──
+  const receiveOrders = (orders ?? []).filter(
+    (o) => (o.status === "confirmed" || o.status === "pending") && !accountedIds.has(o.id)
+  );
+  const receivePending = receiveOrders.filter((o) => !receivedIds.has(o.id));
+  const receiveDone    = receiveOrders.filter((o) =>  receivedIds.has(o.id));
+  const receiveAll     = [...receivePending, ...receiveDone];
+
   return (
     <div className="space-y-3">
+      {/* ── Mode toggle ── */}
+      <div className="flex gap-1 p-1 bg-muted rounded-2xl">
+        <button type="button"
+          onClick={() => setStatsMode("order")}
+          className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-bold transition-all ${statsMode === "order" ? "bg-background shadow text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+        >
+          <ShoppingCart size={13} /> Cần đặt
+        </button>
+        <button type="button"
+          onClick={() => setStatsMode("receive")}
+          className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-bold transition-all ${statsMode === "receive" ? "bg-background shadow text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+        >
+          <Package size={13} /> Hàng về
+          {receivedIds.size > 0 && receiveOrders.length > 0 && (
+            <span className="bg-emerald-500 text-white text-[9px] font-black px-1 rounded-full">{receivedIds.size}</span>
+          )}
+        </button>
+      </div>
+
+      {/* ── Receiving mode ── */}
+      {statsMode === "receive" && (() => {
+        const totalReceive = receiveOrders.length;
+        const doneCount    = receiveDone.length;
+        const allReceived  = totalReceive > 0 && doneCount === totalReceive;
+        return (
+          <div className="space-y-3">
+            {/* Summary card */}
+            <div className="bg-card border border-border rounded-2xl p-4 flex items-center gap-3">
+              <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${allReceived ? "bg-emerald-100" : "bg-primary/10"}`}>
+                <Package size={18} className={allReceived ? "text-emerald-600" : "text-primary"} />
+              </div>
+              <div>
+                <p className="text-2xl font-black text-foreground">
+                  {doneCount}<span className="text-sm font-normal text-muted-foreground"> / {totalReceive}</span>
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {allReceived ? "✓ Đã nhận đủ hàng" : `Đã nhận về / Tổng đơn chờ`}
+                </p>
+              </div>
+              {doneCount > 0 && (
+                <button type="button"
+                  onClick={() => { setReceivedIds(new Set()); localStorage.removeItem(STATS_RECEIVED_IDS_KEY); }}
+                  className="ml-auto text-xs text-muted-foreground hover:text-destructive transition-colors"
+                >Bỏ chọn</button>
+              )}
+            </div>
+
+            {receiveAll.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <Package size={28} strokeWidth={1.2} className="mx-auto mb-2" />
+                <p className="text-sm">Không có đơn nào cần kiểm kê</p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {receiveAll.map((order) => {
+                  const isReceived = receivedIds.has(order.id);
+                  let items: Array<{ name: string; quantity: number; price: number }> = [];
+                  try { items = JSON.parse(order.items); } catch {}
+                  const totalQty = items.reduce((s, i) => s + i.quantity, 0);
+
+                  return (
+                    <button key={order.id} type="button" onClick={() => toggleReceived(order.id)}
+                      className={`w-full text-left bg-card border rounded-2xl p-3 transition-all ${
+                        isReceived ? "border-emerald-300/50 bg-emerald-50/30 opacity-60" : "border-border hover:border-emerald-400/40 hover:bg-emerald-50/20"
+                      }`}
+                    >
+                      <div className="flex items-start gap-2.5">
+                        {/* Checkbox */}
+                        <div className={`mt-0.5 w-4 h-4 rounded-full border-2 shrink-0 flex items-center justify-center transition-all ${
+                          isReceived ? "bg-emerald-500 border-emerald-500" : "border-muted-foreground/30"
+                        }`}>
+                          {isReceived && <Check size={9} strokeWidth={3} className="text-white" />}
+                        </div>
+                        {/* Content */}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between gap-2 mb-1.5">
+                            <div className="flex items-center gap-1.5 min-w-0">
+                              <span className={`font-bold text-sm truncate ${isReceived ? "line-through text-muted-foreground" : ""}`}>
+                                {order.memberName || "Khách"}
+                              </span>
+                              <span className="text-[10px] text-muted-foreground shrink-0">#{order.id}</span>
+                            </div>
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              <Badge variant="secondary" className={`text-[10px] font-black ${isReceived ? "bg-emerald-100 text-emerald-700 border-emerald-200" : "bg-primary/10 text-primary border-primary/20"}`}>
+                                ×{totalQty}
+                              </Badge>
+                              {isReceived && <span className="text-[10px] font-bold text-emerald-600">✓ Đã về</span>}
+                            </div>
+                          </div>
+                          {/* Item list */}
+                          <div className="space-y-0.5">
+                            {items.map((it, i) => (
+                              <div key={i} className="flex items-center justify-between text-xs text-muted-foreground">
+                                <span className="truncate pr-2">{it.name}</span>
+                                <span className="shrink-0 font-medium">×{it.quantity}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        );
+      })()}
+
+      {/* ── Order mode ── */}
+      {statsMode === "order" && <>
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="font-bold">Thống Kê Số Lượng Hàng Cần Đặt</h3>
+          <h3 className="font-bold">Hàng Cần Đặt</h3>
           {activeOrders.length > 0 && (
             <p className="text-xs text-muted-foreground mt-0.5">{activeOrders.length} đơn cần đặt hàng</p>
           )}
@@ -1486,6 +1620,7 @@ function StatsTab() {
           </div>
         )}
       </div>
+      </>}
     </div>
   );
 }
