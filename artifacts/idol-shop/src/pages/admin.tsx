@@ -2795,8 +2795,9 @@ function CostTab() {
 
       {/* Rate table */}
       <div className="bg-card border border-border rounded-2xl overflow-hidden">
+        <div className="overflow-x-auto">
         {/* Column headers */}
-        <div className="grid grid-cols-[1fr_1fr_1fr_1fr] gap-0 bg-muted/60 border-b border-border">
+        <div className="grid grid-cols-[minmax(110px,1.8fr)_1fr_1fr_1fr] gap-0 bg-muted/60 border-b border-border min-w-[360px]">
           <div className="px-3 py-2 text-[10px] font-bold text-muted-foreground uppercase">Tiền tệ</div>
           <div className="px-3 py-2 text-[10px] font-bold text-blue-600 uppercase text-right">Realtime</div>
           <div className="px-3 py-2 text-[10px] font-bold text-violet-600 uppercase text-right">Pickup</div>
@@ -2816,7 +2817,7 @@ function CostTab() {
             return (
               <div
                 key={row.code}
-                className={`grid grid-cols-[1fr_1fr_1fr_1fr] gap-0 items-center border-b border-border/50 last:border-b-0 ${idx % 2 === 0 ? "" : "bg-muted/20"}`}
+                className={`grid grid-cols-[minmax(110px,1.8fr)_1fr_1fr_1fr] gap-0 items-center border-b border-border/50 last:border-b-0 min-w-[360px] ${idx % 2 === 0 ? "" : "bg-muted/20"}`}
               >
                 {/* Currency name */}
                 <div className="px-3 py-2.5 flex items-center gap-1.5">
@@ -2884,6 +2885,7 @@ function CostTab() {
             );
           })
         )}
+        </div>{/* /overflow-x-auto */}
       </div>
 
       <p className="text-[10px] text-muted-foreground text-center">
