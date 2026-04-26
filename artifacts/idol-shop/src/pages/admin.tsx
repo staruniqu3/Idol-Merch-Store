@@ -10,7 +10,7 @@ import {
 } from "@workspace/api-client-react";
 import {
   Shield, Package, ShoppingBag, ShoppingCart, Truck, Users, Gift, LogOut, Plus, Pencil, Trash2, ChevronDown,
-  TrendingUp, Star, Calendar, X, Check, BarChart3, Sparkles, Bell, Pin, Ticket, Eye, EyeOff, Tag, AlertTriangle, Copy, History, Receipt,
+  TrendingUp, Star, Calendar, X, Check, BarChart3, Sparkles, Bell, Pin, Ticket, Eye, EyeOff, Tag, AlertTriangle, Copy, History, Receipt, Upload,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -3164,6 +3164,7 @@ function CostTab() {
   const [editing, setEditing] = useState<RateEditState>(null);
   const [editVal, setEditVal] = useState("");
   const [ratesSynced, setRatesSynced] = useState(false);
+  const [syncing, setSyncing] = useState(false);
 
   // Calculator state
   const [calcAmount, setCalcAmount] = useState("");
@@ -3405,25 +3406,56 @@ function CostTab() {
     setNewExpName(""); setNewExpAmt("");
   };
 
+  const getLocal = <T,>(lsKey: string): T | null => {
+    try { const s = localStorage.getItem(lsKey); return s ? JSON.parse(s) : null; } catch { return null; }
+  };
+
+  const putToServer = (key: string, data: unknown) =>
+    fetch(`${base}/api/settings/${key}`, {
+      method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data),
+    }).catch(() => {});
+
   const loadFromServer = <T,>(key: string, setter: (v: T) => void, lsKey: string, emptyVal: T) =>
     fetch(`${base}/api/settings/${key}`, { cache: "no-store" })
       .then((r) => r.json())
       .then((d) => {
-        if (d !== null && !d?.error) {
+        const serverEmpty = d === null || d?.error != null
+          || JSON.stringify(d) === JSON.stringify(emptyVal);
+        const local = getLocal<T>(lsKey);
+        const hasLocal = local !== null && JSON.stringify(local) !== JSON.stringify(emptyVal);
+
+        if (!serverEmpty) {
+          // Server has real data — use it (server is source of truth)
           setter(d as T);
           localStorage.setItem(lsKey, JSON.stringify(d));
-        } else {
-          // Server has no data — push local data up so other devices can receive it
-          const local = (() => { try { const s = localStorage.getItem(lsKey); return s ? JSON.parse(s) : null; } catch { return null; } })();
-          const hasLocal = local !== null && JSON.stringify(local) !== JSON.stringify(emptyVal);
-          if (hasLocal) {
-            fetch(`${base}/api/settings/${key}`, {
-              method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(local),
-            }).catch(() => {});
-          }
+        } else if (hasLocal) {
+          // Server is empty but local device has data — push local up AND keep using it
+          putToServer(key, local);
+          setter(local as T);
         }
+        // if both empty, keep the default state from useState initializer
       })
       .catch(() => {});
+
+  // Force-push ALL local data to server (use when cross-device sync is needed)
+  const pushAllLocalToServer = async () => {
+    const keys: Array<{ key: string; lsKey: string }> = [
+      { key: COST_MANUAL_KEY,      lsKey: COST_MANUAL_KEY },
+      { key: PROFIT_ENTRIES_KEY,   lsKey: PROFIT_ENTRIES_KEY },
+      { key: PROFIT_EXPENSES_KEY,  lsKey: PROFIT_EXPENSES_KEY },
+      { key: PROFIT_JARS_KEY,      lsKey: PROFIT_JARS_KEY },
+      { key: VARIABLE_EXP_KEY,     lsKey: VARIABLE_EXP_KEY },
+      { key: COLLECTIONS_KEY,      lsKey: COLLECTIONS_KEY },
+      { key: SHIPPER_STAFF_KEY,    lsKey: SHIPPER_STAFF_KEY },
+      { key: REFUNDS_KEY,          lsKey: REFUNDS_KEY },
+      { key: YEAR_PLANS_KEY,       lsKey: YEAR_PLANS_KEY },
+    ];
+    await Promise.all(keys.map(({ key, lsKey }) => {
+      const local = getLocal<unknown>(lsKey);
+      if (local !== null) return putToServer(key, local);
+      return Promise.resolve();
+    }));
+  };
 
   useEffect(() => {
     const loadRates = fetch(`${base}/api/exchange-rates`, { cache: "no-store" })
@@ -3479,26 +3511,41 @@ function CostTab() {
   return (
     <div className="space-y-4">
       {/* Header */}
-      <div className="flex items-start justify-between">
+      <div className="flex items-start justify-between gap-2">
         <div>
           <h3 className="font-bold">Chi Phí Order</h3>
           {updatedAt && (
             <p className="text-[11px] text-muted-foreground mt-0.5">Cập nhật: {fmtDate(updatedAt)}</p>
           )}
         </div>
-        <button
-          type="button"
-          onClick={() => { setLoading(true); setError("");
-            fetch(`${base}/api/exchange-rates`, { cache: "no-store" })
-              .then((r) => r.json())
-              .then((d) => { setRealtimeRates(d.rates ?? {}); setUpdatedAt(d.updatedAt ?? ""); })
-              .catch(() => setError("Lỗi tải lại tỷ giá"))
-              .finally(() => setLoading(false));
-          }}
-          className="flex items-center gap-1 text-xs text-primary border border-primary/30 bg-primary/5 px-2.5 py-1.5 rounded-xl hover:bg-primary/10 transition-colors"
-        >
-          <TrendingUp size={12} /> Làm mới
-        </button>
+        <div className="flex gap-1.5 shrink-0">
+          <button
+            type="button"
+            disabled={syncing}
+            onClick={async () => {
+              setSyncing(true);
+              await pushAllLocalToServer();
+              setSyncing(false);
+              toast({ title: "Đã đồng bộ dữ liệu lên server" });
+            }}
+            className="flex items-center gap-1 text-xs text-emerald-700 border border-emerald-300 bg-emerald-50 px-2.5 py-1.5 rounded-xl hover:bg-emerald-100 transition-colors disabled:opacity-50"
+          >
+            <Upload size={12} /> {syncing ? "Đang sync…" : "Sync"}
+          </button>
+          <button
+            type="button"
+            onClick={() => { setLoading(true); setError("");
+              fetch(`${base}/api/exchange-rates`, { cache: "no-store" })
+                .then((r) => r.json())
+                .then((d) => { setRealtimeRates(d.rates ?? {}); setUpdatedAt(d.updatedAt ?? ""); })
+                .catch(() => setError("Lỗi tải lại tỷ giá"))
+                .finally(() => setLoading(false));
+            }}
+            className="flex items-center gap-1 text-xs text-primary border border-primary/30 bg-primary/5 px-2.5 py-1.5 rounded-xl hover:bg-primary/10 transition-colors"
+          >
+            <TrendingUp size={12} /> Tỷ giá
+          </button>
+        </div>
       </div>
 
       {error && (
