@@ -719,12 +719,72 @@ function MemberCodeEditor({ orderId, currentCode }: { orderId: number; currentCo
   );
 }
 
+// ── Manual orders (private, localStorage only) ──
+const MANUAL_ORDERS_KEY = "admin_manual_orders";
+type ManualOrderItem = { name: string; qty: number; price: number };
+type ManualOrder = {
+  id: string; customerName: string; phone: string;
+  items: ManualOrderItem[]; note: string; date: string; status: string;
+};
+const manualStatusLabels: Record<string, string> = {
+  pending: "Chờ xác nhận", confirmed: "Đã xác nhận",
+  shipped: "Đang giao", delivered: "Đã giao", cancelled: "Đã huỷ",
+};
+
 function OrdersTab() {
   const { data: orders } = useListOrders();
   const updateOrder = useUpdateOrder();
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const [expandedId, setExpandedId] = useState<number | null>(null);
+
+  // ── Manual order state ──
+  const [ordersMode, setOrdersMode] = useState<"app" | "manual">("app");
+  const [manualOrders, setManualOrders] = useState<ManualOrder[]>(() => {
+    try { return JSON.parse(localStorage.getItem(MANUAL_ORDERS_KEY) || "[]"); } catch { return []; }
+  });
+  const saveManualOrders = (next: ManualOrder[]) => { setManualOrders(next); localStorage.setItem(MANUAL_ORDERS_KEY, JSON.stringify(next)); };
+
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [expandedManualId, setExpandedManualId] = useState<string | null>(null);
+
+  // add-form fields
+  const [formName,   setFormName]   = useState("");
+  const [formPhone,  setFormPhone]  = useState("");
+  const [formDate,   setFormDate]   = useState(new Date().toISOString().slice(0, 10));
+  const [formNote,   setFormNote]   = useState("");
+  const [formStatus, setFormStatus] = useState("pending");
+  const [formItems,  setFormItems]  = useState<ManualOrderItem[]>([{ name: "", qty: 1, price: 0 }]);
+
+  const formTotal = formItems.reduce((s, i) => s + i.qty * i.price, 0);
+
+  const addFormItem = () => setFormItems((p) => [...p, { name: "", qty: 1, price: 0 }]);
+  const removeFormItem = (idx: number) => setFormItems((p) => p.filter((_, i) => i !== idx));
+  const setFormItem = (idx: number, field: keyof ManualOrderItem, val: string | number) =>
+    setFormItems((p) => p.map((it, i) => i === idx ? { ...it, [field]: val } : it));
+
+  const submitManualOrder = () => {
+    if (!formName.trim()) return;
+    const validItems = formItems.filter((i) => i.name.trim());
+    if (validItems.length === 0) return;
+    const newOrder: ManualOrder = {
+      id: crypto.randomUUID(), customerName: formName.trim(), phone: formPhone.trim(),
+      items: validItems, note: formNote.trim(), date: formDate, status: formStatus,
+    };
+    saveManualOrders([newOrder, ...manualOrders]);
+    setShowAddForm(false);
+    setFormName(""); setFormPhone(""); setFormNote(""); setFormStatus("pending");
+    setFormDate(new Date().toISOString().slice(0, 10));
+    setFormItems([{ name: "", qty: 1, price: 0 }]);
+    toast({ title: "Đã thêm đơn nhập tay" });
+  };
+
+  const deleteManualOrder = (id: string) => {
+    if (!confirm("Xoá đơn này?")) return;
+    saveManualOrders(manualOrders.filter((o) => o.id !== id));
+  };
+  const updateManualStatus = (id: string, status: string) =>
+    saveManualOrders(manualOrders.map((o) => o.id === id ? { ...o, status } : o));
   const [sheetPhones, setSheetPhones] = useState<Set<string>>(new Set());
   const [sheetPhoneLoading, setSheetPhoneLoading] = useState(true);
 
@@ -760,7 +820,175 @@ function OrdersTab() {
 
   return (
     <div className="space-y-3">
-      <h3 className="font-bold">Đơn Hàng ({orders?.length ?? 0})</h3>
+      {/* ── Mode toggle ── */}
+      <div className="flex gap-1 p-1 bg-muted rounded-2xl">
+        <button type="button" onClick={() => setOrdersMode("app")}
+          className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-bold transition-all ${ordersMode === "app" ? "bg-background shadow text-foreground" : "text-muted-foreground hover:text-foreground"}`}>
+          <ShoppingBag size={13} /> Đơn App <span className="text-[10px] font-normal opacity-60">({orders?.length ?? 0})</span>
+        </button>
+        <button type="button" onClick={() => setOrdersMode("manual")}
+          className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-bold transition-all ${ordersMode === "manual" ? "bg-background shadow text-foreground" : "text-muted-foreground hover:text-foreground"}`}>
+          <Pencil size={13} /> Nhập tay
+          {manualOrders.length > 0 && <span className="text-[10px] font-normal opacity-60">({manualOrders.length})</span>}
+          <span className="text-[9px] bg-amber-400 text-white font-black px-1 rounded-full ml-0.5">Private</span>
+        </button>
+      </div>
+
+      {/* ── Manual orders mode ── */}
+      {ordersMode === "manual" && (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="font-bold">Đơn nhập tay</h3>
+              <p className="text-xs text-muted-foreground">Không hiển thị với khách — admin only</p>
+            </div>
+            <button type="button" onClick={() => setShowAddForm((v) => !v)}
+              className={`flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-xl transition-colors ${showAddForm ? "bg-muted text-muted-foreground" : "bg-primary text-white hover:bg-primary/90"}`}>
+              {showAddForm ? <X size={13} /> : <Plus size={13} />}
+              {showAddForm ? "Huỷ" : "Thêm đơn"}
+            </button>
+          </div>
+
+          {/* Add form */}
+          {showAddForm && (
+            <div className="bg-card border border-primary/30 rounded-2xl p-4 space-y-3">
+              <p className="text-xs font-bold text-primary">Đơn hàng mới (nhập tay)</p>
+
+              {/* Customer info */}
+              <div className="grid grid-cols-2 gap-2">
+                <input type="text" placeholder="Tên khách *" value={formName} onChange={(e) => setFormName(e.target.value)}
+                  className="text-sm border border-border rounded-xl px-3 py-2 bg-background outline-none focus:ring-2 focus:ring-primary/30 transition-all col-span-2" />
+                <input type="tel" placeholder="Số điện thoại" value={formPhone} onChange={(e) => setFormPhone(e.target.value)}
+                  className="text-sm border border-border rounded-xl px-3 py-2 bg-background outline-none focus:ring-2 focus:ring-primary/30 transition-all" />
+                <input type="date" value={formDate} onChange={(e) => setFormDate(e.target.value)}
+                  className="text-sm border border-border rounded-xl px-3 py-2 bg-background outline-none focus:ring-2 focus:ring-primary/30 transition-all" />
+              </div>
+
+              {/* Items */}
+              <div className="space-y-2">
+                <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wide">Sản phẩm</p>
+                {formItems.map((item, idx) => (
+                  <div key={idx} className="flex gap-1.5 items-center">
+                    <input type="text" placeholder="Tên sản phẩm" value={item.name}
+                      onChange={(e) => setFormItem(idx, "name", e.target.value)}
+                      className="flex-1 text-xs border border-border rounded-xl px-2.5 py-2 bg-background outline-none focus:ring-2 focus:ring-primary/30" />
+                    <input type="number" min="1" value={item.qty}
+                      onChange={(e) => setFormItem(idx, "qty", parseInt(e.target.value) || 1)}
+                      className="w-12 text-xs text-center border border-border rounded-xl px-1 py-2 bg-background outline-none focus:ring-2 focus:ring-primary/30" />
+                    <input type="number" min="0" placeholder="Giá" value={item.price || ""}
+                      onChange={(e) => setFormItem(idx, "price", parseFloat(e.target.value) || 0)}
+                      className="w-24 text-xs border border-border rounded-xl px-2 py-2 bg-background outline-none focus:ring-2 focus:ring-primary/30" />
+                    {formItems.length > 1 && (
+                      <button type="button" onClick={() => removeFormItem(idx)} className="text-muted-foreground hover:text-destructive transition-colors shrink-0">
+                        <X size={13} />
+                      </button>
+                    )}
+                  </div>
+                ))}
+                <button type="button" onClick={addFormItem}
+                  className="text-xs text-primary hover:text-primary/80 flex items-center gap-1 transition-colors">
+                  <Plus size={12} /> Thêm sản phẩm
+                </button>
+              </div>
+
+              {/* Note + status */}
+              <div className="grid grid-cols-2 gap-2">
+                <input type="text" placeholder="Ghi chú..." value={formNote} onChange={(e) => setFormNote(e.target.value)}
+                  className="text-xs border border-border rounded-xl px-2.5 py-2 bg-background outline-none focus:ring-2 focus:ring-primary/30" />
+                <select value={formStatus} onChange={(e) => setFormStatus(e.target.value)}
+                  className="text-xs border border-border rounded-xl px-2.5 py-2 bg-background outline-none focus:ring-2 focus:ring-primary/30">
+                  {Object.entries(manualStatusLabels).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                </select>
+              </div>
+
+              {/* Total + submit */}
+              <div className="flex items-center justify-between pt-1 border-t border-border">
+                <span className="text-sm font-black text-primary">{formatPrice(formTotal)}</span>
+                <button type="button" onClick={submitManualOrder}
+                  disabled={!formName.trim() || formItems.every((i) => !i.name.trim())}
+                  className="bg-primary text-white text-xs font-bold px-4 py-2 rounded-xl hover:bg-primary/90 transition-colors disabled:opacity-40">
+                  Lưu đơn
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Manual order list */}
+          {manualOrders.length === 0 && !showAddForm ? (
+            <div className="text-center py-8 text-muted-foreground">
+              <Pencil size={28} strokeWidth={1.2} className="mx-auto mb-2" />
+              <p className="text-sm">Chưa có đơn nhập tay nào</p>
+              <p className="text-xs mt-1">Bấm "Thêm đơn" để nhập đơn ngoài app</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {manualOrders.map((order) => {
+                const isExpanded = expandedManualId === order.id;
+                const total = order.items.reduce((s, i) => s + i.qty * i.price, 0);
+                const statusColor = order.status === "delivered" ? "bg-emerald-100 text-emerald-700 border-emerald-200"
+                  : order.status === "cancelled" ? "bg-red-100 text-red-600 border-red-200"
+                  : order.status === "shipped" ? "bg-blue-100 text-blue-700 border-blue-200"
+                  : order.status === "confirmed" ? "bg-violet-100 text-violet-700 border-violet-200"
+                  : "bg-muted text-muted-foreground border-border";
+                return (
+                  <div key={order.id} className="bg-card border border-border rounded-2xl overflow-hidden">
+                    <button type="button" onClick={() => setExpandedManualId(isExpanded ? null : order.id)}
+                      className="w-full p-3 flex items-center gap-3 text-left">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-bold text-sm">{order.customerName}</span>
+                          <Badge className={`text-[10px] ${statusColor}`} variant="secondary">
+                            {manualStatusLabels[order.status] ?? order.status}
+                          </Badge>
+                          <span className="text-[9px] bg-amber-100 text-amber-700 font-bold px-1.5 py-0.5 rounded-full border border-amber-200">Nhập tay</span>
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          {order.phone && <>{order.phone} · </>}
+                          {new Date(order.date).toLocaleDateString("vi-VN")} · {order.items.length} sản phẩm
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className="font-black text-sm text-primary">{formatPrice(total)}</span>
+                        <ChevronDown size={14} className={`transition-transform text-muted-foreground ${isExpanded ? "rotate-180" : ""}`} />
+                      </div>
+                    </button>
+                    {isExpanded && (
+                      <div className="border-t border-border p-3 space-y-3 bg-muted/30">
+                        <div className="space-y-1">
+                          {order.items.map((it, i) => (
+                            <div key={i} className="flex justify-between text-sm">
+                              <span>{it.name} ×{it.qty}</span>
+                              <span className="text-muted-foreground font-semibold">{formatPrice(it.qty * it.price)}</span>
+                            </div>
+                          ))}
+                          <div className="pt-1 border-t border-border/50 flex justify-between text-xs font-bold">
+                            <span>Tổng</span><span>{formatPrice(total)}</span>
+                          </div>
+                        </div>
+                        {order.note && <p className="text-xs bg-amber-50 border border-amber-100 rounded-xl p-2 text-amber-700">📝 {order.note}</p>}
+                        <div>
+                          <Label className="text-xs">Trạng thái</Label>
+                          <select value={order.status} onChange={(e) => updateManualStatus(order.id, e.target.value)}
+                            className="mt-1 w-full text-sm border border-border rounded-xl px-3 py-2 bg-background outline-none focus:ring-2 focus:ring-primary/30">
+                            {Object.entries(manualStatusLabels).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                          </select>
+                        </div>
+                        <button type="button" onClick={() => deleteManualOrder(order.id)}
+                          className="w-full text-xs text-muted-foreground hover:text-destructive transition-colors py-1 border border-border hover:border-destructive/40 rounded-xl">
+                          Xoá đơn này
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── App orders mode ── */}
+      {ordersMode === "app" && <>
 
       {/* Cross-reference alert */}
       {!sheetPhoneLoading && crossRefPhones.length > 0 && (
@@ -902,6 +1130,7 @@ function OrdersTab() {
           </>
         );
       })()}
+      </>}
     </div>
   );
 }
