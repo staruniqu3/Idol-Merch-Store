@@ -398,10 +398,13 @@ export default function ShopPage() {
           </div>
         )}
 
-        {filtered.filter((p) => p.isAvailable).map((product) => (
+        {filtered.filter((p) => p.isAvailable).map((product) => {
+          const _variants = (product.variants ?? []) as Array<{ soldOut?: boolean }>;
+          const cardSoldOut = _variants.length > 0 ? _variants.every((v) => v.soldOut) : !!(product as any).isSoldOut;
+          return (
           <div
             key={product.id}
-            className="bg-card rounded-2xl border border-border px-4 py-3 flex items-start gap-3 shadow-sm"
+            className={`bg-card rounded-2xl border border-border px-4 py-3 flex items-start gap-3 shadow-sm${cardSoldOut ? " opacity-60 grayscale pointer-events-none" : ""}`}
             data-testid={`card-product-${product.id}`}
           >
             <div className="flex-1 min-w-0">
@@ -514,7 +517,8 @@ export default function ShopPage() {
               {(product.orderType !== "preorder" && product.stock === 0) || (() => { const vs = (product.variants ?? []) as Array<{ soldOut?: boolean }>; return vs.length > 0 ? vs.every((v) => v.soldOut) : !!(product as any).isSoldOut; })() ? "Hết hàng" : <><Plus size={13} className="mr-1" />Thêm</>}
             </Button>
           </div>
-        ))}
+        );
+        })}
       </div>
 
       {/* Variant picker dialog */}

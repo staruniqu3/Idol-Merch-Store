@@ -583,7 +583,19 @@ function ProductsTab() {
                 </div>
               )}
             </div>
-            <div className="flex gap-1 shrink-0">
+            <div className="flex items-center gap-2 shrink-0">
+              <div className="flex flex-col items-center gap-0.5">
+                <Switch
+                  checked={!!(p as any).isSoldOut}
+                  onCheckedChange={(v) =>
+                    updateProduct.mutate(
+                      { id: p.id, data: { isSoldOut: v } as any },
+                      { onSuccess: () => queryClient.invalidateQueries({ queryKey: getListProductsQueryKey() }) }
+                    )
+                  }
+                />
+                <span className={`text-[9px] font-bold transition-colors ${(p as any).isSoldOut ? "text-red-500" : "text-muted-foreground"}`}>Sold</span>
+              </div>
               <Button variant="ghost" size="icon" className="h-8 w-8 rounded-xl" onClick={() => openEdit(p)} data-testid={`button-edit-product-${p.id}`}><Pencil size={13} /></Button>
               <Button variant="ghost" size="icon" className="h-8 w-8 rounded-xl text-destructive" onClick={() => deleteProduct.mutate({ id: p.id }, { onSuccess: () => queryClient.invalidateQueries({ queryKey: getListProductsQueryKey() }) })} data-testid={`button-delete-product-${p.id}`}><Trash2 size={13} /></Button>
             </div>
