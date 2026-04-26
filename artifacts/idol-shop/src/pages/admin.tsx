@@ -1233,7 +1233,7 @@ function PreorderTab() {
 const STATS_ACCOUNTED_KEY     = "stats_accounted_order_ids";
 const STATS_ORDERED_ITEMS_KEY  = "stats_ordered_items";
 const STATS_BATCH_HISTORY_KEY  = "stats_batch_history";
-const STATS_RECEIVED_IDS_KEY   = "stats_received_order_ids";
+const STATS_RECEIVED_ITEMS_KEY = "stats_received_batch_items";
 
 type BatchRecord = {
   completedAt: string;
@@ -1247,17 +1247,20 @@ function StatsTab() {
 
   const [statsMode, setStatsMode] = useState<"order" | "receive">("order");
 
-  const [receivedIds, setReceivedIds] = useState<Set<number>>(() => {
-    try { return new Set(JSON.parse(localStorage.getItem(STATS_RECEIVED_IDS_KEY) || "[]")); } catch { return new Set(); }
+  // receivedItems: Set of keys like "batchCompletedAt::itemName"
+  const [receivedItems, setReceivedItems] = useState<Set<string>>(() => {
+    try { return new Set(JSON.parse(localStorage.getItem(STATS_RECEIVED_ITEMS_KEY) || "[]")); } catch { return new Set(); }
   });
-  const toggleReceived = (id: number) => {
-    setReceivedIds((prev) => {
+  const toggleReceivedItem = (key: string) => {
+    setReceivedItems((prev) => {
       const next = new Set(prev);
-      if (next.has(id)) next.delete(id); else next.add(id);
-      localStorage.setItem(STATS_RECEIVED_IDS_KEY, JSON.stringify([...next]));
+      if (next.has(key)) next.delete(key); else next.add(key);
+      localStorage.setItem(STATS_RECEIVED_ITEMS_KEY, JSON.stringify([...next]));
       return next;
     });
   };
+  const receivedItemKey = (batchAt: string, itemName: string) => `${batchAt}::${itemName}`;
+  const [expandedReceiveBatch, setExpandedReceiveBatch] = useState<number | null>(null);
 
   const [accountedIds, setAccountedIds] = useState<Set<number>>(() => {
     try { return new Set(JSON.parse(localStorage.getItem(STATS_ACCOUNTED_KEY) || "[]")); } catch { return new Set(); }
@@ -1330,13 +1333,10 @@ function StatsTab() {
       + " · " + d.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" });
   };
 
-  // ── Receiving mode data ──
-  const receiveOrders = (orders ?? []).filter(
-    (o) => (o.status === "confirmed" || o.status === "pending") && !accountedIds.has(o.id)
-  );
-  const receivePending = receiveOrders.filter((o) => !receivedIds.has(o.id));
-  const receiveDone    = receiveOrders.filter((o) =>  receivedIds.has(o.id));
-  const receiveAll     = [...receivePending, ...receiveDone];
+  // ── Receiving mode data: based on batch history ──
+  const totalReceivedBatches = batchHistory.filter((b) =>
+    b.items.every((it) => receivedItems.has(receivedItemKey(b.completedAt, it.name)))
+  ).length;
 
   return (
     <div className="space-y-3">
@@ -1353,101 +1353,123 @@ function StatsTab() {
           className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-bold transition-all ${statsMode === "receive" ? "bg-background shadow text-foreground" : "text-muted-foreground hover:text-foreground"}`}
         >
           <Package size={13} /> Hàng về
-          {receivedIds.size > 0 && receiveOrders.length > 0 && (
-            <span className="bg-emerald-500 text-white text-[9px] font-black px-1 rounded-full">{receivedIds.size}</span>
+          {totalReceivedBatches > 0 && (
+            <span className="bg-emerald-500 text-white text-[9px] font-black px-1 rounded-full">{totalReceivedBatches}</span>
           )}
         </button>
       </div>
 
-      {/* ── Receiving mode ── */}
-      {statsMode === "receive" && (() => {
-        const totalReceive = receiveOrders.length;
-        const doneCount    = receiveDone.length;
-        const allReceived  = totalReceive > 0 && doneCount === totalReceive;
-        return (
-          <div className="space-y-3">
-            {/* Summary card */}
-            <div className="bg-card border border-border rounded-2xl p-4 flex items-center gap-3">
-              <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${allReceived ? "bg-emerald-100" : "bg-primary/10"}`}>
-                <Package size={18} className={allReceived ? "text-emerald-600" : "text-primary"} />
-              </div>
-              <div>
-                <p className="text-2xl font-black text-foreground">
-                  {doneCount}<span className="text-sm font-normal text-muted-foreground"> / {totalReceive}</span>
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  {allReceived ? "✓ Đã nhận đủ hàng" : `Đã nhận về / Tổng đơn chờ`}
-                </p>
-              </div>
-              {doneCount > 0 && (
-                <button type="button"
-                  onClick={() => { setReceivedIds(new Set()); localStorage.removeItem(STATS_RECEIVED_IDS_KEY); }}
-                  className="ml-auto text-xs text-muted-foreground hover:text-destructive transition-colors"
-                >Bỏ chọn</button>
-              )}
+      {/* ── Receiving mode: batch cards ── */}
+      {statsMode === "receive" && (
+        <div className="space-y-3">
+          {/* Summary */}
+          <div className="bg-card border border-border rounded-2xl p-4 flex items-center gap-3">
+            <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${totalReceivedBatches === batchHistory.length && batchHistory.length > 0 ? "bg-emerald-100" : "bg-primary/10"}`}>
+              <Package size={18} className={totalReceivedBatches === batchHistory.length && batchHistory.length > 0 ? "text-emerald-600" : "text-primary"} />
             </div>
-
-            {receiveAll.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">
-                <Package size={28} strokeWidth={1.2} className="mx-auto mb-2" />
-                <p className="text-sm">Không có đơn nào cần kiểm kê</p>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {receiveAll.map((order) => {
-                  const isReceived = receivedIds.has(order.id);
-                  let items: Array<{ name: string; quantity: number; price: number }> = [];
-                  try { items = JSON.parse(order.items); } catch {}
-                  const totalQty = items.reduce((s, i) => s + i.quantity, 0);
-
-                  return (
-                    <button key={order.id} type="button" onClick={() => toggleReceived(order.id)}
-                      className={`w-full text-left bg-card border rounded-2xl p-3 transition-all ${
-                        isReceived ? "border-emerald-300/50 bg-emerald-50/30 opacity-60" : "border-border hover:border-emerald-400/40 hover:bg-emerald-50/20"
-                      }`}
-                    >
-                      <div className="flex items-start gap-2.5">
-                        {/* Checkbox */}
-                        <div className={`mt-0.5 w-4 h-4 rounded-full border-2 shrink-0 flex items-center justify-center transition-all ${
-                          isReceived ? "bg-emerald-500 border-emerald-500" : "border-muted-foreground/30"
-                        }`}>
-                          {isReceived && <Check size={9} strokeWidth={3} className="text-white" />}
-                        </div>
-                        {/* Content */}
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center justify-between gap-2 mb-1.5">
-                            <div className="flex items-center gap-1.5 min-w-0">
-                              <span className={`font-bold text-sm truncate ${isReceived ? "line-through text-muted-foreground" : ""}`}>
-                                {order.memberName || "Khách"}
-                              </span>
-                              <span className="text-[10px] text-muted-foreground shrink-0">#{order.id}</span>
-                            </div>
-                            <div className="flex items-center gap-1.5 shrink-0">
-                              <Badge variant="secondary" className={`text-[10px] font-black ${isReceived ? "bg-emerald-100 text-emerald-700 border-emerald-200" : "bg-primary/10 text-primary border-primary/20"}`}>
-                                ×{totalQty}
-                              </Badge>
-                              {isReceived && <span className="text-[10px] font-bold text-emerald-600">✓ Đã về</span>}
-                            </div>
-                          </div>
-                          {/* Item list */}
-                          <div className="space-y-0.5">
-                            {items.map((it, i) => (
-                              <div key={i} className="flex items-center justify-between text-xs text-muted-foreground">
-                                <span className="truncate pr-2">{it.name}</span>
-                                <span className="shrink-0 font-medium">×{it.quantity}</span>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
+            <div>
+              <p className="text-2xl font-black text-foreground">
+                {totalReceivedBatches}<span className="text-sm font-normal text-muted-foreground"> / {batchHistory.length}</span>
+              </p>
+              <p className="text-xs text-muted-foreground">Đợt hàng đã nhận đủ / Tổng đợt đã đặt</p>
+            </div>
+            {receivedItems.size > 0 && (
+              <button type="button"
+                onClick={() => { setReceivedItems(new Set()); localStorage.removeItem(STATS_RECEIVED_ITEMS_KEY); }}
+                className="ml-auto text-xs text-muted-foreground hover:text-destructive transition-colors shrink-0"
+              >Reset</button>
             )}
           </div>
-        );
-      })()}
+
+          {batchHistory.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              <Package size={28} strokeWidth={1.2} className="mx-auto mb-2" />
+              <p className="text-sm">Chưa có lô hàng nào đã đặt</p>
+              <p className="text-xs mt-1">Hoàn thành lô ở tab "Cần đặt" để tạo đợt kiểm kê</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {batchHistory.map((batch, idx) => {
+                const batchNum    = batchHistory.length - idx;
+                const isOpen      = expandedReceiveBatch === idx;
+                const itemsDone   = batch.items.filter((it) => receivedItems.has(receivedItemKey(batch.completedAt, it.name))).length;
+                const totalItems2 = batch.items.length;
+                const allDone     = itemsDone === totalItems2;
+                const batchRev    = batch.items.reduce((s, i) => s + i.revenue, 0);
+
+                return (
+                  <div key={batch.completedAt} className={`bg-card border rounded-2xl overflow-hidden transition-all ${allDone ? "border-emerald-300/60" : "border-border"}`}>
+                    {/* Card header */}
+                    <button type="button"
+                      onClick={() => setExpandedReceiveBatch(isOpen ? null : idx)}
+                      className="w-full p-3 flex items-center gap-3 text-left"
+                    >
+                      <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${allDone ? "bg-emerald-100" : "bg-primary/10"}`}>
+                        <span className={`text-xs font-black ${allDone ? "text-emerald-600" : "text-primary"}`}>#{batchNum}</span>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-bold">{formatBatchDate(batch.completedAt)}</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          {batch.orderCount} đơn · {batch.totalQty} sp · {formatPrice(batchRev)}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        {allDone
+                          ? <span className="text-[10px] font-black text-emerald-600 bg-emerald-100 px-2 py-0.5 rounded-full">✓ Đủ hàng</span>
+                          : <span className="text-[10px] font-bold text-muted-foreground">{itemsDone}/{totalItems2}</span>
+                        }
+                        <ChevronDown size={13} className={`text-muted-foreground transition-transform ${isOpen ? "rotate-180" : ""}`} />
+                      </div>
+                    </button>
+
+                    {/* Progress bar */}
+                    <div className="px-3 pb-1">
+                      <div className="h-1 bg-muted rounded-full overflow-hidden">
+                        <div
+                          className={`h-full rounded-full transition-all ${allDone ? "bg-emerald-500" : "bg-primary"}`}
+                          style={{ width: totalItems2 > 0 ? `${(itemsDone / totalItems2) * 100}%` : "0%" }}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Expanded items */}
+                    {isOpen && (
+                      <div className="border-t border-border bg-muted/20 p-3 space-y-2">
+                        {batch.items.map((item) => {
+                          const key      = receivedItemKey(batch.completedAt, item.name);
+                          const checked  = receivedItems.has(key);
+                          return (
+                            <button key={item.name} type="button" onClick={() => toggleReceivedItem(key)}
+                              className={`w-full flex items-center gap-2.5 p-2 rounded-xl transition-all text-left ${
+                                checked ? "bg-emerald-50 border border-emerald-200/60" : "bg-card border border-border hover:border-emerald-300/50"
+                              }`}
+                            >
+                              <div className={`w-4 h-4 rounded-full border-2 shrink-0 flex items-center justify-center transition-all ${
+                                checked ? "bg-emerald-500 border-emerald-500" : "border-muted-foreground/30"
+                              }`}>
+                                {checked && <Check size={9} strokeWidth={3} className="text-white" />}
+                              </div>
+                              <span className={`flex-1 text-sm font-medium truncate ${checked ? "line-through text-muted-foreground" : ""}`}>
+                                {item.name}
+                              </span>
+                              <div className="flex items-center gap-2 shrink-0">
+                                <Badge variant="secondary" className={`text-[10px] font-black ${checked ? "bg-emerald-100 text-emerald-700 border-emerald-200" : "bg-primary/10 text-primary border-primary/20"}`}>
+                                  ×{item.qty}
+                                </Badge>
+                                <span className="text-xs text-muted-foreground">{formatPrice(item.revenue)}</span>
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* ── Order mode ── */}
       {statsMode === "order" && <>
