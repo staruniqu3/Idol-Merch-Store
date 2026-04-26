@@ -22,6 +22,13 @@ export const ListProductsQueryParams = zod.object({
   available: zod.coerce.boolean().optional(),
 });
 
+const VariantItem = zod.object({
+  name: zod.string(),
+  price: zod.number().optional(),
+  stock: zod.number().optional(),
+  soldOut: zod.boolean().optional(),
+});
+
 export const ListProductsResponseItem = zod.object({
   id: zod.number(),
   name: zod.string(),
@@ -33,6 +40,10 @@ export const ListProductsResponseItem = zod.object({
   isAvailable: zod.boolean(),
   isSoldOut: zod.boolean(),
   orderType: zod.string().describe("preorder or pickup"),
+  orderLabel: zod.string().nullish(),
+  orderName: zod.string().nullish(),
+  tags: zod.array(zod.string()).nullish(),
+  variants: zod.array(VariantItem).nullish(),
   createdAt: zod.coerce.date(),
 });
 export const ListProductsResponse = zod.array(ListProductsResponseItem);
@@ -48,7 +59,12 @@ export const CreateProductBody = zod.object({
   category: zod.string(),
   stock: zod.number(),
   isAvailable: zod.boolean(),
+  isSoldOut: zod.boolean().optional(),
   orderType: zod.string(),
+  orderLabel: zod.string().nullish(),
+  orderName: zod.string().nullish(),
+  tags: zod.array(zod.string()).nullish(),
+  variants: zod.array(VariantItem).nullish(),
 });
 
 /**
@@ -69,6 +85,10 @@ export const GetProductResponse = zod.object({
   isAvailable: zod.boolean(),
   isSoldOut: zod.boolean(),
   orderType: zod.string().describe("preorder or pickup"),
+  orderLabel: zod.string().nullish(),
+  orderName: zod.string().nullish(),
+  tags: zod.array(zod.string()).nullish(),
+  variants: zod.array(VariantItem).nullish(),
   createdAt: zod.coerce.date(),
 });
 
@@ -89,6 +109,10 @@ export const UpdateProductBody = zod.object({
   isAvailable: zod.boolean().optional(),
   isSoldOut: zod.boolean().optional(),
   orderType: zod.string().optional(),
+  orderLabel: zod.string().nullish(),
+  orderName: zod.string().nullish(),
+  tags: zod.array(zod.string()).nullish(),
+  variants: zod.array(VariantItem).nullish(),
 });
 
 export const UpdateProductResponse = zod.object({
@@ -102,6 +126,10 @@ export const UpdateProductResponse = zod.object({
   isAvailable: zod.boolean(),
   isSoldOut: zod.boolean(),
   orderType: zod.string().describe("preorder or pickup"),
+  orderLabel: zod.string().nullish(),
+  orderName: zod.string().nullish(),
+  tags: zod.array(zod.string()).nullish(),
+  variants: zod.array(VariantItem).nullish(),
   createdAt: zod.coerce.date(),
 });
 
