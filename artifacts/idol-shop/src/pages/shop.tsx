@@ -537,7 +537,7 @@ export default function ShopPage() {
                   const vAny = v as any;
                   const finalPrice = vAny.price != null ? vAny.price : Number(variantPickerProduct.price);
                   const trackStock = variantPickerProduct.orderType !== "preorder";
-                  const soldOut = trackStock && v.stock != null && v.stock === 0;
+                  const soldOut = (trackStock && v.stock != null && v.stock === 0) || !!vAny.soldOut;
                   const lowStock = trackStock && v.stock != null && v.stock > 0 && v.stock <= 5;
                   return (
                     <button
