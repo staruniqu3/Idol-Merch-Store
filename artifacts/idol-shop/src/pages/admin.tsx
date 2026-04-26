@@ -3112,6 +3112,7 @@ const CURRENCY_ROWS: { code: string; label: string; flag: string }[] = [
   { code: "HKD", label: "HKD - VND", flag: "🇭🇰" },
   { code: "MYR", label: "MYR - VND", flag: "🇲🇾" },
   { code: "PHP", label: "PHP - VND", flag: "🇵🇭" },
+  { code: "IDR", label: "IDR - VND", flag: "🇮🇩" },
   { code: "INR", label: "INR - VND", flag: "🇮🇳" },
   { code: "TWD", label: "TWD - VND", flag: "🇹🇼" },
   { code: "SGD", label: "SGD - VND", flag: "🇸🇬" },

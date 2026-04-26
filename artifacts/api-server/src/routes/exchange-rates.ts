@@ -2,7 +2,7 @@ import { Router, type IRouter } from "express";
 
 const router: IRouter = Router();
 
-const CURRENCIES = ["KRW", "THB", "USD", "JPY", "GBP", "EUR", "CNY", "HKD", "MYR", "PHP", "INR", "TWD", "SGD"];
+const CURRENCIES = ["KRW", "THB", "USD", "JPY", "GBP", "EUR", "CNY", "HKD", "MYR", "PHP", "IDR", "INR", "TWD", "SGD"];
 
 let cache: { rates: Record<string, number>; updatedAt: string } | null = null;
 let cacheTime = 0;
