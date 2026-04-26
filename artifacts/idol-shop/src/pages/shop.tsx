@@ -487,7 +487,7 @@ export default function ShopPage() {
                   {product.variants.map((v) => {
                     const vAny = v as any;
                     const trackStock = product.orderType !== "preorder";
-                    const soldOut = trackStock && v.stock != null && v.stock === 0;
+                    const soldOut = (trackStock && v.stock != null && v.stock === 0) || !!vAny.soldOut;
                     const lowStock = trackStock && v.stock != null && v.stock > 0 && v.stock <= 5;
                     return (
                       <span key={v.name} className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${soldOut ? "bg-red-50 text-red-400 border-red-200 line-through opacity-60" : "bg-muted text-foreground border-border"}`}>
