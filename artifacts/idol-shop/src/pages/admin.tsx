@@ -3135,7 +3135,13 @@ type FixedExpense  = { id: string; name: string; monthlyAmount: number };
 type FlexEntry     = { id: string; name: string; amount: number; date: string };
 type RefundEntry   = { id: string; customer: string; reason: string; amount: number; date: string };
 type YearPlan      = { id: string; name: string; year: number; target: number; saved: number; note: string };
-type IntlShipRate  = { id: string; destination: string; pricePerKg: number };
+type IntlShipMethod = "bay" | "bien" | "bo";
+type IntlShipRate   = { id: string; destination: string; pricePerKg: number; method?: IntlShipMethod };
+const SHIP_METHODS: { value: IntlShipMethod; label: string; icon: string }[] = [
+  { value: "bay",  label: "Đường bay",  icon: "✈️" },
+  { value: "bien", label: "Đường biển", icon: "🚢" },
+  { value: "bo",   label: "Đường bộ",   icon: "🚛" },
+];
 
 const PROFIT_ENTRIES_KEY  = "admin_profit_entries";
 const PROFIT_EXPENSES_KEY = "admin_profit_expenses";
@@ -3393,25 +3399,28 @@ function CostTab() {
   };
   const [newShipDest, setNewShipDest] = useState("");
   const [newShipPpkg, setNewShipPpkg] = useState("");
+  const [newShipMethod, setNewShipMethod] = useState<IntlShipMethod>("bay");
   const addIntlShipRate = () => {
     if (!newShipDest.trim()) return;
     const price = parseFloat(newShipPpkg.replace(/\./g, "").replace(",", ".")) || 0;
-    saveIntlShipRates([...intlShipRates, { id: crypto.randomUUID(), destination: newShipDest.trim(), pricePerKg: price }]);
+    saveIntlShipRates([...intlShipRates, { id: crypto.randomUUID(), destination: newShipDest.trim(), pricePerKg: price, method: newShipMethod }]);
     setNewShipDest(""); setNewShipPpkg("");
   };
   const [editingShipRateId, setEditingShipRateId] = useState<string | null>(null);
   const [editingShipRateDest, setEditingShipRateDest] = useState("");
   const [editingShipRatePpkg, setEditingShipRatePpkg] = useState("");
+  const [editingShipRateMethod, setEditingShipRateMethod] = useState<IntlShipMethod>("bay");
   const startEditIntlShipRate = (r: IntlShipRate) => {
     setEditingShipRateId(r.id);
     setEditingShipRateDest(r.destination);
     setEditingShipRatePpkg(String(r.pricePerKg));
+    setEditingShipRateMethod(r.method ?? "bay");
   };
   const commitEditIntlShipRate = () => {
     if (!editingShipRateId) return;
     const price = parseFloat(editingShipRatePpkg.replace(/\./g, "").replace(",", ".")) || 0;
     saveIntlShipRates(intlShipRates.map((r) =>
-      r.id === editingShipRateId ? { ...r, destination: editingShipRateDest.trim() || r.destination, pricePerKg: price } : r
+      r.id === editingShipRateId ? { ...r, destination: editingShipRateDest.trim() || r.destination, pricePerKg: price, method: editingShipRateMethod } : r
     ));
     setEditingShipRateId(null);
   };
@@ -3699,30 +3708,49 @@ function CostTab() {
         </div>
 
         {/* Add form */}
-        <div className="flex gap-2">
-          <input
-            type="text"
-            placeholder="VN → Hàn Quốc, VN → Úc…"
-            value={newShipDest}
-            onChange={(e) => setNewShipDest(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && addIntlShipRate()}
-            className="min-w-0 flex-1 text-xs border border-border rounded-xl px-2.5 py-2 bg-background outline-none focus:ring-2 focus:ring-primary/30"
-          />
-          <input
-            type="text"
-            placeholder="₫/kg"
-            value={newShipPpkg}
-            onChange={(e) => setNewShipPpkg(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && addIntlShipRate()}
-            className="w-24 shrink-0 text-xs border border-border rounded-xl px-2.5 py-2 bg-background outline-none focus:ring-2 focus:ring-primary/30"
-          />
-          <button
-            type="button"
-            onClick={addIntlShipRate}
-            className="shrink-0 bg-primary text-white text-xs font-bold px-3 rounded-xl hover:bg-primary/90 transition-colors"
-          >
-            <Plus size={14} />
-          </button>
+        <div className="space-y-2">
+          {/* Method selector */}
+          <div className="flex gap-1.5">
+            {SHIP_METHODS.map((m) => (
+              <button
+                key={m.value}
+                type="button"
+                onClick={() => setNewShipMethod(m.value)}
+                className={`flex-1 flex items-center justify-center gap-1 text-[11px] font-semibold py-1.5 rounded-xl border transition-colors ${
+                  newShipMethod === m.value
+                    ? "bg-primary text-white border-primary"
+                    : "bg-background text-muted-foreground border-border hover:border-primary/40"
+                }`}
+              >
+                <span>{m.icon}</span> {m.label}
+              </button>
+            ))}
+          </div>
+          <div className="flex gap-2">
+            <input
+              type="text"
+              placeholder="VN → Hàn Quốc, VN → Úc…"
+              value={newShipDest}
+              onChange={(e) => setNewShipDest(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && addIntlShipRate()}
+              className="min-w-0 flex-1 text-xs border border-border rounded-xl px-2.5 py-2 bg-background outline-none focus:ring-2 focus:ring-primary/30"
+            />
+            <input
+              type="text"
+              placeholder="₫/kg"
+              value={newShipPpkg}
+              onChange={(e) => setNewShipPpkg(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && addIntlShipRate()}
+              className="w-24 shrink-0 text-xs border border-border rounded-xl px-2.5 py-2 bg-background outline-none focus:ring-2 focus:ring-primary/30"
+            />
+            <button
+              type="button"
+              onClick={addIntlShipRate}
+              className="shrink-0 bg-primary text-white text-xs font-bold px-3 rounded-xl hover:bg-primary/90 transition-colors"
+            >
+              <Plus size={14} />
+            </button>
+          </div>
         </div>
 
         {/* List */}
@@ -3733,28 +3761,49 @@ function CostTab() {
             {intlShipRates.map((r) => (
               <div key={r.id}>
                 {editingShipRateId === r.id ? (
-                  <div className="flex gap-1.5 items-center">
-                    <input
-                      type="text"
-                      value={editingShipRateDest}
-                      onChange={(e) => setEditingShipRateDest(e.target.value)}
-                      className="min-w-0 flex-1 text-xs border border-primary/40 rounded-xl px-2.5 py-1.5 bg-background outline-none focus:ring-2 focus:ring-primary/30"
-                    />
-                    <input
-                      type="text"
-                      value={editingShipRatePpkg}
-                      onChange={(e) => setEditingShipRatePpkg(e.target.value)}
-                      onKeyDown={(e) => e.key === "Enter" && commitEditIntlShipRate()}
-                      className="w-24 shrink-0 text-xs border border-primary/40 rounded-xl px-2.5 py-1.5 bg-background outline-none focus:ring-2 focus:ring-primary/30"
-                    />
-                    <button type="button" onClick={commitEditIntlShipRate} className="shrink-0 text-primary hover:text-primary/70 transition-colors"><Check size={13} /></button>
-                    <button type="button" onClick={() => setEditingShipRateId(null)} className="shrink-0 text-muted-foreground hover:text-foreground transition-colors"><X size={13} /></button>
+                  <div className="space-y-1.5 p-2 border border-primary/20 rounded-xl bg-muted/30">
+                    <div className="flex gap-1">
+                      {SHIP_METHODS.map((m) => (
+                        <button
+                          key={m.value}
+                          type="button"
+                          onClick={() => setEditingShipRateMethod(m.value)}
+                          className={`flex-1 flex items-center justify-center gap-1 text-[10px] font-semibold py-1 rounded-lg border transition-colors ${
+                            editingShipRateMethod === m.value
+                              ? "bg-primary text-white border-primary"
+                              : "bg-background text-muted-foreground border-border"
+                          }`}
+                        >
+                          {m.icon} {m.label}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="flex gap-1.5 items-center">
+                      <input
+                        type="text"
+                        value={editingShipRateDest}
+                        onChange={(e) => setEditingShipRateDest(e.target.value)}
+                        className="min-w-0 flex-1 text-xs border border-primary/40 rounded-xl px-2.5 py-1.5 bg-background outline-none focus:ring-2 focus:ring-primary/30"
+                      />
+                      <input
+                        type="text"
+                        value={editingShipRatePpkg}
+                        onChange={(e) => setEditingShipRatePpkg(e.target.value)}
+                        onKeyDown={(e) => e.key === "Enter" && commitEditIntlShipRate()}
+                        className="w-20 shrink-0 text-xs border border-primary/40 rounded-xl px-2.5 py-1.5 bg-background outline-none focus:ring-2 focus:ring-primary/30"
+                      />
+                      <button type="button" onClick={commitEditIntlShipRate} className="shrink-0 text-primary hover:text-primary/70 transition-colors"><Check size={13} /></button>
+                      <button type="button" onClick={() => setEditingShipRateId(null)} className="shrink-0 text-muted-foreground hover:text-foreground transition-colors"><X size={13} /></button>
+                    </div>
                   </div>
                 ) : (
                   <div className="flex items-center justify-between px-3 py-2 rounded-xl bg-muted/40 hover:bg-muted/60 group transition-colors">
                     <div className="flex items-center gap-2 min-w-0">
-                      <span className="text-sm">✈️</span>
-                      <span className="text-xs font-medium truncate">{r.destination}</span>
+                      <span className="text-sm">{SHIP_METHODS.find((m) => m.value === (r.method ?? "bay"))?.icon ?? "✈️"}</span>
+                      <div className="min-w-0">
+                        <p className="text-xs font-medium truncate">{r.destination}</p>
+                        <p className="text-[10px] text-muted-foreground">{SHIP_METHODS.find((m) => m.value === (r.method ?? "bay"))?.label}</p>
+                      </div>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
                       <span className="text-xs font-bold text-primary">
