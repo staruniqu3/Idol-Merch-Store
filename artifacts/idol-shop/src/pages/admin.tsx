@@ -2628,6 +2628,7 @@ type ProfitEntry = {
 type FixedExpense  = { id: string; name: string; monthlyAmount: number };
 type FlexEntry     = { id: string; name: string; amount: number; date: string };
 type RefundEntry   = { id: string; customer: string; reason: string; amount: number; date: string };
+type YearPlan      = { id: string; name: string; year: number; target: number; saved: number; note: string };
 
 const PROFIT_ENTRIES_KEY  = "admin_profit_entries";
 const PROFIT_EXPENSES_KEY = "admin_profit_expenses";
@@ -2636,6 +2637,7 @@ const VARIABLE_EXP_KEY    = "admin_variable_exps";
 const COLLECTIONS_KEY     = "admin_collections";
 const SHIPPER_STAFF_KEY   = "admin_shipper_staff";
 const REFUNDS_KEY         = "admin_refunds";
+const YEAR_PLANS_KEY      = "admin_year_plans";
 
 type ProfitJar = { id: string; name: string; amount: number };
 
@@ -2817,6 +2819,49 @@ function CostTab() {
     if (!editingRefCustomer.trim() || !amt || amt <= 0) { setEditingRefId(null); return; }
     saveRefunds(refunds.map((e) => e.id === editingRefId ? { ...e, customer: editingRefCustomer.trim(), reason: editingRefReason.trim(), amount: amt } : e));
     setEditingRefId(null);
+  };
+
+  // ── Kế hoạch năm ──
+  const currentYear = new Date().getFullYear();
+  const [yearPlans, setYearPlans] = useState<YearPlan[]>(() => {
+    try { return JSON.parse(localStorage.getItem(YEAR_PLANS_KEY) || "[]"); } catch { return []; }
+  });
+  const [newPlanName,   setNewPlanName]   = useState("");
+  const [newPlanYear,   setNewPlanYear]   = useState(String(currentYear));
+  const [newPlanTarget, setNewPlanTarget] = useState("");
+  const [newPlanNote,   setNewPlanNote]   = useState("");
+  const saveYearPlans = (next: YearPlan[]) => { setYearPlans(next); localStorage.setItem(YEAR_PLANS_KEY, JSON.stringify(next)); };
+  const addYearPlan = () => {
+    if (!newPlanName.trim() || !newPlanTarget) return;
+    saveYearPlans([...yearPlans, { id: crypto.randomUUID(), name: newPlanName.trim(), year: parseInt(newPlanYear) || currentYear, target: parseFloat(newPlanTarget) || 0, saved: 0, note: newPlanNote.trim() }]);
+    setNewPlanName(""); setNewPlanTarget(""); setNewPlanNote("");
+  };
+  const [editingPlanId,     setEditingPlanId]     = useState<string | null>(null);
+  const [editingPlanField,  setEditingPlanField]  = useState<"saved" | "full">("saved");
+  const [editingPlanName,   setEditingPlanName]   = useState("");
+  const [editingPlanYear,   setEditingPlanYear]   = useState("");
+  const [editingPlanTarget, setEditingPlanTarget] = useState("");
+  const [editingPlanSaved,  setEditingPlanSaved]  = useState("");
+  const [editingPlanNote,   setEditingPlanNote]   = useState("");
+  const startEditPlanFull = (p: YearPlan) => {
+    setEditingPlanId(p.id); setEditingPlanField("full");
+    setEditingPlanName(p.name); setEditingPlanYear(String(p.year));
+    setEditingPlanTarget(String(p.target)); setEditingPlanSaved(String(p.saved)); setEditingPlanNote(p.note);
+  };
+  const startEditPlanSaved = (p: YearPlan) => {
+    setEditingPlanId(p.id); setEditingPlanField("saved"); setEditingPlanSaved(String(p.saved));
+  };
+  const commitEditPlan = () => {
+    if (!editingPlanId) return;
+    if (editingPlanField === "saved") {
+      saveYearPlans(yearPlans.map((p) => p.id === editingPlanId ? { ...p, saved: parseFloat(editingPlanSaved) || 0 } : p));
+    } else {
+      saveYearPlans(yearPlans.map((p) => p.id === editingPlanId
+        ? { ...p, name: editingPlanName.trim() || p.name, year: parseInt(editingPlanYear) || p.year, target: parseFloat(editingPlanTarget) || p.target, saved: parseFloat(editingPlanSaved) || 0, note: editingPlanNote.trim() }
+        : p
+      ));
+    }
+    setEditingPlanId(null);
   };
 
   const currentMonth = new Date().toISOString().slice(0, 7);
@@ -4095,6 +4140,125 @@ function CostTab() {
             </div>
           );
         })()}
+
+        {/* ── Kế hoạch năm / Hũ tiết kiệm dài hạn ── */}
+        <div className="bg-gradient-to-br from-indigo-950 via-navy-900 to-indigo-900 border border-indigo-700/50 rounded-2xl p-4 space-y-4">
+          <div>
+            <h4 className="text-sm font-bold text-white">🎯 Kế hoạch năm</h4>
+            <p className="text-[10px] text-indigo-300 mt-0.5">Hũ tiết kiệm cho các mục tiêu dài hạn của tiệm</p>
+          </div>
+
+          {/* Plan list */}
+          {yearPlans.length === 0 ? (
+            <p className="text-xs text-indigo-400 italic text-center py-2">Chưa có kế hoạch nào — thêm bên dưới</p>
+          ) : (
+            <div className="space-y-3">
+              {yearPlans.map((plan) => {
+                const vnd2 = (n: number) => new Intl.NumberFormat("vi-VN").format(Math.round(n));
+                const pct  = plan.target > 0 ? Math.min(100, (plan.saved / plan.target) * 100) : 0;
+                const done = pct >= 100;
+                const isEditingFull  = editingPlanId === plan.id && editingPlanField === "full";
+                const isEditingSaved = editingPlanId === plan.id && editingPlanField === "saved";
+
+                if (isEditingFull) return (
+                  <div key={plan.id} className="bg-white/10 rounded-xl p-3 space-y-2 border border-indigo-500/40">
+                    <div className="flex gap-1.5">
+                      <input autoFocus type="text" value={editingPlanName} onChange={(e) => setEditingPlanName(e.target.value)}
+                        className="flex-1 text-xs border border-indigo-300 rounded-lg px-2 py-1 bg-white/10 text-white placeholder:text-indigo-300 outline-none" placeholder="Tên kế hoạch" />
+                      <input type="number" value={editingPlanYear} onChange={(e) => setEditingPlanYear(e.target.value)}
+                        className="w-16 text-xs text-center border border-indigo-300 rounded-lg px-2 py-1 bg-white/10 text-white outline-none" placeholder="Năm" />
+                    </div>
+                    <div className="flex gap-1.5">
+                      <input type="number" value={editingPlanTarget} onChange={(e) => setEditingPlanTarget(e.target.value)}
+                        className="flex-1 text-xs border border-indigo-300 rounded-lg px-2 py-1 bg-white/10 text-white placeholder:text-indigo-300 outline-none" placeholder="Mục tiêu ₫" />
+                      <input type="number" value={editingPlanSaved} onChange={(e) => setEditingPlanSaved(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === "Enter") commitEditPlan(); if (e.key === "Escape") setEditingPlanId(null); }}
+                        className="flex-1 text-xs border border-indigo-300 rounded-lg px-2 py-1 bg-white/10 text-white placeholder:text-indigo-300 outline-none" placeholder="Đã tiết kiệm ₫" />
+                    </div>
+                    <div className="flex gap-1.5">
+                      <input type="text" value={editingPlanNote} onChange={(e) => setEditingPlanNote(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === "Enter") commitEditPlan(); if (e.key === "Escape") setEditingPlanId(null); }}
+                        className="flex-1 text-xs border border-indigo-300 rounded-lg px-2 py-1 bg-white/10 text-white placeholder:text-indigo-300 outline-none" placeholder="Ghi chú (tuỳ chọn)" />
+                      <button type="button" onClick={commitEditPlan} className="text-emerald-400 hover:text-emerald-300 transition-colors px-1"><Check size={14} /></button>
+                      <button type="button" onClick={() => setEditingPlanId(null)} className="text-indigo-300 hover:text-white transition-colors px-1"><X size={14} /></button>
+                    </div>
+                  </div>
+                );
+
+                return (
+                  <div key={plan.id} className="bg-white/8 rounded-xl p-3 space-y-2 border border-white/10">
+                    {/* Header row */}
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="text-xs font-bold text-white truncate">{plan.name}</span>
+                          <span className="text-[9px] font-black bg-indigo-700 text-indigo-200 px-1.5 py-0.5 rounded-full shrink-0">{plan.year}</span>
+                          {done && <span className="text-[9px] font-black bg-emerald-600 text-white px-1.5 py-0.5 rounded-full">✓ Đạt</span>}
+                        </div>
+                        {plan.note && <p className="text-[10px] text-indigo-300 italic mt-0.5 truncate">{plan.note}</p>}
+                      </div>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <button type="button" onClick={() => startEditPlanFull(plan)} className="text-indigo-300 hover:text-white transition-colors"><Pencil size={11} /></button>
+                        <button type="button" onClick={() => saveYearPlans(yearPlans.filter((x) => x.id !== plan.id))} className="text-indigo-400 hover:text-red-400 transition-colors"><Trash2 size={11} /></button>
+                      </div>
+                    </div>
+
+                    {/* Progress bar */}
+                    <div className="space-y-1">
+                      <div className="h-2 bg-white/10 rounded-full overflow-hidden">
+                        <div
+                          className={`h-full rounded-full transition-all duration-500 ${done ? "bg-emerald-500" : pct > 60 ? "bg-blue-400" : pct > 30 ? "bg-amber-400" : "bg-rose-400"}`}
+                          style={{ width: `${pct}%` }}
+                        />
+                      </div>
+                      <div className="flex items-center justify-between text-[10px]">
+                        <div className="flex items-center gap-1">
+                          {isEditingSaved ? (
+                            <input autoFocus type="number" value={editingPlanSaved} onChange={(e) => setEditingPlanSaved(e.target.value)}
+                              onBlur={commitEditPlan}
+                              onKeyDown={(e) => { if (e.key === "Enter") commitEditPlan(); if (e.key === "Escape") setEditingPlanId(null); }}
+                              className="w-28 text-xs border border-indigo-300 rounded-lg px-1.5 py-0.5 bg-white/10 text-white outline-none" />
+                          ) : (
+                            <button type="button" onClick={() => startEditPlanSaved(plan)} className="font-bold text-white hover:text-indigo-200 transition-colors">
+                              {vnd2(plan.saved)} ₫
+                            </button>
+                          )}
+                          <span className="text-indigo-400">/ {vnd2(plan.target)} ₫</span>
+                        </div>
+                        <span className={`font-bold ${done ? "text-emerald-400" : "text-indigo-300"}`}>{pct.toFixed(0)}%</span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Add new plan form */}
+          <div className="space-y-1.5 pt-1 border-t border-white/10">
+            <div className="flex gap-1.5">
+              <input type="text" placeholder="Tên kế hoạch (VD: Mua kho, Mở rộng)..." value={newPlanName}
+                onChange={(e) => setNewPlanName(e.target.value)}
+                className="flex-1 text-sm border border-indigo-600 rounded-xl px-3 py-2 bg-white/10 text-white placeholder:text-indigo-400 outline-none focus:ring-2 focus:ring-indigo-400/40 transition-all" />
+              <input type="number" value={newPlanYear} onChange={(e) => setNewPlanYear(e.target.value)}
+                className="w-16 text-sm text-center border border-indigo-600 rounded-xl px-2 py-2 bg-white/10 text-white outline-none focus:ring-2 focus:ring-indigo-400/40" />
+            </div>
+            <div className="flex gap-1.5">
+              <input type="number" min="0" placeholder="Mục tiêu (₫)..." value={newPlanTarget}
+                onChange={(e) => setNewPlanTarget(e.target.value)}
+                className="flex-1 text-sm border border-indigo-600 rounded-xl px-3 py-2 bg-white/10 text-white placeholder:text-indigo-400 outline-none focus:ring-2 focus:ring-indigo-400/40 transition-all" />
+              <input type="text" placeholder="Ghi chú..." value={newPlanNote}
+                onChange={(e) => setNewPlanNote(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && addYearPlan()}
+                className="flex-1 text-sm border border-indigo-600 rounded-xl px-3 py-2 bg-white/10 text-white placeholder:text-indigo-400 outline-none focus:ring-2 focus:ring-indigo-400/40 transition-all" />
+              <button type="button" onClick={addYearPlan}
+                className="shrink-0 bg-indigo-500 hover:bg-indigo-400 text-white text-xs font-bold px-3 rounded-xl transition-colors">
+                <Plus size={14} />
+              </button>
+            </div>
+          </div>
+        </div>
+
       </div>
     </div>
   );
