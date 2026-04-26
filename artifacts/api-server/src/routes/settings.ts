@@ -5,31 +5,42 @@ import { eq } from "drizzle-orm";
 
 const router: IRouter = Router();
 
-const MANUAL_RATES_KEY = "cost_manual_rates";
+const ALLOWED_KEYS = new Set([
+  "admin_cost_manual_rates",
+  "admin_profit_entries",
+  "admin_profit_expenses",
+  "admin_profit_jars",
+  "admin_variable_exps",
+  "admin_collections",
+  "admin_shipper_staff",
+  "admin_refunds",
+  "admin_year_plans",
+]);
 
-router.get("/settings/manual-rates", async (_req, res): Promise<void> => {
+router.get("/settings/:key", async (req, res): Promise<void> => {
+  const { key } = req.params;
+  if (!ALLOWED_KEYS.has(key)) { res.status(404).json({ error: "Unknown key" }); return; }
   try {
-    const rows = await db.select().from(settingsTable).where(eq(settingsTable.key, MANUAL_RATES_KEY));
-    if (rows.length === 0) {
-      res.json({});
-      return;
-    }
+    const rows = await db.select().from(settingsTable).where(eq(settingsTable.key, key));
+    if (rows.length === 0) { res.json(null); return; }
     res.json(JSON.parse(rows[0].value));
   } catch (err) {
-    console.error("[settings/manual-rates GET]", err);
+    console.error(`[settings GET ${key}]`, err);
     res.status(500).json({ error: "Không thể tải cài đặt" });
   }
 });
 
-router.put("/settings/manual-rates", async (req, res): Promise<void> => {
+router.put("/settings/:key", async (req, res): Promise<void> => {
+  const { key } = req.params;
+  if (!ALLOWED_KEYS.has(key)) { res.status(404).json({ error: "Unknown key" }); return; }
   try {
-    const value = JSON.stringify(req.body ?? {});
+    const value = JSON.stringify(req.body ?? null);
     await db.insert(settingsTable)
-      .values({ key: MANUAL_RATES_KEY, value, updatedAt: new Date() })
+      .values({ key, value, updatedAt: new Date() })
       .onConflictDoUpdate({ target: settingsTable.key, set: { value, updatedAt: new Date() } });
     res.json({ ok: true });
   } catch (err) {
-    console.error("[settings/manual-rates PUT]", err);
+    console.error(`[settings PUT ${key}]`, err);
     res.status(500).json({ error: "Không thể lưu cài đặt" });
   }
 });

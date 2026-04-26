@@ -3142,7 +3142,15 @@ function CostTab() {
   const [editingJarField, setEditingJarField] = useState<"name" | "amount">("name");
   const [editingJarVal, setEditingJarVal] = useState("");
 
-  const saveJars = (next: ProfitJar[]) => { setJars(next); localStorage.setItem(PROFIT_JARS_KEY, JSON.stringify(next)); };
+  const syncToServer = (key: string, data: unknown) => {
+    fetch(`${base}/api/settings/${key}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    }).catch(() => {});
+  };
+
+  const saveJars = (next: ProfitJar[]) => { setJars(next); localStorage.setItem(PROFIT_JARS_KEY, JSON.stringify(next)); syncToServer(PROFIT_JARS_KEY, next); };
   const addJar = () => {
     if (!newJarName.trim()) return;
     saveJars([...jars, { id: crypto.randomUUID(), name: newJarName.trim(), amount: 0 }]);
@@ -3184,7 +3192,7 @@ function CostTab() {
   });
   const [newVarName, setNewVarName] = useState("");
   const [newVarAmt,  setNewVarAmt]  = useState("");
-  const saveVariableExps = (next: FlexEntry[]) => { setVariableExps(next); localStorage.setItem(VARIABLE_EXP_KEY, JSON.stringify(next)); };
+  const saveVariableExps = (next: FlexEntry[]) => { setVariableExps(next); localStorage.setItem(VARIABLE_EXP_KEY, JSON.stringify(next)); syncToServer(VARIABLE_EXP_KEY, next); };
   const addVariableExp = () => {
     const amt = parseFloat(newVarAmt);
     if (!newVarName.trim() || !amt || amt <= 0) return;
@@ -3209,7 +3217,7 @@ function CostTab() {
   });
   const [newColName, setNewColName] = useState("");
   const [newColAmt,  setNewColAmt]  = useState("");
-  const saveCollections = (next: FlexEntry[]) => { setCollections(next); localStorage.setItem(COLLECTIONS_KEY, JSON.stringify(next)); };
+  const saveCollections = (next: FlexEntry[]) => { setCollections(next); localStorage.setItem(COLLECTIONS_KEY, JSON.stringify(next)); syncToServer(COLLECTIONS_KEY, next); };
   const addCollection = () => {
     const amt = parseFloat(newColAmt);
     if (!newColName.trim() || !amt || amt <= 0) return;
@@ -3234,7 +3242,7 @@ function CostTab() {
   });
   const [newShipName, setNewShipName] = useState("");
   const [newShipAmt,  setNewShipAmt]  = useState("");
-  const saveShipperPayments = (next: FlexEntry[]) => { setShipperPayments(next); localStorage.setItem(SHIPPER_STAFF_KEY, JSON.stringify(next)); };
+  const saveShipperPayments = (next: FlexEntry[]) => { setShipperPayments(next); localStorage.setItem(SHIPPER_STAFF_KEY, JSON.stringify(next)); syncToServer(SHIPPER_STAFF_KEY, next); };
   const addShipperPayment = () => {
     const amt = parseFloat(newShipAmt);
     if (!newShipName.trim() || !amt || amt <= 0) return;
@@ -3260,7 +3268,7 @@ function CostTab() {
   const [newRefCustomer, setNewRefCustomer] = useState("");
   const [newRefReason,   setNewRefReason]   = useState("");
   const [newRefAmt,      setNewRefAmt]      = useState("");
-  const saveRefunds = (next: RefundEntry[]) => { setRefunds(next); localStorage.setItem(REFUNDS_KEY, JSON.stringify(next)); };
+  const saveRefunds = (next: RefundEntry[]) => { setRefunds(next); localStorage.setItem(REFUNDS_KEY, JSON.stringify(next)); syncToServer(REFUNDS_KEY, next); };
   const addRefund = () => {
     const amt = parseFloat(newRefAmt);
     if (!newRefCustomer.trim() || !amt || amt <= 0) return;
@@ -3289,7 +3297,7 @@ function CostTab() {
   const [newPlanYear,   setNewPlanYear]   = useState(String(currentYear));
   const [newPlanTarget, setNewPlanTarget] = useState("");
   const [newPlanNote,   setNewPlanNote]   = useState("");
-  const saveYearPlans = (next: YearPlan[]) => { setYearPlans(next); localStorage.setItem(YEAR_PLANS_KEY, JSON.stringify(next)); };
+  const saveYearPlans = (next: YearPlan[]) => { setYearPlans(next); localStorage.setItem(YEAR_PLANS_KEY, JSON.stringify(next)); syncToServer(YEAR_PLANS_KEY, next); };
   const addYearPlan = () => {
     if (!newPlanName.trim() || !newPlanTarget) return;
     saveYearPlans([...yearPlans, { id: crypto.randomUUID(), name: newPlanName.trim(), year: parseInt(newPlanYear) || currentYear, target: parseFloat(newPlanTarget) || 0, saved: 0, note: newPlanNote.trim() }]);
@@ -3328,8 +3336,8 @@ function CostTab() {
   const toggleMonth = (m: string) => setExpandedMonths((prev) => { const s = new Set(prev); s.has(m) ? s.delete(m) : s.add(m); return s; });
   const [selectedSummaryMonth, setSelectedSummaryMonth] = useState(currentMonth);
 
-  const saveProfitEntries = (next: ProfitEntry[]) => { setProfitEntries(next); localStorage.setItem(PROFIT_ENTRIES_KEY, JSON.stringify(next)); };
-  const saveProfitExpenses = (next: FixedExpense[]) => { setProfitExpenses(next); localStorage.setItem(PROFIT_EXPENSES_KEY, JSON.stringify(next)); };
+  const saveProfitEntries = (next: ProfitEntry[]) => { setProfitEntries(next); localStorage.setItem(PROFIT_ENTRIES_KEY, JSON.stringify(next)); syncToServer(PROFIT_ENTRIES_KEY, next); };
+  const saveProfitExpenses = (next: FixedExpense[]) => { setProfitExpenses(next); localStorage.setItem(PROFIT_EXPENSES_KEY, JSON.stringify(next)); syncToServer(PROFIT_EXPENSES_KEY, next); };
 
   const addProfitEntry = () => {
     const amount = parseFloat(newSaleAmt);
@@ -3350,6 +3358,26 @@ function CostTab() {
     setNewExpName(""); setNewExpAmt("");
   };
 
+  const loadFromServer = <T,>(key: string, setter: (v: T) => void, lsKey: string, emptyVal: T) =>
+    fetch(`${base}/api/settings/${key}`, { cache: "no-store" })
+      .then((r) => r.json())
+      .then((d) => {
+        if (d !== null && !d?.error) {
+          setter(d as T);
+          localStorage.setItem(lsKey, JSON.stringify(d));
+        } else {
+          // Server has no data — push local data up so other devices can receive it
+          const local = (() => { try { const s = localStorage.getItem(lsKey); return s ? JSON.parse(s) : null; } catch { return null; } })();
+          const hasLocal = local !== null && JSON.stringify(local) !== JSON.stringify(emptyVal);
+          if (hasLocal) {
+            fetch(`${base}/api/settings/${key}`, {
+              method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(local),
+            }).catch(() => {});
+          }
+        }
+      })
+      .catch(() => {});
+
   useEffect(() => {
     const loadRates = fetch(`${base}/api/exchange-rates`, { cache: "no-store" })
       .then((r) => r.json())
@@ -3359,28 +3387,24 @@ function CostTab() {
       })
       .catch(() => setError("Không thể tải tỷ giá. Kiểm tra kết nối mạng."));
 
-    const loadManual = fetch(`${base}/api/settings/manual-rates`, { cache: "no-store" })
-      .then((r) => r.json())
-      .then((d) => {
-        if (d && typeof d === "object" && !d.error) {
-          setManual(d as ManualRates);
-          localStorage.setItem(COST_MANUAL_KEY, JSON.stringify(d));
-          setRatesSynced(true);
-        }
-      })
-      .catch(() => {});
-
-    Promise.all([loadRates, loadManual]).finally(() => setLoading(false));
+    Promise.all([
+      loadRates,
+      loadFromServer<ManualRates>(COST_MANUAL_KEY, (d) => { setManual(d); setRatesSynced(true); }, COST_MANUAL_KEY, {}),
+      loadFromServer<ProfitEntry[]>(PROFIT_ENTRIES_KEY, setProfitEntries, PROFIT_ENTRIES_KEY, []),
+      loadFromServer<FixedExpense[]>(PROFIT_EXPENSES_KEY, setProfitExpenses, PROFIT_EXPENSES_KEY, []),
+      loadFromServer<ProfitJar[]>(PROFIT_JARS_KEY, setJars, PROFIT_JARS_KEY, []),
+      loadFromServer<FlexEntry[]>(VARIABLE_EXP_KEY, setVariableExps, VARIABLE_EXP_KEY, []),
+      loadFromServer<FlexEntry[]>(COLLECTIONS_KEY, setCollections, COLLECTIONS_KEY, []),
+      loadFromServer<FlexEntry[]>(SHIPPER_STAFF_KEY, setShipperPayments, SHIPPER_STAFF_KEY, []),
+      loadFromServer<RefundEntry[]>(REFUNDS_KEY, setRefunds, REFUNDS_KEY, []),
+      loadFromServer<YearPlan[]>(YEAR_PLANS_KEY, setYearPlans, YEAR_PLANS_KEY, []),
+    ]).finally(() => setLoading(false));
   }, []);
 
   const saveManual = (next: ManualRates) => {
     setManual(next);
     localStorage.setItem(COST_MANUAL_KEY, JSON.stringify(next));
-    fetch(`${base}/api/settings/manual-rates`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(next),
-    }).catch(() => {});
+    syncToServer(COST_MANUAL_KEY, next);
   };
 
   const startEdit = (code: string, field: "pickup" | "weight") => {
