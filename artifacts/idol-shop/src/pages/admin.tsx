@@ -2699,6 +2699,17 @@ function CostTab() {
 
   const [newExpName, setNewExpName] = useState("");
   const [newExpAmt, setNewExpAmt] = useState("");
+  const [editingExpId, setEditingExpId] = useState<string | null>(null);
+  const [editingExpName, setEditingExpName] = useState("");
+  const [editingExpAmt, setEditingExpAmt] = useState("");
+  const startEditExp = (exp: FixedExpense) => { setEditingExpId(exp.id); setEditingExpName(exp.name); setEditingExpAmt(String(exp.monthlyAmount)); };
+  const commitEditExp = () => {
+    if (!editingExpId) return;
+    const amt = parseFloat(editingExpAmt);
+    if (!editingExpName.trim() || !amt || amt <= 0) { setEditingExpId(null); return; }
+    saveProfitExpenses(profitExpenses.map((e) => e.id === editingExpId ? { ...e, name: editingExpName.trim(), monthlyAmount: amt } : e));
+    setEditingExpId(null);
+  };
 
   const currentMonth = new Date().toISOString().slice(0, 7);
   const [expandedMonths, setExpandedMonths] = useState<Set<string>>(() => new Set([currentMonth]));
@@ -3382,11 +3393,50 @@ function CostTab() {
               </div>
               {profitExpenses.map((exp) => {
                 const vnd2 = (n: number) => new Intl.NumberFormat("vi-VN").format(Math.round(n));
+                const isEditing = editingExpId === exp.id;
+
+                if (isEditing) {
+                  return (
+                    <div key={exp.id} className="flex items-center gap-2 bg-violet-50 border border-violet-200 rounded-xl px-3 py-2">
+                      <input
+                        autoFocus
+                        type="text"
+                        value={editingExpName}
+                        onChange={(e) => setEditingExpName(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === "Enter") commitEditExp(); if (e.key === "Escape") setEditingExpId(null); }}
+                        className="flex-1 text-xs border border-violet-300 rounded-lg px-2 py-1 bg-white outline-none focus:ring-1 focus:ring-violet-400 min-w-0"
+                        placeholder="Tên khoản chi"
+                      />
+                      <input
+                        type="number"
+                        value={editingExpAmt}
+                        onChange={(e) => setEditingExpAmt(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === "Enter") commitEditExp(); if (e.key === "Escape") setEditingExpId(null); }}
+                        className="w-28 text-xs text-right border border-violet-300 rounded-lg px-2 py-1 bg-white outline-none focus:ring-1 focus:ring-violet-400 shrink-0"
+                        placeholder="₫/tháng"
+                      />
+                      <button type="button" onClick={commitEditExp} className="text-emerald-600 hover:text-emerald-700 transition-colors shrink-0">
+                        <Check size={14} />
+                      </button>
+                      <button type="button" onClick={() => setEditingExpId(null)} className="text-muted-foreground hover:text-foreground transition-colors shrink-0">
+                        <X size={14} />
+                      </button>
+                    </div>
+                  );
+                }
+
                 return (
-                  <div key={exp.id} className="grid grid-cols-[1fr_auto_auto_auto] gap-2 items-center bg-muted/30 rounded-xl px-3 py-2">
+                  <div key={exp.id} className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-2 items-center bg-muted/30 rounded-xl px-3 py-2">
                     <span className="text-xs font-semibold truncate">{exp.name}</span>
                     <span className="text-xs text-muted-foreground text-right">{vnd2(exp.monthlyAmount)} ₫</span>
                     <span className="text-xs font-bold text-orange-600 text-right">{vnd2(exp.monthlyAmount / 30)} ₫</span>
+                    <button
+                      type="button"
+                      onClick={() => startEditExp(exp)}
+                      className="text-muted-foreground hover:text-violet-600 transition-colors"
+                    >
+                      <Pencil size={12} />
+                    </button>
                     <button
                       type="button"
                       onClick={() => saveProfitExpenses(profitExpenses.filter((x) => x.id !== exp.id))}
