@@ -733,6 +733,7 @@ const manualStatusLabels: Record<string, string> = {
 
 function OrdersTab() {
   const { data: orders } = useListOrders();
+  const { data: products } = useListProducts();
   const updateOrder = useUpdateOrder();
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -762,6 +763,15 @@ function OrdersTab() {
   const removeFormItem = (idx: number) => setFormItems((p) => p.filter((_, i) => i !== idx));
   const setFormItem = (idx: number, field: keyof ManualOrderItem, val: string | number) =>
     setFormItems((p) => p.map((it, i) => i === idx ? { ...it, [field]: val } : it));
+
+  // When product name is picked from datalist — auto-fill price if product exists
+  const handleItemNameChange = (idx: number, value: string) => {
+    const matched = (products ?? []).find((p) => p.name === value);
+    setFormItems((prev) => prev.map((it, i) => {
+      if (i !== idx) return it;
+      return matched ? { ...it, name: value, price: matched.price } : { ...it, name: value };
+    }));
+  };
 
   const submitManualOrder = () => {
     if (!formName.trim()) return;
@@ -865,26 +875,42 @@ function OrdersTab() {
               </div>
 
               {/* Items */}
+              <datalist id="manual-product-list">
+                {(products ?? []).map((p) => <option key={p.id} value={p.name} />)}
+              </datalist>
               <div className="space-y-2">
-                <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wide">Sản phẩm</p>
-                {formItems.map((item, idx) => (
-                  <div key={idx} className="flex gap-1.5 items-center">
-                    <input type="text" placeholder="Tên sản phẩm" value={item.name}
-                      onChange={(e) => setFormItem(idx, "name", e.target.value)}
-                      className="flex-1 text-xs border border-border rounded-xl px-2.5 py-2 bg-background outline-none focus:ring-2 focus:ring-primary/30" />
-                    <input type="number" min="1" value={item.qty}
-                      onChange={(e) => setFormItem(idx, "qty", parseInt(e.target.value) || 1)}
-                      className="w-12 text-xs text-center border border-border rounded-xl px-1 py-2 bg-background outline-none focus:ring-2 focus:ring-primary/30" />
-                    <input type="number" min="0" placeholder="Giá" value={item.price || ""}
-                      onChange={(e) => setFormItem(idx, "price", parseFloat(e.target.value) || 0)}
-                      className="w-24 text-xs border border-border rounded-xl px-2 py-2 bg-background outline-none focus:ring-2 focus:ring-primary/30" />
-                    {formItems.length > 1 && (
-                      <button type="button" onClick={() => removeFormItem(idx)} className="text-muted-foreground hover:text-destructive transition-colors shrink-0">
-                        <X size={13} />
-                      </button>
-                    )}
-                  </div>
-                ))}
+                <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wide">
+                  Sản phẩm <span className="font-normal normal-case text-muted-foreground/60">— gõ để tìm hoặc nhập tên mới</span>
+                </p>
+                {formItems.map((item, idx) => {
+                  const isFromDB = (products ?? []).some((p) => p.name === item.name);
+                  return (
+                    <div key={idx} className="flex gap-1.5 items-center">
+                      <div className="flex-1 relative">
+                        <input
+                          type="text" list="manual-product-list"
+                          placeholder="Tên sản phẩm" value={item.name}
+                          onChange={(e) => handleItemNameChange(idx, e.target.value)}
+                          className="w-full text-xs border border-border rounded-xl px-2.5 py-2 bg-background outline-none focus:ring-2 focus:ring-primary/30"
+                        />
+                        {isFromDB && (
+                          <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] font-bold text-primary/60 pointer-events-none">✓</span>
+                        )}
+                      </div>
+                      <input type="number" min="1" value={item.qty}
+                        onChange={(e) => setFormItem(idx, "qty", parseInt(e.target.value) || 1)}
+                        className="w-12 text-xs text-center border border-border rounded-xl px-1 py-2 bg-background outline-none focus:ring-2 focus:ring-primary/30" />
+                      <input type="number" min="0" placeholder="Giá" value={item.price || ""}
+                        onChange={(e) => setFormItem(idx, "price", parseFloat(e.target.value) || 0)}
+                        className="w-24 text-xs border border-border rounded-xl px-2 py-2 bg-background outline-none focus:ring-2 focus:ring-primary/30" />
+                      {formItems.length > 1 && (
+                        <button type="button" onClick={() => removeFormItem(idx)} className="text-muted-foreground hover:text-destructive transition-colors shrink-0">
+                          <X size={13} />
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
                 <button type="button" onClick={addFormItem}
                   className="text-xs text-primary hover:text-primary/80 flex items-center gap-1 transition-colors">
                   <Plus size={12} /> Thêm sản phẩm
