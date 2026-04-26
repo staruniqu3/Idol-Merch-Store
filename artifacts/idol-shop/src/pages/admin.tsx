@@ -4016,14 +4016,14 @@ function CostTab() {
               type="text" placeholder="Tên khoản chi (VD: Thuê kho)..."
               value={newExpName}
               onChange={(e) => setNewExpName(e.target.value)}
-              className="flex-1 text-sm border border-border rounded-xl px-3 py-2 bg-background outline-none focus:ring-2 focus:ring-primary/30 transition-all"
+              className="min-w-0 flex-1 text-sm border border-border rounded-xl px-3 py-2 bg-background outline-none focus:ring-2 focus:ring-primary/30 transition-all"
             />
             <input
               type="number" min="0" placeholder="₫/tháng"
               value={newExpAmt}
               onChange={(e) => setNewExpAmt(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && addExpense()}
-              className="w-28 text-sm border border-border rounded-xl px-3 py-2 bg-background outline-none focus:ring-2 focus:ring-primary/30 transition-all"
+              className="w-24 shrink-0 text-sm border border-border rounded-xl px-3 py-2 bg-background outline-none focus:ring-2 focus:ring-primary/30 transition-all"
             />
             <button
               type="button" onClick={addExpense}
@@ -4155,11 +4155,11 @@ function CostTab() {
               <div className="flex gap-2">
                 <input type="text" placeholder="Tên khoản (VD: Tiền cân tháng 4)..." value={newVarName}
                   onChange={(e) => setNewVarName(e.target.value)}
-                  className="flex-1 text-sm border border-border rounded-xl px-3 py-2 bg-background outline-none focus:ring-2 focus:ring-primary/30 transition-all" />
+                  className="min-w-0 flex-1 text-sm border border-border rounded-xl px-3 py-2 bg-background outline-none focus:ring-2 focus:ring-primary/30 transition-all" />
                 <input type="number" min="0" placeholder="₫" value={newVarAmt}
                   onChange={(e) => setNewVarAmt(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && addVariableExp()}
-                  className="w-28 text-sm border border-border rounded-xl px-3 py-2 bg-background outline-none focus:ring-2 focus:ring-primary/30 transition-all" />
+                  className="w-24 shrink-0 text-sm border border-border rounded-xl px-3 py-2 bg-background outline-none focus:ring-2 focus:ring-primary/30 transition-all" />
                 <button type="button" onClick={addVariableExp} className="shrink-0 bg-primary text-white text-xs font-bold px-3 rounded-xl hover:bg-primary/90 transition-colors"><Plus size={14} /></button>
               </div>
 
@@ -4223,11 +4223,11 @@ function CostTab() {
               <div className="flex gap-2">
                 <input type="text" placeholder="Tên khoản (VD: Thu tiền cân batch 4)..." value={newColName}
                   onChange={(e) => setNewColName(e.target.value)}
-                  className="flex-1 text-sm border border-border rounded-xl px-3 py-2 bg-background outline-none focus:ring-2 focus:ring-primary/30 transition-all" />
+                  className="min-w-0 flex-1 text-sm border border-border rounded-xl px-3 py-2 bg-background outline-none focus:ring-2 focus:ring-primary/30 transition-all" />
                 <input type="number" min="0" placeholder="₫" value={newColAmt}
                   onChange={(e) => setNewColAmt(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && addCollection()}
-                  className="w-28 text-sm border border-border rounded-xl px-3 py-2 bg-background outline-none focus:ring-2 focus:ring-primary/30 transition-all" />
+                  className="w-24 shrink-0 text-sm border border-border rounded-xl px-3 py-2 bg-background outline-none focus:ring-2 focus:ring-primary/30 transition-all" />
                 <button type="button" onClick={addCollection} className="shrink-0 bg-primary text-white text-xs font-bold px-3 rounded-xl hover:bg-primary/90 transition-colors"><Plus size={14} /></button>
               </div>
 
@@ -4291,11 +4291,11 @@ function CostTab() {
               <div className="flex gap-2">
                 <input type="text" placeholder="Tên / ghi chú (VD: Ship Hà Nội tháng 4)..." value={newShipName}
                   onChange={(e) => setNewShipName(e.target.value)}
-                  className="flex-1 text-sm border border-border rounded-xl px-3 py-2 bg-background outline-none focus:ring-2 focus:ring-primary/30 transition-all" />
+                  className="min-w-0 flex-1 text-sm border border-border rounded-xl px-3 py-2 bg-background outline-none focus:ring-2 focus:ring-primary/30 transition-all" />
                 <input type="number" min="0" placeholder="₫" value={newShipAmt}
                   onChange={(e) => setNewShipAmt(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && addShipperPayment()}
-                  className="w-28 text-sm border border-border rounded-xl px-3 py-2 bg-background outline-none focus:ring-2 focus:ring-primary/30 transition-all" />
+                  className="w-24 shrink-0 text-sm border border-border rounded-xl px-3 py-2 bg-background outline-none focus:ring-2 focus:ring-primary/30 transition-all" />
                 <button type="button" onClick={addShipperPayment} className="shrink-0 bg-primary text-white text-xs font-bold px-3 rounded-xl hover:bg-primary/90 transition-colors"><Plus size={14} /></button>
               </div>
 
@@ -4373,17 +4373,17 @@ function CostTab() {
                 <div className="flex gap-2">
                   <input type="text" placeholder="Mã thành viên hoặc tên khách *" value={newRefCustomer}
                     onChange={(e) => setNewRefCustomer(e.target.value)}
-                    className="flex-1 text-sm border border-border rounded-xl px-3 py-2 bg-background outline-none focus:ring-2 focus:ring-primary/30 transition-all" />
+                    className="min-w-0 flex-1 text-sm border border-border rounded-xl px-3 py-2 bg-background outline-none focus:ring-2 focus:ring-primary/30 transition-all" />
                   <input type="number" min="0" placeholder="₫" value={newRefAmt}
                     onChange={(e) => setNewRefAmt(e.target.value)}
                     onKeyDown={(e) => e.key === "Enter" && addRefund()}
-                    className="w-28 text-sm border border-border rounded-xl px-3 py-2 bg-background outline-none focus:ring-2 focus:ring-primary/30 transition-all" />
+                    className="w-24 shrink-0 text-sm border border-border rounded-xl px-3 py-2 bg-background outline-none focus:ring-2 focus:ring-primary/30 transition-all" />
                 </div>
                 <div className="flex gap-2">
                   <input type="text" placeholder="Lý do refund (tuỳ chọn)..." value={newRefReason}
                     onChange={(e) => setNewRefReason(e.target.value)}
                     onKeyDown={(e) => e.key === "Enter" && addRefund()}
-                    className="flex-1 text-sm border border-border rounded-xl px-3 py-2 bg-background outline-none focus:ring-2 focus:ring-primary/30 transition-all" />
+                    className="min-w-0 flex-1 text-sm border border-border rounded-xl px-3 py-2 bg-background outline-none focus:ring-2 focus:ring-primary/30 transition-all" />
                   <button type="button" onClick={addRefund} className="shrink-0 bg-primary text-white text-xs font-bold px-3 rounded-xl hover:bg-primary/90 transition-colors"><Plus size={14} /></button>
                 </div>
               </div>
@@ -4739,18 +4739,18 @@ function CostTab() {
             <div className="flex gap-1.5">
               <input type="text" placeholder="Tên kế hoạch (VD: Mua kho, Mở rộng)..." value={newPlanName}
                 onChange={(e) => setNewPlanName(e.target.value)}
-                className="flex-1 text-sm border border-indigo-600 rounded-xl px-3 py-2 bg-white/10 text-white placeholder:text-indigo-400 outline-none focus:ring-2 focus:ring-indigo-400/40 transition-all" />
+                className="min-w-0 flex-1 text-sm border border-indigo-600 rounded-xl px-3 py-2 bg-white/10 text-white placeholder:text-indigo-400 outline-none focus:ring-2 focus:ring-indigo-400/40 transition-all" />
               <input type="number" value={newPlanYear} onChange={(e) => setNewPlanYear(e.target.value)}
-                className="w-16 text-sm text-center border border-indigo-600 rounded-xl px-2 py-2 bg-white/10 text-white outline-none focus:ring-2 focus:ring-indigo-400/40" />
+                className="w-16 shrink-0 text-sm text-center border border-indigo-600 rounded-xl px-2 py-2 bg-white/10 text-white outline-none focus:ring-2 focus:ring-indigo-400/40" />
             </div>
             <div className="flex gap-1.5">
               <input type="number" min="0" placeholder="Mục tiêu (₫)..." value={newPlanTarget}
                 onChange={(e) => setNewPlanTarget(e.target.value)}
-                className="flex-1 text-sm border border-indigo-600 rounded-xl px-3 py-2 bg-white/10 text-white placeholder:text-indigo-400 outline-none focus:ring-2 focus:ring-indigo-400/40 transition-all" />
+                className="min-w-0 flex-1 text-sm border border-indigo-600 rounded-xl px-3 py-2 bg-white/10 text-white placeholder:text-indigo-400 outline-none focus:ring-2 focus:ring-indigo-400/40 transition-all" />
               <input type="text" placeholder="Ghi chú..." value={newPlanNote}
                 onChange={(e) => setNewPlanNote(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && addYearPlan()}
-                className="flex-1 text-sm border border-indigo-600 rounded-xl px-3 py-2 bg-white/10 text-white placeholder:text-indigo-400 outline-none focus:ring-2 focus:ring-indigo-400/40 transition-all" />
+                className="min-w-0 flex-1 text-sm border border-indigo-600 rounded-xl px-3 py-2 bg-white/10 text-white placeholder:text-indigo-400 outline-none focus:ring-2 focus:ring-indigo-400/40 transition-all" />
               <button type="button" onClick={addYearPlan}
                 className="shrink-0 bg-indigo-500 hover:bg-indigo-400 text-white text-xs font-bold px-3 rounded-xl transition-colors">
                 <Plus size={14} />

@@ -87,7 +87,7 @@ function BottomNav() {
 function Router() {
   return (
     <>
-      <div className="pb-[60px]">
+      <div className="pb-[60px] overflow-x-hidden">
         <Switch>
           <Route path="/" component={ShopPage} />
           <Route path="/preorder" component={PreorderPage} />
