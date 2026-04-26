@@ -2627,6 +2627,7 @@ type ProfitEntry = {
 };
 type FixedExpense  = { id: string; name: string; monthlyAmount: number };
 type FlexEntry     = { id: string; name: string; amount: number; date: string };
+type RefundEntry   = { id: string; customer: string; reason: string; amount: number; date: string };
 
 const PROFIT_ENTRIES_KEY  = "admin_profit_entries";
 const PROFIT_EXPENSES_KEY = "admin_profit_expenses";
@@ -2634,6 +2635,7 @@ const PROFIT_JARS_KEY     = "admin_profit_jars";
 const VARIABLE_EXP_KEY    = "admin_variable_exps";
 const COLLECTIONS_KEY     = "admin_collections";
 const SHIPPER_STAFF_KEY   = "admin_shipper_staff";
+const REFUNDS_KEY         = "admin_refunds";
 
 type ProfitJar = { id: string; name: string; amount: number };
 
@@ -2788,6 +2790,33 @@ function CostTab() {
     if (!editingShipName.trim() || !amt || amt <= 0) { setEditingShipId(null); return; }
     saveShipperPayments(shipperPayments.map((e) => e.id === editingShipId ? { ...e, name: editingShipName.trim(), amount: amt } : e));
     setEditingShipId(null);
+  };
+
+  // ── Refund cho khách ──
+  const [refunds, setRefunds] = useState<RefundEntry[]>(() => {
+    try { return JSON.parse(localStorage.getItem(REFUNDS_KEY) || "[]"); } catch { return []; }
+  });
+  const [newRefCustomer, setNewRefCustomer] = useState("");
+  const [newRefReason,   setNewRefReason]   = useState("");
+  const [newRefAmt,      setNewRefAmt]      = useState("");
+  const saveRefunds = (next: RefundEntry[]) => { setRefunds(next); localStorage.setItem(REFUNDS_KEY, JSON.stringify(next)); };
+  const addRefund = () => {
+    const amt = parseFloat(newRefAmt);
+    if (!newRefCustomer.trim() || !amt || amt <= 0) return;
+    saveRefunds([...refunds, { id: crypto.randomUUID(), customer: newRefCustomer.trim(), reason: newRefReason.trim(), amount: amt, date: new Date().toISOString().slice(0, 10) }]);
+    setNewRefCustomer(""); setNewRefReason(""); setNewRefAmt("");
+  };
+  const [editingRefId,       setEditingRefId]       = useState<string | null>(null);
+  const [editingRefCustomer, setEditingRefCustomer] = useState("");
+  const [editingRefReason,   setEditingRefReason]   = useState("");
+  const [editingRefAmt,      setEditingRefAmt]      = useState("");
+  const startEditRef = (e: RefundEntry) => { setEditingRefId(e.id); setEditingRefCustomer(e.customer); setEditingRefReason(e.reason); setEditingRefAmt(String(e.amount)); };
+  const commitEditRef = () => {
+    if (!editingRefId) return;
+    const amt = parseFloat(editingRefAmt);
+    if (!editingRefCustomer.trim() || !amt || amt <= 0) { setEditingRefId(null); return; }
+    saveRefunds(refunds.map((e) => e.id === editingRefId ? { ...e, customer: editingRefCustomer.trim(), reason: editingRefReason.trim(), amount: amt } : e));
+    setEditingRefId(null);
   };
 
   const currentMonth = new Date().toISOString().slice(0, 7);
@@ -3740,6 +3769,95 @@ function CostTab() {
           );
         })()}
 
+        {/* ── Refund cho khách ── */}
+        {(() => {
+          const vnd2 = (n: number) => new Intl.NumberFormat("vi-VN").format(Math.round(n));
+          const monthTotal = refunds
+            .filter((e) => e.date.startsWith(selectedSummaryMonth))
+            .reduce((s, e) => s + e.amount, 0);
+
+          const renderRow = (e: RefundEntry) => {
+            const isEditing = editingRefId === e.id;
+            if (isEditing) return (
+              <div key={e.id} className="space-y-1.5 bg-purple-50 border border-purple-200 rounded-xl px-3 py-2.5">
+                <div className="flex gap-1.5">
+                  <input autoFocus type="text" value={editingRefCustomer} onChange={(ev) => setEditingRefCustomer(ev.target.value)}
+                    onKeyDown={(ev) => { if (ev.key === "Escape") setEditingRefId(null); }}
+                    className="flex-1 text-xs border border-purple-300 rounded-lg px-2 py-1 bg-white outline-none focus:ring-1 focus:ring-purple-400 min-w-0" placeholder="Mã/tên khách" />
+                  <input type="number" value={editingRefAmt} onChange={(ev) => setEditingRefAmt(ev.target.value)}
+                    onKeyDown={(ev) => { if (ev.key === "Enter") commitEditRef(); if (ev.key === "Escape") setEditingRefId(null); }}
+                    className="w-24 text-xs text-right border border-purple-300 rounded-lg px-2 py-1 bg-white outline-none shrink-0" placeholder="₫" />
+                </div>
+                <div className="flex gap-1.5">
+                  <input type="text" value={editingRefReason} onChange={(ev) => setEditingRefReason(ev.target.value)}
+                    onKeyDown={(ev) => { if (ev.key === "Enter") commitEditRef(); if (ev.key === "Escape") setEditingRefId(null); }}
+                    className="flex-1 text-xs border border-purple-300 rounded-lg px-2 py-1 bg-white outline-none focus:ring-1 focus:ring-purple-400 min-w-0" placeholder="Lý do refund (tuỳ chọn)" />
+                  <button type="button" onClick={commitEditRef} className="text-emerald-600 hover:text-emerald-700 transition-colors shrink-0 px-1"><Check size={14} /></button>
+                  <button type="button" onClick={() => setEditingRefId(null)} className="text-muted-foreground hover:text-foreground transition-colors shrink-0 px-1"><X size={14} /></button>
+                </div>
+              </div>
+            );
+            return (
+              <div key={e.id} className="flex items-center gap-2 bg-muted/30 rounded-xl px-3 py-2">
+                <div className="flex-1 min-w-0 space-y-0.5">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="text-[10px] font-black bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded-lg">
+                      {e.customer}
+                    </span>
+                    <span className="text-[10px] text-muted-foreground">{new Date(e.date).toLocaleDateString("vi-VN")}</span>
+                  </div>
+                  {e.reason && <p className="text-[10px] text-muted-foreground italic truncate">{e.reason}</p>}
+                </div>
+                <span className="text-xs font-bold text-purple-700 shrink-0">{vnd2(e.amount)} ₫</span>
+                <button type="button" onClick={() => startEditRef(e)} className="text-muted-foreground hover:text-violet-600 transition-colors shrink-0"><Pencil size={12} /></button>
+                <button type="button" onClick={() => saveRefunds(refunds.filter((x) => x.id !== e.id))} className="text-muted-foreground hover:text-destructive transition-colors shrink-0"><Trash2 size={12} /></button>
+              </div>
+            );
+          };
+
+          return (
+            <div className="bg-card border border-border rounded-2xl p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <h5 className="text-sm font-bold">Refund cho khách</h5>
+                {monthTotal > 0 && <span className="text-[10px] text-purple-700 font-bold">{vnd2(monthTotal)} ₫ tháng này</span>}
+              </div>
+              <p className="text-[10px] text-muted-foreground -mt-1">Ghi lại các khoản hoàn tiền kèm mã/tên khách hàng</p>
+
+              {/* Add form */}
+              <div className="space-y-1.5">
+                <div className="flex gap-2">
+                  <input type="text" placeholder="Mã thành viên hoặc tên khách *" value={newRefCustomer}
+                    onChange={(e) => setNewRefCustomer(e.target.value)}
+                    className="flex-1 text-sm border border-border rounded-xl px-3 py-2 bg-background outline-none focus:ring-2 focus:ring-primary/30 transition-all" />
+                  <input type="number" min="0" placeholder="₫" value={newRefAmt}
+                    onChange={(e) => setNewRefAmt(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && addRefund()}
+                    className="w-28 text-sm border border-border rounded-xl px-3 py-2 bg-background outline-none focus:ring-2 focus:ring-primary/30 transition-all" />
+                </div>
+                <div className="flex gap-2">
+                  <input type="text" placeholder="Lý do refund (tuỳ chọn)..." value={newRefReason}
+                    onChange={(e) => setNewRefReason(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && addRefund()}
+                    className="flex-1 text-sm border border-border rounded-xl px-3 py-2 bg-background outline-none focus:ring-2 focus:ring-primary/30 transition-all" />
+                  <button type="button" onClick={addRefund} className="shrink-0 bg-primary text-white text-xs font-bold px-3 rounded-xl hover:bg-primary/90 transition-colors"><Plus size={14} /></button>
+                </div>
+              </div>
+
+              {refunds.length === 0 ? (
+                <p className="text-xs text-muted-foreground text-center py-2">Chưa có khoản refund nào</p>
+              ) : (
+                <div className="space-y-1">
+                  {refunds.map(renderRow)}
+                  <div className="flex justify-between px-3 pt-1 border-t border-border text-xs font-bold">
+                    <span>Tổng đã refund</span>
+                    <span className="text-purple-700">{vnd2(refunds.reduce((s, e) => s + e.amount, 0))} ₫</span>
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })()}
+
         {/* ── Tổng kết tháng ── */}
         {(() => {
           const vnd2 = (n: number) => new Intl.NumberFormat("vi-VN").format(Math.round(n));
@@ -3750,8 +3868,9 @@ function CostTab() {
           const totalVariable = variableExps.filter((e) => e.date.startsWith(selectedSummaryMonth)).reduce((s, e) => s + e.amount, 0);
           const totalCollect  = collections.filter((e) => e.date.startsWith(selectedSummaryMonth)).reduce((s, e) => s + e.amount, 0);
           const totalShipper  = shipperPayments.filter((e) => e.date.startsWith(selectedSummaryMonth)).reduce((s, e) => s + e.amount, 0);
-          const netProfit     = totalProfit - totalFixed - totalVariable + totalCollect - totalShipper;
-          if (profitEntries.length === 0 && profitExpenses.length === 0 && variableExps.length === 0 && collections.length === 0 && shipperPayments.length === 0) return null;
+          const totalRefunds  = refunds.filter((e) => e.date.startsWith(selectedSummaryMonth)).reduce((s, e) => s + e.amount, 0);
+          const netProfit     = totalProfit - totalFixed - totalVariable + totalCollect - totalShipper - totalRefunds;
+          if (profitEntries.length === 0 && profitExpenses.length === 0 && variableExps.length === 0 && collections.length === 0 && shipperPayments.length === 0 && refunds.length === 0) return null;
 
           const availableMonths = [...new Set(profitEntries.map((e) => e.date.slice(0, 7)))].sort((a, b) => b.localeCompare(a));
           if (!availableMonths.includes(selectedSummaryMonth) && availableMonths.length > 0 && monthEntries.length === 0) {
@@ -3825,6 +3944,12 @@ function CostTab() {
                   <div className="flex justify-between text-xs">
                     <span className="text-muted-foreground">Trả Shipper Staff tháng này</span>
                     <span className="font-semibold text-amber-700">− {vnd2(totalShipper)} ₫</span>
+                  </div>
+                )}
+                {totalRefunds > 0 && (
+                  <div className="flex justify-between text-xs">
+                    <span className="text-muted-foreground">Refund cho khách tháng này</span>
+                    <span className="font-semibold text-purple-700">− {vnd2(totalRefunds)} ₫</span>
                   </div>
                 )}
 
