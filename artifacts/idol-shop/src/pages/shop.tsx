@@ -294,6 +294,9 @@ export default function ShopPage() {
                           <span className="font-semibold text-muted-foreground">Tổng cộng</span>
                           <span className="text-xl font-black text-primary">{formatPrice(cartTotal)}</span>
                         </div>
+                        <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2 leading-relaxed">
+                          ⚠️ Giá sản phẩm <strong>chưa bao gồm</strong> tiền cân và phí ship nội địa.
+                        </p>
                         <Button className="w-full rounded-xl font-bold" onClick={() => setStep("checkout")} data-testid="button-checkout">
                           Đặt hàng ngay
                         </Button>
