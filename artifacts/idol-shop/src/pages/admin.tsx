@@ -3116,6 +3116,7 @@ function CostTab() {
   });
   const [editing, setEditing] = useState<RateEditState>(null);
   const [editVal, setEditVal] = useState("");
+  const [ratesSynced, setRatesSynced] = useState(false);
 
   // Calculator state
   const [calcAmount, setCalcAmount] = useState("");
@@ -3350,19 +3351,36 @@ function CostTab() {
   };
 
   useEffect(() => {
-    fetch(`${base}/api/exchange-rates`, { cache: "no-store" })
+    const loadRates = fetch(`${base}/api/exchange-rates`, { cache: "no-store" })
       .then((r) => r.json())
       .then((d) => {
         setRealtimeRates(d.rates ?? {});
         setUpdatedAt(d.updatedAt ?? "");
       })
-      .catch(() => setError("Không thể tải tỷ giá. Kiểm tra kết nối mạng."))
-      .finally(() => setLoading(false));
+      .catch(() => setError("Không thể tải tỷ giá. Kiểm tra kết nối mạng."));
+
+    const loadManual = fetch(`${base}/api/settings/manual-rates`, { cache: "no-store" })
+      .then((r) => r.json())
+      .then((d) => {
+        if (d && typeof d === "object" && !d.error) {
+          setManual(d as ManualRates);
+          localStorage.setItem(COST_MANUAL_KEY, JSON.stringify(d));
+          setRatesSynced(true);
+        }
+      })
+      .catch(() => {});
+
+    Promise.all([loadRates, loadManual]).finally(() => setLoading(false));
   }, []);
 
   const saveManual = (next: ManualRates) => {
     setManual(next);
     localStorage.setItem(COST_MANUAL_KEY, JSON.stringify(next));
+    fetch(`${base}/api/settings/manual-rates`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(next),
+    }).catch(() => {});
   };
 
   const startEdit = (code: string, field: "pickup" | "weight") => {

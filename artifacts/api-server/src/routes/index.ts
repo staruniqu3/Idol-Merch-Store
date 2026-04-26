@@ -12,6 +12,7 @@ import bookingNotesRouter from "./booking-notes";
 import couponsRouter from "./coupons";
 import orderStatusRouter from "./order-status";
 import exchangeRatesRouter from "./exchange-rates";
+import settingsRouter from "./settings";
 
 const router: IRouter = Router();
 
@@ -28,5 +29,6 @@ router.use(bookingNotesRouter);
 router.use(couponsRouter);
 router.use(orderStatusRouter);
 router.use(exchangeRatesRouter);
+router.use(settingsRouter);
 
 export default router;
