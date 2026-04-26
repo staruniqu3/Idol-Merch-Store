@@ -3695,6 +3695,7 @@ function CostTab() {
         <div>
           <h4 className="text-sm font-bold">Giá gửi quốc tế (₫/kg)</h4>
           <p className="text-[10px] text-muted-foreground mt-0.5">Ghi chú giá ship từ Việt Nam đến từng quốc gia</p>
+          <p className="text-[10px] text-amber-600 font-medium mt-1">⚠️ Giá chưa bao gồm tiền cân và phí ship nội địa.</p>
         </div>
 
         {/* Add form */}
