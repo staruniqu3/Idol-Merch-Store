@@ -2609,6 +2609,7 @@ const CURRENCY_ROWS: { code: string; label: string; flag: string }[] = [
   { code: "PHP", label: "PHP - VND", flag: "🇵🇭" },
   { code: "INR", label: "INR - VND", flag: "🇮🇳" },
   { code: "TWD", label: "TWD - VND", flag: "🇹🇼" },
+  { code: "SGD", label: "SGD - VND", flag: "🇸🇬" },
 ];
 
 type ManualRates = Record<string, { pickup?: string; weight?: string }>;
