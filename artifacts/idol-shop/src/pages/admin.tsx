@@ -845,6 +845,7 @@ function OrdersTab() {
 
   const [showAddForm, setShowAddForm] = useState(false);
   const [expandedManualId, setExpandedManualId] = useState<string | null>(null);
+  const [editingManualId, setEditingManualId] = useState<string | null>(null);
 
   // add-form fields
   const [formName,   setFormName]   = useState("");
@@ -866,6 +867,49 @@ function OrdersTab() {
   const removeFormItem = (idx: number) => setFormItems((p) => p.filter((_, i) => i !== idx));
   const setFormItem = (idx: number, field: keyof ManualOrderItem, val: string | number) =>
     setFormItems((p) => p.map((it, i) => i === idx ? { ...it, [field]: val } : it));
+
+  // edit-form fields (reuse same state, populated when editing)
+  const [editName,   setEditName]   = useState("");
+  const [editPhone,  setEditPhone]  = useState("");
+  const [editDate,   setEditDate]   = useState("");
+  const [editNote,   setEditNote]   = useState("");
+  const [editStatus, setEditStatus] = useState("pending");
+  const [editItems,  setEditItems]  = useState<ManualOrderItem[]>([]);
+
+  const editTotal = editItems.reduce((s, i) => s + i.qty * i.price, 0);
+
+  const openEditManual = (order: ManualOrder) => {
+    setEditName(order.customerName);
+    setEditPhone(order.phone);
+    setEditDate(order.date);
+    setEditNote(order.note);
+    setEditStatus(order.status);
+    setEditItems(order.items.map((it) => ({ ...it })));
+    setEditingManualId(order.id);
+  };
+
+  const addEditItem = () => setEditItems((p) => [...p, { name: "", qty: 1, price: 0 }]);
+  const removeEditItem = (idx: number) => setEditItems((p) => p.filter((_, i) => i !== idx));
+  const setEditItem = (idx: number, field: keyof ManualOrderItem, val: string | number) =>
+    setEditItems((p) => p.map((it, i) => i === idx ? { ...it, [field]: val } : it));
+
+  const saveEditManual = () => {
+    const cleanItems = editItems.filter((it) => it.name.trim());
+    if (!editName.trim() || cleanItems.length === 0) {
+      toast({ title: "Vui lòng nhập đủ thông tin", variant: "destructive" }); return;
+    }
+    saveManualOrders(manualOrders.map((o) => o.id === editingManualId ? {
+      ...o,
+      customerName: editName.trim(),
+      phone: editPhone.trim(),
+      date: editDate,
+      note: editNote.trim(),
+      status: editStatus,
+      items: cleanItems,
+    } : o));
+    setEditingManualId(null);
+    toast({ title: "Đã cập nhật đơn" });
+  };
 
   // When product name is picked from datalist — auto-fill price if product exists, reset variant
   const handleItemNameChange = (idx: number, value: string) => {
@@ -1117,7 +1161,7 @@ function OrdersTab() {
                         <ChevronDown size={14} className={`transition-transform text-muted-foreground ${isExpanded ? "rotate-180" : ""}`} />
                       </div>
                     </button>
-                    {isExpanded && (
+                    {isExpanded && editingManualId !== order.id && (
                       <div className="border-t border-border p-3 space-y-3 bg-muted/30">
                         <div className="space-y-1">
                           {order.items.map((it, i) => (
@@ -1143,10 +1187,80 @@ function OrdersTab() {
                             {Object.entries(manualStatusLabels).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
                           </select>
                         </div>
-                        <button type="button" onClick={() => deleteManualOrder(order.id)}
-                          className="w-full text-xs text-muted-foreground hover:text-destructive transition-colors py-1 border border-border hover:border-destructive/40 rounded-xl">
-                          Xoá đơn này
-                        </button>
+                        <div className="flex gap-2">
+                          <button type="button" onClick={() => openEditManual(order)}
+                            className="flex-1 text-xs font-bold text-primary hover:bg-primary/10 transition-colors py-1.5 border border-primary/30 hover:border-primary/50 rounded-xl flex items-center justify-center gap-1">
+                            <Pencil size={11} /> Sửa đơn này
+                          </button>
+                          <button type="button" onClick={() => deleteManualOrder(order.id)}
+                            className="flex-1 text-xs text-muted-foreground hover:text-destructive transition-colors py-1.5 border border-border hover:border-destructive/40 rounded-xl">
+                            Xoá đơn này
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                    {isExpanded && editingManualId === order.id && (
+                      <div className="border-t border-primary/20 p-3 space-y-3 bg-primary/5">
+                        <p className="text-xs font-black text-primary uppercase tracking-widest">Sửa đơn</p>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div><Label className="text-xs">Tên khách</Label>
+                            <Input value={editName} onChange={(e) => setEditName(e.target.value)} className="rounded-xl h-8 text-xs mt-1" placeholder="Tên khách hàng" />
+                          </div>
+                          <div><Label className="text-xs">SĐT</Label>
+                            <Input value={editPhone} onChange={(e) => setEditPhone(e.target.value)} className="rounded-xl h-8 text-xs mt-1" placeholder="Số điện thoại" />
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div><Label className="text-xs">Ngày</Label>
+                            <Input type="date" value={editDate} onChange={(e) => setEditDate(e.target.value)} className="rounded-xl h-8 text-xs mt-1" />
+                          </div>
+                          <div><Label className="text-xs">Trạng thái</Label>
+                            <select value={editStatus} onChange={(e) => setEditStatus(e.target.value)}
+                              className="mt-1 w-full text-xs border border-border rounded-xl px-2 py-1.5 bg-background outline-none focus:ring-2 focus:ring-primary/30 h-8">
+                              {Object.entries(manualStatusLabels).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                            </select>
+                          </div>
+                        </div>
+                        <div>
+                          <Label className="text-xs">Sản phẩm</Label>
+                          <datalist id="edit-product-list">
+                            {(products ?? []).map((p) => <option key={p.id} value={p.name} />)}
+                          </datalist>
+                          <div className="space-y-1.5 mt-1">
+                            {editItems.map((it, idx) => (
+                              <div key={idx} className="flex gap-1.5 items-center">
+                                <Input value={it.name} onChange={(e) => setEditItem(idx, "name", e.target.value)}
+                                  list="edit-product-list" placeholder="Tên sản phẩm" className="rounded-xl h-7 text-xs flex-1" />
+                                <Input value={it.variant ?? ""} onChange={(e) => setEditItem(idx, "variant", e.target.value)}
+                                  placeholder="Biến thể" className="rounded-xl h-7 text-xs w-20" />
+                                <Input type="number" min="1" value={it.qty} onChange={(e) => setEditItem(idx, "qty", parseInt(e.target.value) || 1)}
+                                  className="rounded-xl h-7 text-xs w-12 text-center" />
+                                <Input type="number" min="0" value={it.price} onChange={(e) => setEditItem(idx, "price", parseFloat(e.target.value) || 0)}
+                                  placeholder="Giá" className="rounded-xl h-7 text-xs w-24" />
+                                <button type="button" onClick={() => removeEditItem(idx)}
+                                  className="w-6 h-6 rounded-full flex items-center justify-center hover:bg-red-100 text-muted-foreground hover:text-red-600 shrink-0 text-base leading-none">×</button>
+                              </div>
+                            ))}
+                            <button type="button" onClick={addEditItem}
+                              className="text-xs text-primary font-bold hover:underline">+ Thêm dòng</button>
+                          </div>
+                        </div>
+                        <div><Label className="text-xs">Ghi chú</Label>
+                          <Input value={editNote} onChange={(e) => setEditNote(e.target.value)} className="rounded-xl h-8 text-xs mt-1" placeholder="Ghi chú..." />
+                        </div>
+                        <div className="pt-1 border-t border-border/50 flex justify-between text-xs font-bold">
+                          <span>Tổng</span><span className="text-primary">{formatPrice(editTotal)}</span>
+                        </div>
+                        <div className="flex gap-2">
+                          <button type="button" onClick={saveEditManual}
+                            className="flex-1 text-xs font-black bg-primary text-primary-foreground hover:bg-primary/90 transition-colors py-2 rounded-xl">
+                            Lưu thay đổi
+                          </button>
+                          <button type="button" onClick={() => setEditingManualId(null)}
+                            className="flex-1 text-xs font-bold text-muted-foreground hover:text-foreground transition-colors py-2 border border-border rounded-xl">
+                            Huỷ
+                          </button>
+                        </div>
                       </div>
                     )}
                   </div>
