@@ -1790,6 +1790,7 @@ function StatsTab() {
   });
   const [expandedBatch, setExpandedBatch] = useState<number | null>(null);
   const [showHistory, setShowHistory] = useState(false);
+  const [expandedStatItem, setExpandedStatItem] = useState<string | null>(null);
 
   // Load manual orders from localStorage
   const allManualOrders: ManualOrder[] = (() => {
@@ -1803,7 +1804,9 @@ function StatsTab() {
     (o) => (o.status === "confirmed" || o.status === "pending") && !accountedIds.has(o.id)
   );
 
+  type StatOrderEntry = { orderId: number | string; customerName: string; phone?: string; qty: number; price: number; source: "app" | "manual"; variant?: string };
   const itemMap: Record<string, { qty: number; revenue: number; sources: Array<"app" | "manual"> }> = {};
+  const itemOrdersMap: Record<string, StatOrderEntry[]> = {};
   activeOrders.forEach((order) => {
     try {
       const items: Array<{ name: string; quantity: number; price: number }> = JSON.parse(order.items);
@@ -1812,6 +1815,8 @@ function StatsTab() {
         itemMap[it.name].qty += it.quantity;
         itemMap[it.name].revenue += it.price * it.quantity;
         if (!itemMap[it.name].sources.includes("app")) itemMap[it.name].sources.push("app");
+        if (!itemOrdersMap[it.name]) itemOrdersMap[it.name] = [];
+        itemOrdersMap[it.name].push({ orderId: order.id, customerName: order.memberName, phone: order.memberPhone, qty: it.quantity, price: it.price, source: "app" });
       });
     } catch {}
   });
@@ -1822,6 +1827,8 @@ function StatsTab() {
       itemMap[it.name].qty += it.qty;
       itemMap[it.name].revenue += it.price * it.qty;
       if (!itemMap[it.name].sources.includes("manual")) itemMap[it.name].sources.push("manual");
+      if (!itemOrdersMap[it.name]) itemOrdersMap[it.name] = [];
+      itemOrdersMap[it.name].push({ orderId: order.id, customerName: order.customerName, phone: order.phone, qty: it.qty, price: it.price, source: "manual", variant: it.variant });
     });
   });
 
@@ -2075,45 +2082,80 @@ function StatsTab() {
             const isDone = orderedItems.has(name);
             const hasManual = sources.includes("manual");
             const hasApp    = sources.includes("app");
+            const isStatOpen = expandedStatItem === name;
+            const orderEntries = itemOrdersMap[name] ?? [];
             return (
-              <button
+              <div
                 key={name}
-                type="button"
-                onClick={() => toggleOrdered(name)}
-                className={`w-full text-left bg-card border rounded-2xl p-3 transition-all ${
-                  isDone
-                    ? "border-border/40 opacity-45 grayscale"
-                    : "border-border hover:border-primary/30 hover:bg-primary/5"
+                className={`bg-card border rounded-2xl overflow-hidden transition-all ${
+                  isDone ? "border-border/40 opacity-45 grayscale" : "border-border hover:border-primary/30"
                 }`}
               >
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-2 flex-1 min-w-0">
-                    <div className={`w-4 h-4 rounded-full border-2 shrink-0 flex items-center justify-center transition-all ${
-                      isDone ? "bg-muted-foreground/40 border-muted-foreground/40" : "border-primary/40"
-                    }`}>
-                      {isDone && <div className="w-2 h-2 rounded-full bg-white" />}
+                <div className="p-3">
+                  <div className="flex items-center gap-2 mb-2">
+                    {/* Toggle area */}
+                    <div className="flex items-center gap-2 flex-1 min-w-0 cursor-pointer select-none" onClick={() => toggleOrdered(name)}>
+                      <div className={`w-4 h-4 rounded-full border-2 shrink-0 flex items-center justify-center transition-all ${
+                        isDone ? "bg-muted-foreground/40 border-muted-foreground/40" : "border-primary/40"
+                      }`}>
+                        {isDone && <div className="w-2 h-2 rounded-full bg-white" />}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className={`font-bold text-sm truncate ${isDone ? "line-through" : ""}`}>{name}</p>
+                        {!isDone && (hasManual || hasApp) && (
+                          <div className="flex items-center gap-1 mt-0.5">
+                            {hasApp    && <span className="text-[9px] font-bold bg-primary/10 text-primary px-1.5 py-0.5 rounded-full border border-primary/20">App</span>}
+                            {hasManual && <span className="text-[9px] font-bold bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full border border-amber-200">Nhập tay</span>}
+                          </div>
+                        )}
+                      </div>
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <p className={`font-bold text-sm truncate ${isDone ? "line-through" : ""}`}>{name}</p>
-                      {!isDone && (hasManual || hasApp) && (
-                        <div className="flex items-center gap-1 mt-0.5">
-                          {hasApp    && <span className="text-[9px] font-bold bg-primary/10 text-primary px-1.5 py-0.5 rounded-full border border-primary/20">App</span>}
-                          {hasManual && <span className="text-[9px] font-bold bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full border border-amber-200">Nhập tay</span>}
-                        </div>
-                      )}
+                    {/* Right: qty + revenue + expand */}
+                    <div className="flex items-center gap-2 shrink-0">
+                      <Badge variant="secondary" className={`text-xs font-black ${isDone ? "bg-muted text-muted-foreground border-muted" : "bg-primary/10 text-primary border-primary/20"}`}>
+                        ×{qty}
+                      </Badge>
+                      <span className="text-xs text-muted-foreground">{formatPrice(revenue)}</span>
+                      <button
+                        type="button"
+                        onClick={() => setExpandedStatItem(isStatOpen ? null : name)}
+                        className="w-6 h-6 rounded-lg flex items-center justify-center hover:bg-muted transition-colors shrink-0"
+                        title="Xem danh sách đơn"
+                      >
+                        <ChevronDown size={13} className={`text-muted-foreground transition-transform ${isStatOpen ? "rotate-180" : ""}`} />
+                      </button>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <Badge variant="secondary" className={`text-xs font-black ${isDone ? "bg-muted text-muted-foreground border-muted" : "bg-primary/10 text-primary border-primary/20"}`}>
-                      ×{qty}
-                    </Badge>
-                    <span className="text-xs text-muted-foreground">{formatPrice(revenue)}</span>
+                  {/* Progress bar */}
+                  <div className="w-full bg-muted rounded-full h-1.5 overflow-hidden cursor-pointer" onClick={() => toggleOrdered(name)}>
+                    <div className={`h-full rounded-full transition-all ${isDone ? "bg-muted-foreground/30" : "bg-primary"}`} style={{ width: `${pct}%` }} />
                   </div>
                 </div>
-                <div className="w-full bg-muted rounded-full h-1.5 overflow-hidden">
-                  <div className={`h-full rounded-full transition-all ${isDone ? "bg-muted-foreground/30" : "bg-primary"}`} style={{ width: `${pct}%` }} />
-                </div>
-              </button>
+                {/* Expanded order breakdown */}
+                {isStatOpen && (
+                  <div className="border-t border-border bg-muted/30 px-3 py-2.5 space-y-1.5">
+                    <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest mb-2">Đơn hàng gộp ({orderEntries.length})</p>
+                    {orderEntries.map((entry, ei) => (
+                      <div key={ei} className="flex items-center gap-2 text-xs rounded-xl px-2.5 py-1.5 bg-background border border-border">
+                        <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full shrink-0 ${
+                          entry.source === "manual"
+                            ? "bg-amber-100 text-amber-700 border border-amber-200"
+                            : "bg-primary/10 text-primary border border-primary/20"
+                        }`}>
+                          {entry.source === "manual" ? "Tay" : "App"}
+                        </span>
+                        <span className="font-semibold truncate flex-1">{entry.customerName}</span>
+                        {entry.phone && <span className="text-muted-foreground text-[10px] shrink-0">{entry.phone}</span>}
+                        {entry.variant && (
+                          <span className="text-[9px] bg-violet-100 text-violet-700 border border-violet-200 font-bold px-1.5 py-0.5 rounded-full shrink-0">{entry.variant}</span>
+                        )}
+                        <span className="font-black text-primary shrink-0">×{entry.qty}</span>
+                        <span className="text-muted-foreground shrink-0">{formatPrice(entry.price * entry.qty)}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             );
           })}
         </div>
