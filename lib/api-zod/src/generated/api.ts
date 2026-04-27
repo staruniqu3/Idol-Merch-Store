@@ -22,11 +22,19 @@ export const ListProductsQueryParams = zod.object({
   available: zod.coerce.boolean().optional(),
 });
 
+const SubVariantItem = zod.object({
+  name: zod.string(),
+  price: zod.number().optional(),
+  stock: zod.number().optional(),
+  soldOut: zod.boolean().optional(),
+});
+
 const VariantItem = zod.object({
   name: zod.string(),
   price: zod.number().optional(),
   stock: zod.number().optional(),
   soldOut: zod.boolean().optional(),
+  subVariants: zod.array(SubVariantItem).optional(),
 });
 
 export const ListProductsResponseItem = zod.object({

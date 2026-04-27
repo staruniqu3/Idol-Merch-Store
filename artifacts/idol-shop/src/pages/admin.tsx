@@ -158,8 +158,10 @@ function ProductsTab() {
   const { toast } = useToast();
   const [open, setOpen] = useState(false);
   const [editId, setEditId] = useState<number | null>(null);
-  type VariantDraft = { name: string; price?: number; stock?: number; soldOut?: boolean };
+  type SubVariantDraft = { name: string; price?: number; stock?: number; soldOut?: boolean };
+  type VariantDraft = { name: string; price?: number; stock?: number; soldOut?: boolean; subVariants?: SubVariantDraft[]; _showSubs?: boolean };
   const [form, setForm] = useState({ name: "", description: "", price: "", category: "Kpop", stock: "0", isAvailable: true, isSoldOut: false, orderType: "preorder", orderLabel: "", orderName: "", imageUrl: "", tags: [] as string[], variants: [] as VariantDraft[] });
+  const [subVariantInputs, setSubVariantInputs] = useState<Record<number, { name: string; price: string; stock: string }>>({});
   const [customTagInput, setCustomTagInput] = useState("");
   const [customVariantInput, setCustomVariantInput] = useState({ name: "", price: "", stock: "" });
   const [customCategoryInput, setCustomCategoryInput] = useState("");
@@ -194,7 +196,7 @@ function ProductsTab() {
     "Weverse Album", "Limited Edition", "Merch Bundle",
   ];
 
-  const resetForm = () => { setForm({ name: "", description: "", price: "", category: "Kpop", stock: "0", isAvailable: true, isSoldOut: false, orderType: "preorder", orderLabel: "", orderName: "", imageUrl: "", tags: [], variants: [] }); setCustomTagInput(""); setCustomVariantInput({ name: "", price: "", stock: "" }); };
+  const resetForm = () => { setForm({ name: "", description: "", price: "", category: "Kpop", stock: "0", isAvailable: true, isSoldOut: false, orderType: "preorder", orderLabel: "", orderName: "", imageUrl: "", tags: [], variants: [] }); setCustomTagInput(""); setCustomVariantInput({ name: "", price: "", stock: "" }); setSubVariantInputs({}); };
 
   const addCustomTag = () => {
     const tag = customTagInput.trim();
@@ -205,7 +207,8 @@ function ProductsTab() {
 
   const openEdit = (p: NonNullable<typeof products>[0]) => {
     setEditId(p.id);
-    setForm({ name: p.name, description: p.description ?? "", price: String(p.price), category: p.category, stock: String(p.stock), isAvailable: p.isAvailable, isSoldOut: false, orderType: p.orderType, orderLabel: (p as any).orderLabel ?? "", orderName: (p as any).orderName ?? "", imageUrl: p.imageUrl ?? "", tags: p.tags ?? [], variants: (p.variants ?? []).map((v: any) => ({ name: v.name, price: v.price ?? undefined, stock: v.stock ?? undefined, soldOut: v.soldOut ?? false })) });
+    setSubVariantInputs({});
+    setForm({ name: p.name, description: p.description ?? "", price: String(p.price), category: p.category, stock: String(p.stock), isAvailable: p.isAvailable, isSoldOut: false, orderType: p.orderType, orderLabel: (p as any).orderLabel ?? "", orderName: (p as any).orderName ?? "", imageUrl: p.imageUrl ?? "", tags: p.tags ?? [], variants: (p.variants ?? []).map((v: any) => ({ name: v.name, price: v.price ?? undefined, stock: v.stock ?? undefined, soldOut: v.soldOut ?? false, subVariants: (v.subVariants ?? []).map((sv: any) => ({ name: sv.name, price: sv.price ?? undefined, stock: sv.stock ?? undefined, soldOut: sv.soldOut ?? false })), _showSubs: (v.subVariants ?? []).length > 0 })) });
     setOpen(true);
   };
 
@@ -217,6 +220,14 @@ function ProductsTab() {
         ...(v.price != null && !isNaN(v.price) ? { price: v.price } : {}),
         ...(!isPreorder && v.stock != null && !isNaN(v.stock) ? { stock: v.stock } : {}),
         soldOut: v.soldOut ?? false,
+        ...(v.subVariants && v.subVariants.length > 0 ? {
+          subVariants: v.subVariants.map((sv) => ({
+            name: sv.name,
+            ...(sv.price != null && !isNaN(sv.price) ? { price: sv.price } : {}),
+            ...(!isPreorder && sv.stock != null && !isNaN(sv.stock) ? { stock: sv.stock } : {}),
+            soldOut: sv.soldOut ?? false,
+          }))
+        } : {}),
       }));
       const vPrices = cleanVariants.map((v) => (v as any).price).filter((p: any) => p != null && !isNaN(p)) as number[];
       const autoMinPrice = vPrices.length >= 1 ? Math.min(...vPrices) : null;
@@ -329,55 +340,129 @@ function ProductsTab() {
               {form.variants.length > 0 && (
                 <div className="space-y-1.5">
                   {form.variants.map((v, idx) => {
+                    const subInput = subVariantInputs[idx] ?? { name: "", price: "", stock: "" };
+                    const addSubVariant = () => {
+                      const name = subInput.name.trim();
+                      if (!name) return;
+                      const price = subInput.price ? parseFloat(subInput.price) : undefined;
+                      const stock = subInput.stock ? parseInt(subInput.stock) : undefined;
+                      setForm((f) => ({ ...f, variants: f.variants.map((vv, i) => i === idx ? { ...vv, subVariants: [...(vv.subVariants ?? []), { name, price, stock }] } : vv) }));
+                      setSubVariantInputs((s) => ({ ...s, [idx]: { name: "", price: "", stock: "" } }));
+                    };
                     return (
-                      <div key={idx} className={`flex items-center gap-2 rounded-xl px-3 py-1.5 border transition-colors ${v.soldOut ? "bg-red-50 border-red-200" : "bg-background border-border"}`}>
-                        <div className="flex-1 min-w-0 flex items-center gap-1.5 flex-wrap">
-                          <span className={`text-[11px] font-bold ${v.soldOut ? "text-red-500 line-through" : "text-foreground"}`}>{v.name}</span>
-                          {v.price != null && (
-                            <span className={`text-[10px] font-bold ${v.soldOut ? "text-red-400 line-through" : "text-primary"}`}>
-                              {new Intl.NumberFormat("vi-VN").format(v.price)}₫
-                            </span>
+                      <div key={idx} className={`rounded-xl border transition-colors ${v.soldOut ? "bg-red-50 border-red-200" : "bg-background border-border"}`}>
+                        <div className="flex items-center gap-2 px-3 py-1.5">
+                          <div className="flex-1 min-w-0 flex items-center gap-1.5 flex-wrap">
+                            <span className={`text-[11px] font-bold ${v.soldOut ? "text-red-500 line-through" : "text-foreground"}`}>{v.name}</span>
+                            {v.price != null && (
+                              <span className={`text-[10px] font-bold ${v.soldOut ? "text-red-400 line-through" : "text-primary"}`}>
+                                {new Intl.NumberFormat("vi-VN").format(v.price)}₫
+                              </span>
+                            )}
+                            {v.stock != null && (
+                              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-primary/10 text-primary">kho: {v.stock}</span>
+                            )}
+                            {v.soldOut && (
+                              <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full bg-red-100 text-red-600 border border-red-200 uppercase tracking-wide">Sold Out</span>
+                            )}
+                            {(v.subVariants ?? []).length > 0 && (
+                              <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-violet-100 text-violet-600 border border-violet-200">{(v.subVariants ?? []).length} phụ</span>
+                            )}
+                          </div>
+                          {form.orderType !== "preorder" && (
+                            <Input
+                              type="number"
+                              min="0"
+                              value={v.stock != null ? String(v.stock) : ""}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                setForm((f) => ({ ...f, variants: f.variants.map((vv, i) => i === idx ? { ...vv, stock: val === "" ? undefined : parseInt(val) } : vv) }));
+                              }}
+                              placeholder="Kho"
+                              className="rounded-lg h-7 text-xs w-16 bg-muted/50 shrink-0"
+                            />
                           )}
-                          {v.stock != null && (
-                            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-primary/10 text-primary">kho: {v.stock}</span>
-                          )}
-                          {v.soldOut && (
-                            <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full bg-red-100 text-red-600 border border-red-200 uppercase tracking-wide">Sold Out</span>
-                          )}
+                          <button
+                            type="button"
+                            onClick={() => setForm((f) => ({ ...f, variants: f.variants.map((vv, i) => i === idx ? { ...vv, _showSubs: !vv._showSubs } : vv) }))}
+                            className={`text-[9px] font-bold px-2 py-1 rounded-lg border transition-colors shrink-0 ${v._showSubs ? "bg-violet-100 text-violet-700 border-violet-300" : "bg-muted text-muted-foreground border-border hover:bg-violet-50 hover:text-violet-600"}`}
+                            title="Biến thể phụ"
+                          >
+                            ≡ Phụ
+                          </button>
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <Switch
+                              checked={!!v.soldOut}
+                              onCheckedChange={() => setForm((f) => ({ ...f, variants: f.variants.map((vv, i) => i === idx ? { ...vv, soldOut: !vv.soldOut } : vv) }))}
+                              className="data-[state=checked]:bg-red-500 scale-75 origin-right"
+                            />
+                            <span className={`text-[9px] font-bold shrink-0 transition-colors ${v.soldOut ? "text-red-500" : "text-muted-foreground"}`}>Sold</span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setForm((f) => ({ ...f, variants: f.variants.filter((_, i) => i !== idx) }))}
+                            className="w-5 h-5 rounded-full flex items-center justify-center hover:bg-red-100 text-muted-foreground hover:text-red-600 transition-colors shrink-0 text-base leading-none"
+                          >
+                            ×
+                          </button>
                         </div>
-                        {form.orderType !== "preorder" && (
-                          <Input
-                            type="number"
-                            min="0"
-                            value={v.stock != null ? String(v.stock) : ""}
-                            onChange={(e) => {
-                              const val = e.target.value;
-                              setForm((f) => ({
-                                ...f,
-                                variants: f.variants.map((vv, i) =>
-                                  i === idx ? { ...vv, stock: val === "" ? undefined : parseInt(val) } : vv
-                                ),
-                              }));
-                            }}
-                            placeholder="Kho"
-                            className="rounded-lg h-7 text-xs w-16 bg-muted/50 shrink-0"
-                          />
+                        {v._showSubs && (
+                          <div className="px-3 pb-2 border-t border-violet-100 bg-violet-50/60 rounded-b-xl space-y-1.5 pt-2">
+                            <p className="text-[9px] font-black text-violet-600 uppercase tracking-widest">Biến thể phụ</p>
+                            {(v.subVariants ?? []).map((sv, svIdx) => (
+                              <div key={svIdx} className={`flex items-center gap-1.5 rounded-lg px-2 py-1 border text-[10px] ${sv.soldOut ? "bg-red-50 border-red-200" : "bg-white border-violet-200"}`}>
+                                <span className={`font-bold flex-1 min-w-0 ${sv.soldOut ? "text-red-400 line-through" : "text-foreground"}`}>{sv.name}</span>
+                                {sv.price != null && <span className="font-bold text-primary">{new Intl.NumberFormat("vi-VN").format(sv.price)}₫</span>}
+                                {sv.stock != null && <span className="px-1 rounded bg-primary/10 text-primary font-bold">kho:{sv.stock}</span>}
+                                <Switch
+                                  checked={!!sv.soldOut}
+                                  onCheckedChange={() => setForm((f) => ({ ...f, variants: f.variants.map((vv, vi) => vi === idx ? { ...vv, subVariants: (vv.subVariants ?? []).map((s, si) => si === svIdx ? { ...s, soldOut: !s.soldOut } : s) } : vv) }))}
+                                  className="data-[state=checked]:bg-red-500 scale-[0.65] origin-right shrink-0"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => setForm((f) => ({ ...f, variants: f.variants.map((vv, vi) => vi === idx ? { ...vv, subVariants: (vv.subVariants ?? []).filter((_, si) => si !== svIdx) } : vv) }))}
+                                  className="w-4 h-4 rounded-full flex items-center justify-center hover:bg-red-100 text-muted-foreground hover:text-red-600 transition-colors shrink-0 text-sm leading-none"
+                                >
+                                  ×
+                                </button>
+                              </div>
+                            ))}
+                            <div className="flex gap-1.5 pt-0.5">
+                              <Input
+                                value={subInput.name}
+                                onChange={(e) => setSubVariantInputs((s) => ({ ...s, [idx]: { ...subInput, name: e.target.value } }))}
+                                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addSubVariant(); } }}
+                                placeholder="Tên biến thể phụ..."
+                                className="rounded-lg h-7 text-[10px] flex-1 bg-white"
+                              />
+                              <Input
+                                value={subInput.price}
+                                onChange={(e) => setSubVariantInputs((s) => ({ ...s, [idx]: { ...subInput, price: e.target.value } }))}
+                                placeholder="Giá"
+                                type="number"
+                                className="rounded-lg h-7 text-[10px] w-20 bg-white"
+                              />
+                              {form.orderType !== "preorder" && (
+                                <Input
+                                  value={subInput.stock}
+                                  onChange={(e) => setSubVariantInputs((s) => ({ ...s, [idx]: { ...subInput, stock: e.target.value } }))}
+                                  placeholder="Kho"
+                                  type="number"
+                                  min="0"
+                                  className="rounded-lg h-7 text-[10px] w-14 bg-white"
+                                />
+                              )}
+                              <button
+                                type="button"
+                                onClick={addSubVariant}
+                                className="shrink-0 h-7 px-2 rounded-lg text-[10px] font-bold bg-violet-600 text-white hover:bg-violet-700 transition-colors"
+                              >
+                                +
+                              </button>
+                            </div>
+                          </div>
                         )}
-                        <div className="flex items-center gap-1.5 shrink-0">
-                          <Switch
-                            checked={!!v.soldOut}
-                            onCheckedChange={() => setForm((f) => ({ ...f, variants: f.variants.map((vv, i) => i === idx ? { ...vv, soldOut: !vv.soldOut } : vv) }))}
-                            className="data-[state=checked]:bg-red-500 scale-75 origin-right"
-                          />
-                          <span className={`text-[9px] font-bold shrink-0 transition-colors ${v.soldOut ? "text-red-500" : "text-muted-foreground"}`}>Sold</span>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => setForm((f) => ({ ...f, variants: f.variants.filter((_, i) => i !== idx) }))}
-                          className="w-5 h-5 rounded-full flex items-center justify-center hover:bg-red-100 text-muted-foreground hover:text-red-600 transition-colors shrink-0 text-base leading-none"
-                        >
-                          ×
-                        </button>
                       </div>
                     );
                   })}

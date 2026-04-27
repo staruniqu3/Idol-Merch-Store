@@ -24,9 +24,10 @@ type CartItem = {
   orderType: string;
   imageUrl?: string | null;
   variant?: string;
+  subVariant?: string;
 };
 
-const cartKey = (productId: number, variant?: string) => `${productId}::${variant ?? ""}`;
+const cartKey = (productId: number, variant?: string, subVariant?: string) => `${productId}::${variant ?? ""}::${subVariant ?? ""}`;
 
 const PRESET_CATEGORIES = ["Kpop", "GMMTV", "US UK", "Tạp Hoá"];
 
@@ -73,19 +74,21 @@ export default function ShopPage() {
   ) ?? [];
 
   const [variantPickerProduct, setVariantPickerProduct] = useState<typeof filtered[0] | null>(null);
+  const [pickedVariant, setPickedVariant] = useState<{ name: string; price?: number; stock?: number; soldOut?: boolean; subVariants?: Array<{ name: string; price?: number; stock?: number; soldOut?: boolean }> } | null>(null);
 
   const cartCount = cart.reduce((s, i) => s + i.quantity, 0);
   const cartTotal = cart.reduce((s, i) => s + i.price * i.quantity, 0);
 
-  const doAddToCart = (product: typeof filtered[0], variantName?: string, variantPrice?: number) => {
-    const key = cartKey(product.id, variantName);
+  const doAddToCart = (product: typeof filtered[0], variantName?: string, variantPrice?: number, subVariantName?: string) => {
+    const key = cartKey(product.id, variantName, subVariantName);
     const finalPrice = variantPrice ?? product.price;
     setCart((prev) => {
-      const existing = prev.find((i) => cartKey(i.productId, i.variant) === key);
-      if (existing) return prev.map((i) => cartKey(i.productId, i.variant) === key ? { ...i, quantity: i.quantity + 1 } : i);
-      return [...prev, { productId: product.id, name: product.name, price: finalPrice, quantity: 1, orderType: product.orderType, imageUrl: product.imageUrl, variant: variantName }];
+      const existing = prev.find((i) => cartKey(i.productId, i.variant, i.subVariant) === key);
+      if (existing) return prev.map((i) => cartKey(i.productId, i.variant, i.subVariant) === key ? { ...i, quantity: i.quantity + 1 } : i);
+      return [...prev, { productId: product.id, name: product.name, price: finalPrice, quantity: 1, orderType: product.orderType, imageUrl: product.imageUrl, variant: variantName, subVariant: subVariantName }];
     });
-    toast({ title: "Đã thêm vào giỏ hàng", description: variantName ? `${product.name} (${variantName})` : product.name });
+    const label = [variantName, subVariantName].filter(Boolean).join(" · ");
+    toast({ title: "Đã thêm vào giỏ hàng", description: label ? `${product.name} (${label})` : product.name });
   };
 
   const addToCart = (product: typeof filtered[0]) => {
@@ -96,14 +99,14 @@ export default function ShopPage() {
     }
   };
 
-  const removeFromCart = (productId: number, variant?: string) => {
-    const key = cartKey(productId, variant);
-    setCart((prev) => prev.filter((i) => cartKey(i.productId, i.variant) !== key));
+  const removeFromCart = (productId: number, variant?: string, subVariant?: string) => {
+    const key = cartKey(productId, variant, subVariant);
+    setCart((prev) => prev.filter((i) => cartKey(i.productId, i.variant, i.subVariant) !== key));
   };
 
-  const changeQty = (productId: number, delta: number, variant?: string) => {
-    const key = cartKey(productId, variant);
-    setCart((prev) => prev.map((i) => cartKey(i.productId, i.variant) === key ? { ...i, quantity: Math.max(1, i.quantity + delta) } : i));
+  const changeQty = (productId: number, delta: number, variant?: string, subVariant?: string) => {
+    const key = cartKey(productId, variant, subVariant);
+    setCart((prev) => prev.map((i) => cartKey(i.productId, i.variant, i.subVariant) === key ? { ...i, quantity: Math.max(1, i.quantity + delta) } : i));
   };
 
   const autoAddPoints = async (memberPhone: string, totalAmount: number) => {
@@ -134,7 +137,7 @@ export default function ShopPage() {
         data: {
           memberName: phone,
           memberPhone: phone,
-          items: JSON.stringify(cart.map((i) => ({ productId: i.productId, name: i.variant ? `${i.name} (${i.variant})` : i.name, price: i.price, quantity: i.quantity }))),
+          items: JSON.stringify(cart.map((i) => { const label = [i.variant, i.subVariant].filter(Boolean).join(" · "); return { productId: i.productId, name: label ? `${i.name} (${label})` : i.name, price: i.price, quantity: i.quantity }; })),
           totalAmount: cartTotal,
           orderType,
           notes: null,
@@ -261,7 +264,7 @@ export default function ShopPage() {
                     <>
                       <div className="flex-1 overflow-y-auto space-y-2 px-5 py-4">
                         {cart.map((item) => (
-                          <div key={cartKey(item.productId, item.variant)} className="flex gap-3 p-2.5 bg-muted/60 rounded-2xl" data-testid={`cart-item-${item.productId}`}>
+                          <div key={cartKey(item.productId, item.variant, item.subVariant)} className="flex gap-3 p-2.5 bg-muted/60 rounded-2xl" data-testid={`cart-item-${item.productId}`}>
                             {/* thumbnail */}
                             <div className="w-14 h-14 rounded-xl overflow-hidden bg-muted shrink-0 border border-border">
                               {item.imageUrl ? (
@@ -274,15 +277,18 @@ export default function ShopPage() {
                             </div>
                             <div className="flex-1 min-w-0">
                               <p className="text-sm font-bold leading-snug line-clamp-2">{item.name}</p>
-                              {item.variant && (
-                                <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/15">{item.variant}</span>
+                              {(item.variant || item.subVariant) && (
+                                <div className="flex flex-wrap gap-1 mt-0.5">
+                                  {item.variant && <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/15">{item.variant}</span>}
+                                  {item.subVariant && <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-violet-100 text-violet-700 border border-violet-200">{item.subVariant}</span>}
+                                </div>
                               )}
                               <p className="text-xs text-primary font-black mt-0.5">{formatPrice(item.price)}</p>
                               <div className="flex items-center gap-1 mt-1.5">
-                                <Button variant="outline" size="icon" className="h-6 w-6 rounded-lg" onClick={() => changeQty(item.productId, -1, item.variant)} data-testid={`button-minus-${item.productId}`}><Minus size={10} /></Button>
+                                <Button variant="outline" size="icon" className="h-6 w-6 rounded-lg" onClick={() => changeQty(item.productId, -1, item.variant, item.subVariant)} data-testid={`button-minus-${item.productId}`}><Minus size={10} /></Button>
                                 <span className="w-5 text-center text-sm font-black">{item.quantity}</span>
-                                <Button variant="outline" size="icon" className="h-6 w-6 rounded-lg" onClick={() => changeQty(item.productId, 1, item.variant)} data-testid={`button-plus-${item.productId}`}><Plus size={10} /></Button>
-                                <Button variant="ghost" size="icon" className="h-6 w-6 rounded-lg text-destructive ml-1" onClick={() => removeFromCart(item.productId, item.variant)} data-testid={`button-remove-${item.productId}`}><X size={10} /></Button>
+                                <Button variant="outline" size="icon" className="h-6 w-6 rounded-lg" onClick={() => changeQty(item.productId, 1, item.variant, item.subVariant)} data-testid={`button-plus-${item.productId}`}><Plus size={10} /></Button>
+                                <Button variant="ghost" size="icon" className="h-6 w-6 rounded-lg text-destructive ml-1" onClick={() => removeFromCart(item.productId, item.variant, item.subVariant)} data-testid={`button-remove-${item.productId}`}><X size={10} /></Button>
                               </div>
                             </div>
                           </div>
@@ -522,16 +528,22 @@ export default function ShopPage() {
       </div>
 
       {/* Variant picker dialog */}
-      <Dialog open={!!variantPickerProduct} onOpenChange={(open) => { if (!open) setVariantPickerProduct(null); }}>
+      <Dialog open={!!variantPickerProduct} onOpenChange={(open) => { if (!open) { setVariantPickerProduct(null); setPickedVariant(null); } }}>
         <DialogContent className="max-w-xs rounded-2xl">
           <DialogHeader>
-            <DialogTitle className="text-base font-black">Chọn biến thể</DialogTitle>
+            <DialogTitle className="text-base font-black">
+              {pickedVariant ? (
+                <button className="flex items-center gap-1 text-sm font-black" onClick={() => setPickedVariant(null)}>
+                  <span className="text-muted-foreground">←</span>
+                  <span>{pickedVariant.name}</span>
+                  <span className="text-muted-foreground font-normal text-[11px] ml-1">· chọn biến thể phụ</span>
+                </button>
+              ) : "Chọn biến thể"}
+            </DialogTitle>
           </DialogHeader>
-          {variantPickerProduct && (
+          {variantPickerProduct && !pickedVariant && (
             <div className="space-y-3">
-              <div>
-                <p className="text-sm font-bold line-clamp-2">{variantPickerProduct.name}</p>
-              </div>
+              <p className="text-sm font-bold line-clamp-2">{variantPickerProduct.name}</p>
               <div className="flex flex-wrap gap-2">
                 {variantPickerProduct.variants?.map((v) => {
                   const vAny = v as any;
@@ -539,14 +551,20 @@ export default function ShopPage() {
                   const trackStock = variantPickerProduct.orderType !== "preorder";
                   const soldOut = (trackStock && v.stock != null && v.stock === 0) || !!vAny.soldOut;
                   const lowStock = trackStock && v.stock != null && v.stock > 0 && v.stock <= 5;
+                  const hasSubs = (vAny.subVariants ?? []).length > 0;
                   return (
                     <button
                       key={v.name}
                       disabled={soldOut}
                       onClick={() => {
                         if (soldOut) return;
-                        doAddToCart(variantPickerProduct, v.name, finalPrice);
-                        setVariantPickerProduct(null);
+                        if (hasSubs) {
+                          setPickedVariant(vAny);
+                        } else {
+                          doAddToCart(variantPickerProduct, v.name, finalPrice);
+                          setVariantPickerProduct(null);
+                          setPickedVariant(null);
+                        }
                       }}
                       className={`flex flex-col items-center px-4 py-2.5 rounded-xl border-2 transition-all ${soldOut ? "border-border bg-muted/40 text-muted-foreground opacity-50 cursor-not-allowed" : "border-primary/20 bg-primary/5 text-primary hover:bg-primary/15 hover:border-primary/40 active:scale-95"}`}
                     >
@@ -557,6 +575,43 @@ export default function ShopPage() {
                         <span className="text-[10px] font-semibold opacity-80">{formatPrice(finalPrice)}</span>
                       )}
                       {lowStock && <span className="text-[9px] font-black text-orange-500 mt-0.5">còn {v.stock}</span>}
+                      {hasSubs && !soldOut && <span className="text-[9px] font-black text-violet-500 mt-0.5">▸ chọn thêm</span>}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+          {variantPickerProduct && pickedVariant && (
+            <div className="space-y-3">
+              <p className="text-sm font-bold line-clamp-2">{variantPickerProduct.name}</p>
+              <div className="flex flex-wrap gap-2">
+                {(pickedVariant.subVariants ?? []).map((sv) => {
+                  const svAny = sv as any;
+                  const variantBasePrice = (pickedVariant as any).price != null ? (pickedVariant as any).price : Number(variantPickerProduct.price);
+                  const finalPrice = svAny.price != null ? svAny.price : variantBasePrice;
+                  const trackStock = variantPickerProduct.orderType !== "preorder";
+                  const soldOut = (trackStock && sv.stock != null && sv.stock === 0) || !!sv.soldOut;
+                  const lowStock = trackStock && sv.stock != null && sv.stock > 0 && sv.stock <= 5;
+                  return (
+                    <button
+                      key={sv.name}
+                      disabled={soldOut}
+                      onClick={() => {
+                        if (soldOut) return;
+                        doAddToCart(variantPickerProduct, pickedVariant.name, finalPrice, sv.name);
+                        setVariantPickerProduct(null);
+                        setPickedVariant(null);
+                      }}
+                      className={`flex flex-col items-center px-4 py-2.5 rounded-xl border-2 transition-all ${soldOut ? "border-border bg-muted/40 text-muted-foreground opacity-50 cursor-not-allowed" : "border-violet-300 bg-violet-50 text-violet-700 hover:bg-violet-100 hover:border-violet-400 active:scale-95"}`}
+                    >
+                      <span className={`text-sm font-bold ${soldOut ? "line-through" : ""}`}>{sv.name}</span>
+                      {soldOut ? (
+                        <span className="text-[10px] font-semibold text-red-400">Hết hàng</span>
+                      ) : (
+                        <span className="text-[10px] font-semibold opacity-80">{formatPrice(finalPrice)}</span>
+                      )}
+                      {lowStock && <span className="text-[9px] font-black text-orange-500 mt-0.5">còn {sv.stock}</span>}
                     </button>
                   );
                 })}
