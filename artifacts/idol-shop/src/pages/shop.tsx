@@ -65,6 +65,7 @@ export default function ShopPage() {
   const [slotResults, setSlotResults] = useState<string[]>([]);
   const [isSlotLoading, setIsSlotLoading] = useState(false);
   const [socialHandle, setSocialHandle] = useState("");
+  const [slotErrors, setSlotErrors] = useState<Record<string, string>>({});
   const [memberGateVariant, setMemberGateVariant] = useState<{ variant: any; product: any } | null>(null);
   const [memberGatePhone, setMemberGatePhone] = useState("");
   const [memberGateLoading, setMemberGateLoading] = useState(false);
@@ -112,6 +113,7 @@ export default function ShopPage() {
   const removeFromCart = (productId: number, variant?: string, subVariant?: string) => {
     const key = cartKey(productId, variant, subVariant);
     setCart((prev) => prev.filter((i) => cartKey(i.productId, i.variant, i.subVariant) !== key));
+    setSlotErrors((prev) => { const n = { ...prev }; delete n[key]; return n; });
   };
 
   const getSlotCapacityPerSlot = (productId: number, variant?: string, subVariant?: string): number | null => {
@@ -196,6 +198,7 @@ export default function ShopPage() {
     setIsSlotLoading(true);
     try {
       const codes: string[] = [];
+      let hasSlotFull = false;
       for (const item of cart) {
         const res = await fetch(`${base}/api/slot-bookings`, {
           method: "POST",
@@ -204,10 +207,23 @@ export default function ShopPage() {
         });
         if (!res.ok) {
           const err = await res.json();
+          if (res.status === 409) {
+            // Slot full — mark this item inline and go back to cart
+            const key = cartKey(item.productId, item.variant, item.subVariant);
+            const slotLabel = [item.variant, item.subVariant].filter(Boolean).join(" · ");
+            const slotName = slotLabel ? `${item.name} · ${slotLabel}` : item.name;
+            setSlotErrors((prev) => ({ ...prev, [key]: `Xin lỗi bạn, slot ${slotName} đã đầy. Vui lòng bỏ khỏi giỏ hàng` }));
+            hasSlotFull = true;
+            break;
+          }
           throw new Error(err.error ?? "Có lỗi xảy ra");
         }
         const data = await res.json();
         codes.push(data.queueCode);
+      }
+      if (hasSlotFull) {
+        setStep("cart");
+        return;
       }
       setSlotResults(codes);
       setCart([]);
@@ -226,6 +242,7 @@ export default function ShopPage() {
     setSocialHandle("");
     setCart([]);
     setSlotResults([]);
+    setSlotErrors({});
   };
 
   return (
@@ -353,8 +370,18 @@ export default function ShopPage() {
                   ) : (
                     <>
                       <div className="flex-1 overflow-y-auto space-y-2 px-5 py-4">
-                        {cart.map((item) => (
-                          <div key={cartKey(item.productId, item.variant, item.subVariant)} className="flex gap-3 p-2.5 bg-muted/60 rounded-2xl" data-testid={`cart-item-${item.productId}`}>
+                        {cart.map((item) => {
+                          const iKey = cartKey(item.productId, item.variant, item.subVariant);
+                          const slotErr = slotErrors[iKey];
+                          return (
+                          <div key={iKey} className={`flex flex-col gap-0 rounded-2xl overflow-hidden border ${slotErr ? "border-rose-300" : "border-transparent"}`} data-testid={`cart-item-${item.productId}`}>
+                          {slotErr && (
+                            <div className="bg-rose-50 border-b border-rose-200 px-3 py-2 flex items-start gap-2">
+                              <span className="text-rose-500 shrink-0 mt-0.5">⚠️</span>
+                              <p className="text-xs text-rose-700 font-semibold leading-snug flex-1">{slotErr}</p>
+                            </div>
+                          )}
+                          <div className="flex gap-3 p-2.5 bg-muted/60">
                             {/* thumbnail */}
                             <div className="w-14 h-14 rounded-xl overflow-hidden bg-muted shrink-0 border border-border">
                               {item.imageUrl ? (
@@ -397,7 +424,9 @@ export default function ShopPage() {
                               </div>
                             </div>
                           </div>
-                        ))}
+                          </div>
+                          );
+                        })}
                       </div>
 
                       <div className="border-t border-border px-5 pt-3 pb-5 space-y-3">
