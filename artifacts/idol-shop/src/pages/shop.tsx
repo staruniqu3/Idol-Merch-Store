@@ -224,7 +224,6 @@ export default function ShopPage() {
     setStep("cart");
     setPhone("");
     setSocialHandle("");
-    setSlotQuantity(1);
     setCart([]);
     setSlotResults([]);
   };
