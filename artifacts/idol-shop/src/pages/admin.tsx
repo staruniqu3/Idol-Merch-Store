@@ -7,6 +7,8 @@ import {
   useListMembers, getListMembersQueryKey, useCreateMember, useAddPoints,
   useListRewards, getListRewardsQueryKey, useCreateReward, useDeleteReward,
   useGetOrderSummary,
+  useListManualOrders, useCreateManualOrder, useUpdateManualOrder, useDeleteManualOrder,
+  type ManualOrder, type ManualOrderItem,
 } from "@workspace/api-client-react";
 import {
   Shield, Package, ShoppingBag, ShoppingCart, Truck, Users, Gift, LogOut, Plus, Pencil, Trash2, ChevronDown,
@@ -816,13 +818,8 @@ function MemberCodeEditor({ orderId, currentCode }: { orderId: number; currentCo
   );
 }
 
-// ── Manual orders (private, localStorage only) ──
-const MANUAL_ORDERS_KEY = "admin_manual_orders";
-type ManualOrderItem = { name: string; qty: number; price: number; variant?: string };
-type ManualOrder = {
-  id: string; customerName: string; phone: string;
-  items: ManualOrderItem[]; note: string; date: string; status: string;
-};
+// ── Manual orders ──
+const MANUAL_ORDERS_KEY = "admin_manual_orders"; // kept for localStorage→DB migration
 const manualStatusLabels: Record<string, string> = {
   pending: "Chờ xác nhận", confirmed: "Đã xác nhận",
   shipped: "Đang giao", delivered: "Đã giao", cancelled: "Đã huỷ",
@@ -836,12 +833,26 @@ function OrdersTab() {
   const { toast } = useToast();
   const [expandedId, setExpandedId] = useState<number | null>(null);
 
-  // ── Manual order state ──
+  // ── Manual order state (API-backed) ──
   const [ordersMode, setOrdersMode] = useState<"app" | "manual">("app");
-  const [manualOrders, setManualOrders] = useState<ManualOrder[]>(() => {
-    try { return JSON.parse(localStorage.getItem(MANUAL_ORDERS_KEY) || "[]"); } catch { return []; }
-  });
-  const saveManualOrders = (next: ManualOrder[]) => { setManualOrders(next); localStorage.setItem(MANUAL_ORDERS_KEY, JSON.stringify(next)); };
+  const { data: manualOrders = [] } = useListManualOrders();
+  const createManualOrderMut = useCreateManualOrder();
+  const updateManualOrderMut = useUpdateManualOrder();
+  const deleteManualOrderMut = useDeleteManualOrder();
+
+  // One-time migration: push any localStorage orders into the DB
+  useEffect(() => {
+    const raw = localStorage.getItem(MANUAL_ORDERS_KEY);
+    if (!raw) return;
+    try {
+      const local: ManualOrder[] = JSON.parse(raw);
+      if (local.length === 0) { localStorage.removeItem(MANUAL_ORDERS_KEY); return; }
+      Promise.all(local.map((o) => createManualOrderMut.mutateAsync(o))).then(() => {
+        localStorage.removeItem(MANUAL_ORDERS_KEY);
+      }).catch(() => {});
+    } catch {}
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const [showAddForm, setShowAddForm] = useState(false);
   const [expandedManualId, setExpandedManualId] = useState<string | null>(null);
@@ -898,17 +909,19 @@ function OrdersTab() {
     if (!editName.trim() || cleanItems.length === 0) {
       toast({ title: "Vui lòng nhập đủ thông tin", variant: "destructive" }); return;
     }
-    saveManualOrders(manualOrders.map((o) => o.id === editingManualId ? {
-      ...o,
+    if (!editingManualId) return;
+    updateManualOrderMut.mutate({
+      id: editingManualId,
       customerName: editName.trim(),
       phone: editPhone.trim(),
       date: editDate,
       note: editNote.trim(),
       status: editStatus,
       items: cleanItems,
-    } : o));
-    setEditingManualId(null);
-    toast({ title: "Đã cập nhật đơn" });
+    }, {
+      onSuccess: () => { setEditingManualId(null); toast({ title: "Đã cập nhật đơn" }); },
+      onError: () => toast({ title: "Lỗi cập nhật", variant: "destructive" }),
+    });
   };
 
   // When product name is picked from datalist — auto-fill price if product exists, reset variant
@@ -940,22 +953,23 @@ function OrdersTab() {
     if (!formName.trim()) return;
     const validItems = formItems.filter((i) => i.name.trim());
     if (validItems.length === 0) return;
-    const newOrder: ManualOrder = {
+    createManualOrderMut.mutate({
       id: crypto.randomUUID(), customerName: formName.trim(), phone: formPhone.trim(),
       items: validItems, note: formNote.trim(), date: formDate, status: formStatus,
-    };
-    saveManualOrders([newOrder, ...manualOrders]);
-    setShowAddForm(false);
-    resetForm();
-    toast({ title: "Đã thêm đơn nhập tay" });
+    }, {
+      onSuccess: () => { setShowAddForm(false); resetForm(); toast({ title: "Đã thêm đơn nhập tay" }); },
+      onError: () => toast({ title: "Lỗi khi thêm đơn", variant: "destructive" }),
+    });
   };
 
   const deleteManualOrder = (id: string) => {
     if (!confirm("Xoá đơn này?")) return;
-    saveManualOrders(manualOrders.filter((o) => o.id !== id));
+    deleteManualOrderMut.mutate(id, {
+      onError: () => toast({ title: "Lỗi khi xoá đơn", variant: "destructive" }),
+    });
   };
   const updateManualStatus = (id: string, status: string) =>
-    saveManualOrders(manualOrders.map((o) => o.id === id ? { ...o, status } : o));
+    updateManualOrderMut.mutate({ id, status });
   const [sheetPhones, setSheetPhones] = useState<Set<string>>(new Set());
   const [sheetPhoneLoading, setSheetPhoneLoading] = useState(true);
 
@@ -1791,11 +1805,20 @@ function StatsTab() {
   const [expandedBatch, setExpandedBatch] = useState<number | null>(null);
   const [showHistory, setShowHistory] = useState(false);
   const [expandedStatItem, setExpandedStatItem] = useState<string | null>(null);
+  const [orderedEntryKeys, setOrderedEntryKeys] = useState<Set<string>>(() => {
+    try { return new Set(JSON.parse(localStorage.getItem("stats_ordered_entry_keys") || "[]")); } catch { return new Set(); }
+  });
+  const toggleOrderedEntry = (key: string) => {
+    setOrderedEntryKeys((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      localStorage.setItem("stats_ordered_entry_keys", JSON.stringify([...next]));
+      return next;
+    });
+  };
 
-  // Load manual orders from localStorage
-  const allManualOrders: ManualOrder[] = (() => {
-    try { return JSON.parse(localStorage.getItem(MANUAL_ORDERS_KEY) || "[]"); } catch { return []; }
-  })();
+  // Load manual orders from API
+  const { data: allManualOrders = [] } = useListManualOrders();
   const activeManualOrders = allManualOrders.filter(
     (o) => (o.status === "confirmed" || o.status === "pending") && !accountedManualIds.has(o.id)
   );
@@ -1865,6 +1888,8 @@ function StatsTab() {
 
     setOrderedItems(new Set());
     localStorage.removeItem(STATS_ORDERED_ITEMS_KEY);
+    setOrderedEntryKeys(new Set());
+    localStorage.removeItem("stats_ordered_entry_keys");
   };
 
   const allEntries = Object.entries(itemMap).sort((a, b) => b[1].qty - a[1].qty);
@@ -2135,24 +2160,41 @@ function StatsTab() {
                 {isStatOpen && (
                   <div className="border-t border-border bg-muted/30 px-3 py-2.5 space-y-1.5">
                     <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest mb-2">Đơn hàng gộp ({orderEntries.length})</p>
-                    {orderEntries.map((entry, ei) => (
-                      <div key={ei} className="flex items-center gap-2 text-xs rounded-xl px-2.5 py-1.5 bg-background border border-border">
-                        <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full shrink-0 ${
-                          entry.source === "manual"
-                            ? "bg-amber-100 text-amber-700 border border-amber-200"
-                            : "bg-primary/10 text-primary border border-primary/20"
-                        }`}>
-                          {entry.source === "manual" ? "Tay" : "App"}
-                        </span>
-                        <span className="font-semibold truncate flex-1">{entry.customerName}</span>
-                        {entry.phone && <span className="text-muted-foreground text-[10px] shrink-0">{entry.phone}</span>}
-                        {entry.variant && (
-                          <span className="text-[9px] bg-violet-100 text-violet-700 border border-violet-200 font-bold px-1.5 py-0.5 rounded-full shrink-0">{entry.variant}</span>
-                        )}
-                        <span className="font-black text-primary shrink-0">×{entry.qty}</span>
-                        <span className="text-muted-foreground shrink-0">{formatPrice(entry.price * entry.qty)}</span>
-                      </div>
-                    ))}
+                    {orderEntries.map((entry, ei) => {
+                      const entryKey = `${entry.orderId}::${name}::${ei}`;
+                      const isEntryDone = orderedEntryKeys.has(entryKey);
+                      return (
+                        <div
+                          key={ei}
+                          onClick={() => toggleOrderedEntry(entryKey)}
+                          className={`flex items-center gap-2 text-xs rounded-xl px-2.5 py-1.5 border cursor-pointer select-none transition-all ${
+                            isEntryDone
+                              ? "bg-muted/50 border-border/40 opacity-50 line-through"
+                              : "bg-background border-border hover:border-primary/30 hover:bg-primary/5"
+                          }`}
+                        >
+                          <div className={`w-3.5 h-3.5 rounded-full border-2 shrink-0 flex items-center justify-center transition-all ${
+                            isEntryDone ? "bg-muted-foreground/40 border-muted-foreground/40" : "border-primary/40"
+                          }`}>
+                            {isEntryDone && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                          </div>
+                          <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full shrink-0 ${
+                            entry.source === "manual"
+                              ? "bg-amber-100 text-amber-700 border border-amber-200"
+                              : "bg-primary/10 text-primary border border-primary/20"
+                          }`}>
+                            {entry.source === "manual" ? "Tay" : "App"}
+                          </span>
+                          <span className={`font-semibold truncate flex-1 ${isEntryDone ? "line-through" : ""}`}>{entry.customerName}</span>
+                          {entry.phone && <span className="text-muted-foreground text-[10px] shrink-0">{entry.phone}</span>}
+                          {entry.variant && (
+                            <span className="text-[9px] bg-violet-100 text-violet-700 border border-violet-200 font-bold px-1.5 py-0.5 rounded-full shrink-0">{entry.variant}</span>
+                          )}
+                          <span className={`font-black shrink-0 ${isEntryDone ? "text-muted-foreground" : "text-primary"}`}>×{entry.qty}</span>
+                          <span className="text-muted-foreground shrink-0">{formatPrice(entry.price * entry.qty)}</span>
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
               </div>

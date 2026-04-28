@@ -13,6 +13,7 @@ import couponsRouter from "./coupons";
 import orderStatusRouter from "./order-status";
 import exchangeRatesRouter from "./exchange-rates";
 import settingsRouter from "./settings";
+import manualOrdersRouter from "./manual-orders";
 
 const router: IRouter = Router();
 
@@ -30,5 +31,6 @@ router.use(couponsRouter);
 router.use(orderStatusRouter);
 router.use(exchangeRatesRouter);
 router.use(settingsRouter);
+router.use(manualOrdersRouter);
 
 export default router;

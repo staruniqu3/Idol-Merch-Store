@@ -9,3 +9,4 @@ export * from "./booking-notes";
 export * from "./coupons";
 export * from "./order-status";
 export * from "./settings";
+export * from "./manual-orders";
