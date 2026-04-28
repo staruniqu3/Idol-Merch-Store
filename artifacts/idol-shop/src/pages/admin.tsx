@@ -173,21 +173,38 @@ function ProductsTab() {
 
   const PRESET_CATEGORIES = ["Kpop", "GMMTV", "US UK", "Tạp Hoá"];
   const allCategories = [...PRESET_CATEGORIES, ...customCategories];
+  const base2 = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
+
+  const saveCustomCategories = (next: string[]) => {
+    setCustomCategories(next);
+    localStorage.setItem("custom_categories", JSON.stringify(next));
+    fetch(`${base2}/api/settings/custom_categories`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(next) }).catch(() => {});
+  };
+
+  useEffect(() => {
+    fetch(`${base2}/api/settings/custom_categories`, { cache: "no-store" })
+      .then((r) => r.json())
+      .then((d) => {
+        if (Array.isArray(d) && d.length > 0) { setCustomCategories(d); localStorage.setItem("custom_categories", JSON.stringify(d)); }
+        else {
+          try { const local = JSON.parse(localStorage.getItem("custom_categories") || "[]"); if (local.length > 0) { fetch(`${base2}/api/settings/custom_categories`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(local) }).catch(() => {}); } } catch {}
+        }
+      }).catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const addCustomCategory = () => {
     const cat = customCategoryInput.trim();
     if (!cat || allCategories.includes(cat)) { setCustomCategoryInput(""); return; }
     const updated = [...customCategories, cat];
-    setCustomCategories(updated);
-    localStorage.setItem("custom_categories", JSON.stringify(updated));
+    saveCustomCategories(updated);
     setForm((f) => ({ ...f, category: cat }));
     setCustomCategoryInput("");
   };
 
   const removeCustomCategory = (cat: string) => {
     const updated = customCategories.filter((c) => c !== cat);
-    setCustomCategories(updated);
-    localStorage.setItem("custom_categories", JSON.stringify(updated));
+    saveCustomCategories(updated);
     if (form.category === cat) setForm((f) => ({ ...f, category: PRESET_CATEGORIES[0] }));
   };
 
@@ -4092,6 +4109,32 @@ function CostTab() {
       body: JSON.stringify(data),
     }).catch(() => {});
   };
+
+  // Load all persistent data from server on mount (server = source of truth for cross-device sync)
+  useEffect(() => {
+    const loadKey = <T,>(key: string, lsKey: string, setter: (v: T) => void, empty: T) => {
+      fetch(`${base}/api/settings/${key}`, { cache: "no-store" })
+        .then((r) => r.json())
+        .then((d) => {
+          const isEmpty = d === null || d?.error != null || JSON.stringify(d) === JSON.stringify(empty);
+          if (!isEmpty) { setter(d as T); localStorage.setItem(lsKey, JSON.stringify(d)); }
+          else {
+            try { const local = JSON.parse(localStorage.getItem(lsKey) || JSON.stringify(empty)); if (JSON.stringify(local) !== JSON.stringify(empty)) { syncToServer(key, local); } } catch {}
+          }
+        }).catch(() => {});
+    };
+    loadKey<ManualRates>(COST_MANUAL_KEY, COST_MANUAL_KEY, setManual, {});
+    loadKey<ProfitEntry[]>(PROFIT_ENTRIES_KEY, PROFIT_ENTRIES_KEY, setProfitEntries, []);
+    loadKey<FixedExpense[]>(PROFIT_EXPENSES_KEY, PROFIT_EXPENSES_KEY, setProfitExpenses, []);
+    loadKey<ProfitJar[]>(PROFIT_JARS_KEY, PROFIT_JARS_KEY, setJars, []);
+    loadKey<FlexEntry[]>(VARIABLE_EXP_KEY, VARIABLE_EXP_KEY, setVariableExps, []);
+    loadKey<FlexEntry[]>(COLLECTIONS_KEY, COLLECTIONS_KEY, setCollections, []);
+    loadKey<FlexEntry[]>(SHIPPER_STAFF_KEY, SHIPPER_STAFF_KEY, setShipperPayments, []);
+    loadKey<RefundEntry[]>(REFUNDS_KEY, REFUNDS_KEY, setRefunds, []);
+    loadKey<YearPlan[]>(YEAR_PLANS_KEY, YEAR_PLANS_KEY, setYearPlans, []);
+    loadKey<IntlShipRate[]>(INTL_SHIP_RATES_KEY, INTL_SHIP_RATES_KEY, setIntlShipRates, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const saveJars = (next: ProfitJar[]) => { setJars(next); localStorage.setItem(PROFIT_JARS_KEY, JSON.stringify(next)); syncToServer(PROFIT_JARS_KEY, next); };
   const addJar = () => {
