@@ -162,7 +162,7 @@ function ProductsTab() {
   const [editId, setEditId] = useState<number | null>(null);
   type SubVariantDraft = { name: string; price?: number; stock?: number; soldOut?: boolean };
   type VariantDraft = { name: string; price?: number; stock?: number; soldOut?: boolean; subVariants?: SubVariantDraft[]; _showSubs?: boolean };
-  const [form, setForm] = useState({ name: "", description: "", price: "", category: "Kpop", stock: "0", isAvailable: true, isSoldOut: false, orderType: "preorder", orderLabel: "", orderName: "", imageUrl: "", tags: [] as string[], variants: [] as VariantDraft[] });
+  const [form, setForm] = useState({ name: "", description: "", price: "", category: "Kpop", stock: "0", isAvailable: true, isSoldOut: false, orderType: "preorder", orderLabel: "", orderName: "", imageUrl: "", tags: [] as string[], variants: [] as VariantDraft[], slotPrefix: "", slotConfig: {} as Record<string, { capacity: number }> });
   const [subVariantInputs, setSubVariantInputs] = useState<Record<number, { name: string; price: string; stock: string }>>({});
   const [customTagInput, setCustomTagInput] = useState("");
   const [customVariantInput, setCustomVariantInput] = useState({ name: "", price: "", stock: "" });
@@ -198,7 +198,7 @@ function ProductsTab() {
     "Weverse Album", "Limited Edition", "Merch Bundle",
   ];
 
-  const resetForm = () => { setForm({ name: "", description: "", price: "", category: "Kpop", stock: "0", isAvailable: true, isSoldOut: false, orderType: "preorder", orderLabel: "", orderName: "", imageUrl: "", tags: [], variants: [] }); setCustomTagInput(""); setCustomVariantInput({ name: "", price: "", stock: "" }); setSubVariantInputs({}); };
+  const resetForm = () => { setForm({ name: "", description: "", price: "", category: "Kpop", stock: "0", isAvailable: true, isSoldOut: false, orderType: "preorder", orderLabel: "", orderName: "", imageUrl: "", tags: [], variants: [], slotPrefix: "", slotConfig: {} }); setCustomTagInput(""); setCustomVariantInput({ name: "", price: "", stock: "" }); setSubVariantInputs({}); };
 
   const addCustomTag = () => {
     const tag = customTagInput.trim();
@@ -210,13 +210,13 @@ function ProductsTab() {
   const openEdit = (p: NonNullable<typeof products>[0]) => {
     setEditId(p.id);
     setSubVariantInputs({});
-    setForm({ name: p.name, description: p.description ?? "", price: String(p.price), category: p.category, stock: String(p.stock), isAvailable: p.isAvailable, isSoldOut: false, orderType: p.orderType, orderLabel: (p as any).orderLabel ?? "", orderName: (p as any).orderName ?? "", imageUrl: p.imageUrl ?? "", tags: p.tags ?? [], variants: (p.variants ?? []).map((v: any) => ({ name: v.name, price: v.price ?? undefined, stock: v.stock ?? undefined, soldOut: v.soldOut ?? false, subVariants: (v.subVariants ?? []).map((sv: any) => ({ name: sv.name, price: sv.price ?? undefined, stock: sv.stock ?? undefined, soldOut: sv.soldOut ?? false })), _showSubs: (v.subVariants ?? []).length > 0 })) });
+    setForm({ name: p.name, description: p.description ?? "", price: String(p.price), category: p.category, stock: String(p.stock), isAvailable: p.isAvailable, isSoldOut: false, orderType: p.orderType, orderLabel: (p as any).orderLabel ?? "", orderName: (p as any).orderName ?? "", imageUrl: p.imageUrl ?? "", tags: p.tags ?? [], variants: (p.variants ?? []).map((v: any) => ({ name: v.name, price: v.price ?? undefined, stock: v.stock ?? undefined, soldOut: v.soldOut ?? false, subVariants: (v.subVariants ?? []).map((sv: any) => ({ name: sv.name, price: sv.price ?? undefined, stock: sv.stock ?? undefined, soldOut: sv.soldOut ?? false })), _showSubs: (v.subVariants ?? []).length > 0 })), slotPrefix: (p as any).slotPrefix ?? "", slotConfig: (p as any).slotConfig ?? {} });
     setOpen(true);
   };
 
   const handleSave = () => {
     try {
-      const isPreorder = form.orderType === "preorder";
+      const isPreorder = form.orderType === "preorder" || form.orderType === "slot";
       const cleanVariants = form.variants.map((v) => ({
         name: v.name,
         ...(v.price != null && !isNaN(v.price) ? { price: v.price } : {}),
@@ -242,7 +242,8 @@ function ProductsTab() {
         ? cleanVariants.reduce((s, v) => s + (v.stock ?? 0), 0)
         : parseInt(form.stock) || 0;
       const allVariantsSoldOut = cleanVariants.length > 0 && cleanVariants.every((v) => v.soldOut);
-      const data = { name: form.name, description: form.description || null, price, category: form.category, stock, isAvailable: form.isAvailable, isSoldOut: allVariantsSoldOut, orderType: form.orderType, orderLabel: form.orderLabel.trim() || null, orderName: form.orderName.trim() || null, imageUrl: form.imageUrl || null, tags: form.tags.length > 0 ? form.tags : null, variants: cleanVariants.length > 0 ? cleanVariants : null };
+      const cleanSlotConfig = form.orderType === "slot" && Object.keys(form.slotConfig).length > 0 ? form.slotConfig : null;
+      const data = { name: form.name, description: form.description || null, price, category: form.category, stock, isAvailable: form.isAvailable, isSoldOut: allVariantsSoldOut, orderType: form.orderType, orderLabel: form.orderLabel.trim() || null, orderName: form.orderName.trim() || null, imageUrl: form.imageUrl || null, tags: form.tags.length > 0 ? form.tags : null, variants: cleanVariants.length > 0 ? cleanVariants : null, slotPrefix: form.orderType === "slot" ? (form.slotPrefix.trim() || null) : null, slotConfig: cleanSlotConfig };
       if (editId) {
         updateProduct.mutate({ id: editId, data }, {
           onSuccess: () => { queryClient.invalidateQueries({ queryKey: getListProductsQueryKey() }); setOpen(false); resetForm(); setEditId(null); toast({ title: "Đã cập nhật sản phẩm" }); },
@@ -614,10 +615,94 @@ function ProductsTab() {
                     <SelectItem value="instock">Hàng sẵn</SelectItem>
                     <SelectItem value="prestock">Hàng đặt trước</SelectItem>
                     <SelectItem value="awaitingstock">Awaiting Stock</SelectItem>
+                    <SelectItem value="slot">🎫 Đặt Slot</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
             </div>
+
+            {/* ── Slot config (only shown when orderType === "slot") ── */}
+            {form.orderType === "slot" && (
+              <div className="bg-primary/5 border border-primary/15 rounded-2xl p-4 space-y-4">
+                <p className="text-xs font-black text-primary uppercase tracking-wider">🎫 Cấu hình Đặt Slot</p>
+                <div>
+                  <Label className="text-xs">Ký tự đầu (prefix)</Label>
+                  <Input
+                    value={form.slotPrefix}
+                    onChange={(e) => setForm({ ...form, slotPrefix: e.target.value })}
+                    placeholder="VD: LOL26_RDP"
+                    className="rounded-xl mt-1 font-mono text-sm"
+                  />
+                  <p className="text-[10px] text-muted-foreground mt-1">
+                    Format số thứ tự:{" "}
+                    <span className="font-mono font-bold text-foreground">
+                      {form.slotPrefix || "PREFIX"}
+                      {form.variants.length > 0 ? `_${form.variants[0].name}` : ""}
+                      {form.variants.length > 0 && (form.variants[0].subVariants ?? []).length > 0 ? `_${(form.variants[0].subVariants ?? [])[0].name}` : ""}
+                      _001
+                    </span>
+                  </p>
+                </div>
+
+                <div>
+                  <Label className="text-xs font-bold">Số lượng slot mỗi biến thể</Label>
+                  <p className="text-[10px] text-muted-foreground mb-2">Để trống = không giới hạn</p>
+                  <div className="space-y-1.5">
+                    {form.variants.length === 0 ? (
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-muted-foreground flex-1">Tổng slot (không biến thể)</span>
+                        <Input
+                          type="number" min="0"
+                          value={form.slotConfig[""]?.capacity ?? ""}
+                          onChange={(e) => setForm((f) => ({ ...f, slotConfig: { ...f.slotConfig, "": { capacity: parseInt(e.target.value) || 0 } } }))}
+                          className="w-20 rounded-xl h-8 text-xs text-center"
+                          placeholder="∞"
+                        />
+                      </div>
+                    ) : (
+                      form.variants.map((v) => {
+                        const hasSubs = (v.subVariants ?? []).length > 0;
+                        if (!hasSubs) {
+                          const key = v.name;
+                          return (
+                            <div key={key} className="flex items-center gap-2 bg-card rounded-xl px-3 py-1.5 border border-border">
+                              <span className="text-xs font-semibold flex-1 truncate">{v.name}</span>
+                              <Input
+                                type="number" min="0"
+                                value={form.slotConfig[key]?.capacity ?? ""}
+                                onChange={(e) => setForm((f) => ({ ...f, slotConfig: { ...f.slotConfig, [key]: { capacity: parseInt(e.target.value) || 0 } } }))}
+                                className="w-20 rounded-xl h-7 text-xs text-center"
+                                placeholder="∞"
+                              />
+                            </div>
+                          );
+                        }
+                        return (v.subVariants ?? []).map((sv) => {
+                          const key = `${v.name}::${sv.name}`;
+                          return (
+                            <div key={key} className="flex items-center gap-2 bg-card rounded-xl px-3 py-1.5 border border-border pl-5">
+                              <span className="text-[9px] text-muted-foreground mr-0.5 shrink-0">└</span>
+                              <span className="text-xs flex-1 min-w-0 truncate">
+                                <span className="font-semibold">{v.name}</span>
+                                <span className="text-muted-foreground"> · {sv.name}</span>
+                              </span>
+                              <Input
+                                type="number" min="0"
+                                value={form.slotConfig[key]?.capacity ?? ""}
+                                onChange={(e) => setForm((f) => ({ ...f, slotConfig: { ...f.slotConfig, [key]: { capacity: parseInt(e.target.value) || 0 } } }))}
+                                className="w-20 rounded-xl h-7 text-xs text-center"
+                                placeholder="∞"
+                              />
+                            </div>
+                          );
+                        });
+                      })
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
             <div>
               <Label>Tên loại (hiển thị)</Label>
               <Input

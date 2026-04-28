@@ -52,6 +52,8 @@ export const ListProductsResponseItem = zod.object({
   orderName: zod.string().nullish(),
   tags: zod.array(zod.string()).nullish(),
   variants: zod.array(VariantItem).nullish(),
+  slotPrefix: zod.string().nullish(),
+  slotConfig: zod.record(zod.string(), zod.object({ capacity: zod.number() })).nullish(),
   createdAt: zod.coerce.date(),
 });
 export const ListProductsResponse = zod.array(ListProductsResponseItem);
@@ -73,6 +75,8 @@ export const CreateProductBody = zod.object({
   orderName: zod.string().nullish(),
   tags: zod.array(zod.string()).nullish(),
   variants: zod.array(VariantItem).nullish(),
+  slotPrefix: zod.string().nullish(),
+  slotConfig: zod.record(zod.string(), zod.object({ capacity: zod.number() })).nullish(),
 });
 
 /**
@@ -97,6 +101,8 @@ export const GetProductResponse = zod.object({
   orderName: zod.string().nullish(),
   tags: zod.array(zod.string()).nullish(),
   variants: zod.array(VariantItem).nullish(),
+  slotPrefix: zod.string().nullish(),
+  slotConfig: zod.record(zod.string(), zod.object({ capacity: zod.number() })).nullish(),
   createdAt: zod.coerce.date(),
 });
 
@@ -121,6 +127,8 @@ export const UpdateProductBody = zod.object({
   orderName: zod.string().nullish(),
   tags: zod.array(zod.string()).nullish(),
   variants: zod.array(VariantItem).nullish(),
+  slotPrefix: zod.string().nullish(),
+  slotConfig: zod.record(zod.string(), zod.object({ capacity: zod.number() })).nullish(),
 });
 
 export const UpdateProductResponse = zod.object({
@@ -138,6 +146,8 @@ export const UpdateProductResponse = zod.object({
   orderName: zod.string().nullish(),
   tags: zod.array(zod.string()).nullish(),
   variants: zod.array(VariantItem).nullish(),
+  slotPrefix: zod.string().nullish(),
+  slotConfig: zod.record(zod.string(), zod.object({ capacity: zod.number() })).nullish(),
   createdAt: zod.coerce.date(),
 });
 

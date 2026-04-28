@@ -35,6 +35,7 @@ const orderTypeLabel: Record<string, string> = {
   preorder: "Pre-order",
   pickup: "Pickup",
   instock: "Hàng sẵn",
+  slot: "Đặt Slot",
   prestock: "Hàng đặt trước",
   awaitingstock: "Awaiting Stock",
 };
@@ -45,6 +46,7 @@ const orderTypeBadgeClass: Record<string, string> = {
   instock: "bg-amber-100 text-amber-700 border-amber-200",
   prestock: "bg-violet-100 text-violet-700 border-violet-200",
   awaitingstock: "bg-sky-100 text-sky-700 border-sky-200",
+  slot: "bg-fuchsia-100 text-fuchsia-700 border-fuchsia-200",
 };
 
 function formatPrice(price: number) {
@@ -60,7 +62,11 @@ export default function ShopPage() {
   const [cartOpen, setCartOpen] = useState(false);
   const [step, setStep] = useState<"cart" | "checkout" | "payment">("cart");
   const [phone, setPhone] = useState("");
+  const [slotResults, setSlotResults] = useState<string[]>([]);
+  const [isSlotLoading, setIsSlotLoading] = useState(false);
   const createOrder = useCreateOrder();
+
+  const isSlotCart = cart.length > 0 && cart.every((i) => i.orderType === "slot");
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
@@ -156,11 +162,41 @@ export default function ShopPage() {
     );
   };
 
+  const handleSlotBooking = async () => {
+    if (!phone.trim()) { toast({ title: "Vui lòng nhập số điện thoại", variant: "destructive" }); return; }
+    const base = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
+    setIsSlotLoading(true);
+    try {
+      const codes: string[] = [];
+      for (const item of cart) {
+        const res = await fetch(`${base}/api/slot-bookings`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ productId: item.productId, variant: item.variant ?? null, subVariant: item.subVariant ?? null, phone: phone.trim() }),
+        });
+        if (!res.ok) {
+          const err = await res.json();
+          throw new Error(err.error ?? "Có lỗi xảy ra");
+        }
+        const data = await res.json();
+        codes.push(data.queueCode);
+      }
+      setSlotResults(codes);
+      setCart([]);
+      setStep("payment");
+    } catch (err) {
+      toast({ title: err instanceof Error ? err.message : "Có lỗi xảy ra", variant: "destructive" });
+    } finally {
+      setIsSlotLoading(false);
+    }
+  };
+
   const handleClose = () => {
     setCartOpen(false);
     setStep("cart");
     setPhone("");
     setCart([]);
+    setSlotResults([]);
   };
 
   return (
@@ -202,12 +238,37 @@ export default function ShopPage() {
             <SheetContent side="right" className="w-full max-w-sm flex flex-col p-0">
               <SheetHeader className="px-5 pt-5 pb-3 border-b border-border">
                 <SheetTitle>
-                  {step === "payment" ? "Thanh toán" : `Giỏ hàng (${cartCount})`}
+                  {step === "payment" ? "Thanh toán" : isSlotCart ? `🎫 Đặt Slot (${cartCount})` : `Giỏ hàng (${cartCount})`}
                 </SheetTitle>
               </SheetHeader>
 
               {/* ── STEP: PAYMENT SUCCESS ── */}
-              {step === "payment" && (
+              {step === "payment" && slotResults.length > 0 && (
+                <div className="flex-1 flex flex-col items-center justify-center px-5 gap-5 text-center">
+                  <div className="w-16 h-16 rounded-full bg-fuchsia-100 flex items-center justify-center">
+                    <CheckCircle2 size={32} className="text-fuchsia-500" />
+                  </div>
+                  <div className="w-full">
+                    <p className="text-lg font-black">Đặt slot thành công! 🎫</p>
+                    <p className="text-sm text-muted-foreground mt-1">Số thứ tự của bạn:</p>
+                    <div className="mt-3 space-y-2">
+                      {slotResults.map((code) => (
+                        <div key={code} className="bg-fuchsia-50 border border-fuchsia-200 rounded-2xl px-4 py-3">
+                          <p className="text-lg font-black font-mono text-fuchsia-700 tracking-widest">{code}</p>
+                        </div>
+                      ))}
+                    </div>
+                    <p className="text-xs text-blue-700 bg-blue-50 border border-blue-200 rounded-xl px-3 py-2.5 mt-4 leading-relaxed">
+                      📢 Khi có giá sản phẩm trên Facebook vui lòng thanh toán trong vòng <strong>24h</strong> để giữ số thứ tự slot.
+                    </p>
+                  </div>
+                  <Button variant="ghost" className="w-full rounded-xl" onClick={handleClose}>
+                    Đóng
+                  </Button>
+                </div>
+              )}
+
+              {step === "payment" && slotResults.length === 0 && (
                 <div className="flex-1 flex flex-col items-center justify-center px-5 gap-5 text-center">
                   <div className="w-16 h-16 rounded-full bg-emerald-100 flex items-center justify-center">
                     <CheckCircle2 size={32} className="text-emerald-500" />
@@ -303,8 +364,8 @@ export default function ShopPage() {
                         <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2 leading-relaxed">
                           ⚠️ Giá sản phẩm <strong>chưa bao gồm</strong> tiền cân và phí ship nội địa.
                         </p>
-                        <Button className="w-full rounded-xl font-bold" onClick={() => setStep("checkout")} data-testid="button-checkout">
-                          Đặt hàng ngay
+                        <Button className={`w-full rounded-xl font-bold ${isSlotCart ? "bg-fuchsia-600 hover:bg-fuchsia-700" : ""}`} onClick={() => setStep("checkout")} data-testid="button-checkout">
+                          {isSlotCart ? "🎫 Đặt slot" : "Đặt hàng ngay"}
                         </Button>
                       </div>
                     </>
@@ -348,12 +409,14 @@ export default function ShopPage() {
 
                   <div className="space-y-2 mt-4">
                     <Button
-                      className="w-full rounded-xl font-bold"
-                      onClick={handleCheckout}
-                      disabled={createOrder.isPending}
+                      className={`w-full rounded-xl font-bold ${isSlotCart ? "bg-fuchsia-600 hover:bg-fuchsia-700" : ""}`}
+                      onClick={isSlotCart ? handleSlotBooking : handleCheckout}
+                      disabled={isSlotCart ? isSlotLoading : createOrder.isPending}
                       data-testid="button-place-order"
                     >
-                      {createOrder.isPending ? "Đang xử lý..." : "Xác nhận đặt hàng"}
+                      {isSlotCart
+                        ? (isSlotLoading ? "Đang đặt slot..." : "🎫 Xác nhận đặt slot")
+                        : (createOrder.isPending ? "Đang xử lý..." : "Xác nhận đặt hàng")}
                     </Button>
                     <Button variant="ghost" className="w-full rounded-xl" onClick={() => setStep("cart")}>
                       Quay lại giỏ hàng
@@ -492,7 +555,7 @@ export default function ShopPage() {
                   <span className="text-[10px] text-muted-foreground font-semibold shrink-0">Biến thể:</span>
                   {product.variants.map((v) => {
                     const vAny = v as any;
-                    const trackStock = product.orderType !== "preorder";
+                    const trackStock = product.orderType !== "preorder" && product.orderType !== "slot";
                     const soldOut = (trackStock && v.stock != null && v.stock === 0) || !!vAny.soldOut;
                     const lowStock = trackStock && v.stock != null && v.stock > 0 && v.stock <= 5;
                     return (
@@ -515,12 +578,16 @@ export default function ShopPage() {
             </div>
             <Button
               size="sm"
-              className="shrink-0 rounded-xl font-bold px-3 mt-0.5"
-              disabled={!product.isAvailable || (product.orderType !== "preorder" && product.stock === 0) || (() => { const vs = (product.variants ?? []) as Array<{ soldOut?: boolean }>; return vs.length > 0 ? vs.every((v) => v.soldOut) : !!(product as any).isSoldOut; })()}
+              className={`shrink-0 rounded-xl font-bold px-3 mt-0.5 ${product.orderType === "slot" ? "bg-fuchsia-600 hover:bg-fuchsia-700 text-white" : ""}`}
+              disabled={!product.isAvailable || (product.orderType !== "preorder" && product.orderType !== "slot" && product.stock === 0) || (() => { const vs = (product.variants ?? []) as Array<{ soldOut?: boolean }>; return vs.length > 0 ? vs.every((v) => v.soldOut) : !!(product as any).isSoldOut; })()}
               onClick={() => addToCart(product)}
               data-testid={`button-add-cart-${product.id}`}
             >
-              {(product.orderType !== "preorder" && product.stock === 0) || (() => { const vs = (product.variants ?? []) as Array<{ soldOut?: boolean }>; return vs.length > 0 ? vs.every((v) => v.soldOut) : !!(product as any).isSoldOut; })() ? "Hết hàng" : <><Plus size={13} className="mr-1" />Thêm</>}
+              {(product.orderType !== "preorder" && product.orderType !== "slot" && product.stock === 0) || (() => { const vs = (product.variants ?? []) as Array<{ soldOut?: boolean }>; return vs.length > 0 ? vs.every((v) => v.soldOut) : !!(product as any).isSoldOut; })()
+                ? "Hết hàng"
+                : product.orderType === "slot"
+                  ? <>🎫 Đặt slot</>
+                  : <><Plus size={13} className="mr-1" />Thêm</>}
             </Button>
           </div>
         );
@@ -548,7 +615,7 @@ export default function ShopPage() {
                 {variantPickerProduct.variants?.map((v) => {
                   const vAny = v as any;
                   const finalPrice = vAny.price != null ? vAny.price : Number(variantPickerProduct.price);
-                  const trackStock = variantPickerProduct.orderType !== "preorder";
+                  const trackStock = variantPickerProduct.orderType !== "preorder" && variantPickerProduct.orderType !== "slot";
                   const soldOut = (trackStock && v.stock != null && v.stock === 0) || !!vAny.soldOut;
                   const lowStock = trackStock && v.stock != null && v.stock > 0 && v.stock <= 5;
                   const hasSubs = (vAny.subVariants ?? []).length > 0;
@@ -590,7 +657,7 @@ export default function ShopPage() {
                   const svAny = sv as any;
                   const variantBasePrice = (pickedVariant as any).price != null ? (pickedVariant as any).price : Number(variantPickerProduct.price);
                   const finalPrice = svAny.price != null ? svAny.price : variantBasePrice;
-                  const trackStock = variantPickerProduct.orderType !== "preorder";
+                  const trackStock = variantPickerProduct.orderType !== "preorder" && variantPickerProduct.orderType !== "slot";
                   const soldOut = (trackStock && sv.stock != null && sv.stock === 0) || !!sv.soldOut;
                   const lowStock = trackStock && sv.stock != null && sv.stock > 0 && sv.stock <= 5;
                   return (

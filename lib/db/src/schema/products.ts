@@ -17,6 +17,8 @@ export const productsTable = pgTable("products", {
   isSoldOut: boolean("is_sold_out").notNull().default(false),
   tags: text("tags").array(),
   variants: jsonb("variants").$type<Array<{ name: string; price?: number; stock?: number; soldOut?: boolean; subVariants?: Array<{ name: string; price?: number; stock?: number; soldOut?: boolean }> }>>(),
+  slotPrefix: text("slot_prefix"),
+  slotConfig: jsonb("slot_config").$type<Record<string, { capacity: number }>>(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

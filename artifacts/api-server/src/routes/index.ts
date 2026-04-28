@@ -14,6 +14,7 @@ import orderStatusRouter from "./order-status";
 import exchangeRatesRouter from "./exchange-rates";
 import settingsRouter from "./settings";
 import manualOrdersRouter from "./manual-orders";
+import slotBookingsRouter from "./slot-bookings";
 
 const router: IRouter = Router();
 
@@ -32,5 +33,6 @@ router.use(orderStatusRouter);
 router.use(exchangeRatesRouter);
 router.use(settingsRouter);
 router.use(manualOrdersRouter);
+router.use(slotBookingsRouter);
 
 export default router;
