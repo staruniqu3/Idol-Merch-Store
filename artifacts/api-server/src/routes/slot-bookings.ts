@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, and, isNull, count } from "drizzle-orm";
+import { eq, and, isNull, count, ne } from "drizzle-orm";
 import { db, slotBookingsTable, productsTable, settingsTable } from "@workspace/db";
 import { getSovereignClubPhones } from "../lib/google-sheets";
 
@@ -54,11 +54,14 @@ router.post("/slot-bookings", async (req, res): Promise<void> => {
     }
   }
 
-  // Count ALL bookings for this product → used for _totalSlots capacity enforcement
+  // Count active (non-cancelled) bookings for this product → capacity enforcement
   const [{ count: totalCount }] = await db
     .select({ count: count() })
     .from(slotBookingsTable)
-    .where(eq(slotBookingsTable.productId, pid));
+    .where(and(
+      eq(slotBookingsTable.productId, pid),
+      ne(slotBookingsTable.status, "cancelled"),
+    ));
 
   const totalExisting = Number(totalCount);
 
@@ -70,8 +73,11 @@ router.post("/slot-bookings", async (req, res): Promise<void> => {
     }
   }
 
-  // Count bookings for this specific variant/subVariant → sequential slot number
-  const variantConditions = [eq(slotBookingsTable.productId, pid)];
+  // Count active (non-cancelled) bookings for this variant/subVariant → sequential slot number
+  const variantConditions = [
+    eq(slotBookingsTable.productId, pid),
+    ne(slotBookingsTable.status, "cancelled"),
+  ];
   if (variantVal) {
     variantConditions.push(eq(slotBookingsTable.variant, variantVal));
   } else {
