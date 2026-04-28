@@ -54,22 +54,32 @@ router.post("/slot-bookings", async (req, res): Promise<void> => {
     }
   }
 
-  // Count active (non-cancelled) bookings for this variant → per-variant capacity enforcement
+  // Per-variant/sub-variant capacity enforcement
   if (slotConfig && variantVal) {
-    // For sub-variants, totalSlots is set on the parent variant key (variantVal alone)
-    // For no-sub variants, it's also set on variantVal key
-    const variantTotalSlots = Number(slotConfig[variantVal]?.totalSlots ?? slotConfig["_totalSlots"] ?? 0);
-    if (variantTotalSlots > 0) {
-      const variantConditionsCheck = [
+    // Look up totalSlots: sub-variant key first, then parent variant key, then global fallback
+    const configKey = subVariantVal ? `${variantVal}::${subVariantVal}` : variantVal;
+    const slotLimit = Number(
+      slotConfig[configKey]?.totalSlots ??
+      slotConfig[variantVal]?.totalSlots ??
+      slotConfig["_totalSlots"] ?? 0
+    );
+    if (slotLimit > 0) {
+      // Count active bookings for this exact (variant, subVariant) combination
+      const checkConditions = [
         eq(slotBookingsTable.productId, pid),
         eq(slotBookingsTable.variant, variantVal),
         ne(slotBookingsTable.status, "cancelled"),
       ];
-      const [{ count: variantCount }] = await db
+      if (subVariantVal) {
+        checkConditions.push(eq(slotBookingsTable.subVariant, subVariantVal));
+      } else {
+        checkConditions.push(isNull(slotBookingsTable.subVariant));
+      }
+      const [{ count: slotCount }] = await db
         .select({ count: count() })
         .from(slotBookingsTable)
-        .where(and(...variantConditionsCheck));
-      if (Number(variantCount) >= variantTotalSlots) {
+        .where(and(...checkConditions));
+      if (Number(slotCount) >= slotLimit) {
         res.status(409).json({ error: "Slot đã đầy, không còn lượt đặt cho biến thể này" });
         return;
       }
