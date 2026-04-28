@@ -1729,7 +1729,7 @@ function OrdersTab() {
                       {booking.productName}
                       {booking.variant && <> · {booking.variant}</>}
                       {booking.subVariant && <> · {booking.subVariant}</>}
-                      {" · "}<span className="font-bold text-fuchsia-700">{booking.quantity ?? 1} pack</span>
+                      {" · "}<span className="font-bold text-fuchsia-700">×{booking.quantity ?? 1}</span>
                     </p>
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
