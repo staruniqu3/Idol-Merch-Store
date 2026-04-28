@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, and, isNull, count, ne } from "drizzle-orm";
+import { eq, and, isNull, count, ne, max } from "drizzle-orm";
 import { db, slotBookingsTable, productsTable, settingsTable } from "@workspace/db";
 import { getSovereignClubPhones } from "../lib/google-sheets";
 
@@ -73,11 +73,9 @@ router.post("/slot-bookings", async (req, res): Promise<void> => {
     }
   }
 
-  // Count active (non-cancelled) bookings for this variant/subVariant → sequential slot number
-  const variantConditions = [
-    eq(slotBookingsTable.productId, pid),
-    ne(slotBookingsTable.status, "cancelled"),
-  ];
+  // Get MAX slot number for this variant/subVariant (across ALL bookings, including cancelled)
+  // so slot numbers always go up and are never reused
+  const variantConditions = [eq(slotBookingsTable.productId, pid)];
   if (variantVal) {
     variantConditions.push(eq(slotBookingsTable.variant, variantVal));
   } else {
@@ -89,13 +87,12 @@ router.post("/slot-bookings", async (req, res): Promise<void> => {
     variantConditions.push(isNull(slotBookingsTable.subVariant));
   }
 
-  const [{ count: variantCount }] = await db
-    .select({ count: count() })
+  const [{ maxSlot }] = await db
+    .select({ maxSlot: max(slotBookingsTable.slotNumber) })
     .from(slotBookingsTable)
     .where(and(...variantConditions));
 
-  const variantExisting = Number(variantCount);
-  const slotNumber = variantExisting + 1;
+  const slotNumber = (maxSlot ?? 0) + 1;
 
   const parts: string[] = [slotPrefix];
   if (variantVal) parts.push(variantVal);
