@@ -16,6 +16,13 @@ const ALLOWED_KEYS = new Set([
   "admin_refunds",
   "admin_year_plans",
   "admin_intl_ship_rates",
+  // Stats tab state
+  "stats_accounted_order_ids",
+  "stats_accounted_manual_ids",
+  "stats_ordered_items",
+  "stats_batch_history",
+  "stats_received_batch_items",
+  "stats_ordered_entry_keys",
 ]);
 
 router.get("/settings/:key", async (req, res): Promise<void> => {

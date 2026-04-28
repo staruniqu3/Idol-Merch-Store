@@ -1772,6 +1772,27 @@ type BatchRecord = {
 
 function StatsTab() {
   const { data: orders } = useListOrders();
+  const base = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
+
+  // ── Server-sync helpers (server = source of truth) ──
+  const getLocal = <T,>(lsKey: string): T | null => {
+    try { const s = localStorage.getItem(lsKey); return s ? JSON.parse(s) : null; } catch { return null; }
+  };
+  const putToServer = (key: string, data: unknown) =>
+    fetch(`${base}/api/settings/${key}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) }).catch(() => {});
+  const loadFromServer = <T,>(key: string, setter: (v: T) => void, lsKey: string, emptyVal: T) =>
+    fetch(`${base}/api/settings/${key}`, { cache: "no-store" })
+      .then((r) => r.json())
+      .then((d) => {
+        const serverEmpty = d === null || d?.error != null || JSON.stringify(d) === JSON.stringify(emptyVal);
+        const local = getLocal<T>(lsKey);
+        const hasLocal = local !== null && JSON.stringify(local) !== JSON.stringify(emptyVal);
+        if (!serverEmpty) {
+          setter(d as T); localStorage.setItem(lsKey, JSON.stringify(d));
+        } else if (hasLocal) {
+          putToServer(key, local); setter(local as T);
+        }
+      }).catch(() => {});
 
   const [statsMode, setStatsMode] = useState<"order" | "receive">("order");
 
@@ -1783,7 +1804,9 @@ function StatsTab() {
     setReceivedItems((prev) => {
       const next = new Set(prev);
       if (next.has(key)) next.delete(key); else next.add(key);
-      localStorage.setItem(STATS_RECEIVED_ITEMS_KEY, JSON.stringify([...next]));
+      const arr = [...next];
+      localStorage.setItem(STATS_RECEIVED_ITEMS_KEY, JSON.stringify(arr));
+      putToServer(STATS_RECEIVED_ITEMS_KEY, arr);
       return next;
     });
   };
@@ -1812,10 +1835,25 @@ function StatsTab() {
     setOrderedEntryKeys((prev) => {
       const next = new Set(prev);
       if (next.has(key)) next.delete(key); else next.add(key);
-      localStorage.setItem("stats_ordered_entry_keys", JSON.stringify([...next]));
+      const arr = [...next];
+      localStorage.setItem("stats_ordered_entry_keys", JSON.stringify(arr));
+      putToServer("stats_ordered_entry_keys", arr);
       return next;
     });
   };
+
+  // ── Load all stats state from server on mount ──
+  useEffect(() => {
+    Promise.all([
+      loadFromServer<number[]>(STATS_ACCOUNTED_KEY, (d) => setAccountedIds(new Set(d)), STATS_ACCOUNTED_KEY, []),
+      loadFromServer<string[]>(STATS_ACCOUNTED_MANUAL_KEY, (d) => setAccountedManualIds(new Set(d)), STATS_ACCOUNTED_MANUAL_KEY, []),
+      loadFromServer<string[]>(STATS_ORDERED_ITEMS_KEY, (d) => setOrderedItems(new Set(d)), STATS_ORDERED_ITEMS_KEY, []),
+      loadFromServer<BatchRecord[]>(STATS_BATCH_HISTORY_KEY, setBatchHistory, STATS_BATCH_HISTORY_KEY, []),
+      loadFromServer<string[]>(STATS_RECEIVED_ITEMS_KEY, (d) => setReceivedItems(new Set(d)), STATS_RECEIVED_ITEMS_KEY, []),
+      loadFromServer<string[]>("stats_ordered_entry_keys", (d) => setOrderedEntryKeys(new Set(d)), "stats_ordered_entry_keys", []),
+    ]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Load manual orders from API
   const { data: allManualOrders = [] } = useListManualOrders();
@@ -1859,7 +1897,9 @@ function StatsTab() {
     setOrderedItems((prev) => {
       const next = new Set(prev);
       if (next.has(name)) next.delete(name); else next.add(name);
-      localStorage.setItem(STATS_ORDERED_ITEMS_KEY, JSON.stringify([...next]));
+      const arr = [...next];
+      localStorage.setItem(STATS_ORDERED_ITEMS_KEY, JSON.stringify(arr));
+      putToServer(STATS_ORDERED_ITEMS_KEY, arr);
       return next;
     });
   };
@@ -1877,19 +1917,26 @@ function StatsTab() {
     const newHistory = [record, ...batchHistory];
     setBatchHistory(newHistory);
     localStorage.setItem(STATS_BATCH_HISTORY_KEY, JSON.stringify(newHistory));
+    putToServer(STATS_BATCH_HISTORY_KEY, newHistory);
 
     const newAccounted = new Set([...accountedIds, ...activeOrders.map((o) => o.id)]);
     setAccountedIds(newAccounted);
-    localStorage.setItem(STATS_ACCOUNTED_KEY, JSON.stringify([...newAccounted]));
+    const accArr = [...newAccounted];
+    localStorage.setItem(STATS_ACCOUNTED_KEY, JSON.stringify(accArr));
+    putToServer(STATS_ACCOUNTED_KEY, accArr);
 
     const newAccountedManual = new Set([...accountedManualIds, ...activeManualOrders.map((o) => o.id)]);
     setAccountedManualIds(newAccountedManual);
-    localStorage.setItem(STATS_ACCOUNTED_MANUAL_KEY, JSON.stringify([...newAccountedManual]));
+    const accManualArr = [...newAccountedManual];
+    localStorage.setItem(STATS_ACCOUNTED_MANUAL_KEY, JSON.stringify(accManualArr));
+    putToServer(STATS_ACCOUNTED_MANUAL_KEY, accManualArr);
 
     setOrderedItems(new Set());
     localStorage.removeItem(STATS_ORDERED_ITEMS_KEY);
+    putToServer(STATS_ORDERED_ITEMS_KEY, []);
     setOrderedEntryKeys(new Set());
     localStorage.removeItem("stats_ordered_entry_keys");
+    putToServer("stats_ordered_entry_keys", []);
   };
 
   const allEntries = Object.entries(itemMap).sort((a, b) => b[1].qty - a[1].qty);
@@ -1947,7 +1994,7 @@ function StatsTab() {
             </div>
             {receivedItems.size > 0 && (
               <button type="button"
-                onClick={() => { setReceivedItems(new Set()); localStorage.removeItem(STATS_RECEIVED_ITEMS_KEY); }}
+                onClick={() => { setReceivedItems(new Set()); localStorage.removeItem(STATS_RECEIVED_ITEMS_KEY); putToServer(STATS_RECEIVED_ITEMS_KEY, []); }}
                 className="ml-auto text-xs text-muted-foreground hover:text-destructive transition-colors shrink-0"
               >Reset</button>
             )}
@@ -2060,7 +2107,7 @@ function StatsTab() {
           {done.length > 0 && (
             <button
               type="button"
-              onClick={() => { setOrderedItems(new Set()); localStorage.removeItem(STATS_ORDERED_ITEMS_KEY); }}
+              onClick={() => { setOrderedItems(new Set()); localStorage.removeItem(STATS_ORDERED_ITEMS_KEY); putToServer(STATS_ORDERED_ITEMS_KEY, []); }}
               className="text-xs text-muted-foreground hover:text-destructive transition-colors"
             >
               Bỏ chọn
@@ -2276,6 +2323,7 @@ function StatsTab() {
                   if (!confirm("Xoá toàn bộ lịch sử lô hàng?")) return;
                   setBatchHistory([]);
                   localStorage.removeItem(STATS_BATCH_HISTORY_KEY);
+                  putToServer(STATS_BATCH_HISTORY_KEY, []);
                 }}
                 className="w-full text-xs text-muted-foreground hover:text-destructive transition-colors py-1 text-center"
               >
