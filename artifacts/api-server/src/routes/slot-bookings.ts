@@ -36,6 +36,8 @@ router.post("/slot-bookings", async (req, res): Promise<void> => {
 
   const variantVal: string | null = variant ?? null;
   const subVariantVal: string | null = subVariant ?? null;
+  // Current lot number for this product (incremented each time admin completes a lot)
+  const currentLot: number = Number(slotConfig?.["_currentLot"] ?? 1);
 
   // Check if the booked variant is MBS-gated
   let mbsVerified: boolean | null = null;
@@ -54,9 +56,8 @@ router.post("/slot-bookings", async (req, res): Promise<void> => {
     }
   }
 
-  // Per-variant/sub-variant capacity enforcement
+  // Per-variant/sub-variant capacity enforcement (scoped to current lot)
   if (slotConfig && variantVal) {
-    // Look up totalSlots: sub-variant key first, then parent variant key, then global fallback
     const configKey = subVariantVal ? `${variantVal}::${subVariantVal}` : variantVal;
     const slotLimit = Number(
       slotConfig[configKey]?.totalSlots ??
@@ -64,10 +65,10 @@ router.post("/slot-bookings", async (req, res): Promise<void> => {
       slotConfig["_totalSlots"] ?? 0
     );
     if (slotLimit > 0) {
-      // Count active bookings for this exact (variant, subVariant) combination
       const checkConditions = [
         eq(slotBookingsTable.productId, pid),
         eq(slotBookingsTable.variant, variantVal),
+        eq(slotBookingsTable.lotNumber, currentLot),
         ne(slotBookingsTable.status, "cancelled"),
       ];
       if (subVariantVal) {
@@ -86,9 +87,11 @@ router.post("/slot-bookings", async (req, res): Promise<void> => {
     }
   }
 
-  // Get MAX slot number for this variant/subVariant (across ALL bookings, including cancelled)
-  // so slot numbers always go up and are never reused
-  const variantConditions = [eq(slotBookingsTable.productId, pid)];
+  // Get MAX slot number within the current lot so slot numbers restart from 1 each lot
+  const variantConditions = [
+    eq(slotBookingsTable.productId, pid),
+    eq(slotBookingsTable.lotNumber, currentLot),
+  ];
   if (variantVal) {
     variantConditions.push(eq(slotBookingsTable.variant, variantVal));
   } else {
@@ -121,6 +124,7 @@ router.post("/slot-bookings", async (req, res): Promise<void> => {
     phone: String(phone),
     socialHandle: socialHandle ? String(socialHandle).trim() : null,
     quantity: quantity ? Math.max(1, Number(quantity)) : 1,
+    lotNumber: currentLot,
     slotNumber,
     queueCode,
     status: "pending",
@@ -203,6 +207,29 @@ router.delete("/slot-bookings/:id", async (req, res): Promise<void> => {
     .returning();
   if (!booking) { res.status(404).json({ error: "Not found" }); return; }
   res.sendStatus(204);
+});
+
+// Admin: complete current lot → increment _currentLot in product's slotConfig, preserving history
+router.post("/slot-bookings/:productId/complete-lot", async (req, res): Promise<void> => {
+  const pid = Number(req.params.productId);
+  if (isNaN(pid)) { res.status(400).json({ error: "Invalid productId" }); return; }
+
+  const [product] = await db.select().from(productsTable).where(eq(productsTable.id, pid));
+  if (!product) { res.status(404).json({ error: "Product not found" }); return; }
+
+  const currentConfig = ((product as any).slotConfig ?? {}) as Record<string, any>;
+  const currentLot = Number(currentConfig["_currentLot"] ?? 1);
+  const newLot = currentLot + 1;
+
+  const newConfig = { ...currentConfig, _currentLot: newLot };
+
+  const [updated] = await db
+    .update(productsTable)
+    .set({ slotConfig: newConfig } as any)
+    .where(eq(productsTable.id, pid))
+    .returning();
+
+  res.json({ ok: true, previousLot: currentLot, currentLot: newLot, product: updated });
 });
 
 export default router;

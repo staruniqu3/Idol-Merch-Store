@@ -12,7 +12,7 @@ import {
 } from "@workspace/api-client-react";
 import {
   Shield, Package, ShoppingBag, ShoppingCart, Truck, Users, Gift, LogOut, Plus, Pencil, Trash2, ChevronDown,
-  TrendingUp, Star, Calendar, X, Check, BarChart3, Sparkles, Bell, Pin, Ticket, Eye, EyeOff, Tag, AlertTriangle, Copy, History, Receipt, Upload, Search,
+  TrendingUp, Star, Calendar, X, Check, BarChart3, Sparkles, Bell, Pin, Ticket, Eye, EyeOff, Tag, AlertTriangle, Copy, History, Receipt, Upload, Search, CheckCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -2776,25 +2776,58 @@ function SlotStatsSection() {
   const [bookings, setBookings] = useState<any[]>([]);
   const [products, setProducts] = useState<any[]>([]);
   const [loaded, setLoaded] = useState(false);
+  const [completingLot, setCompletingLot] = useState<Set<number>>(new Set());
+  const [confirmLotFor, setConfirmLotFor] = useState<number | null>(null);
+  const [historyExpanded, setHistoryExpanded] = useState<Set<number>>(new Set());
 
-  useEffect(() => {
+  const reload = () => {
     Promise.all([
       fetch(`${base}/api/slot-bookings`, { cache: "no-store" }).then((r) => r.json()),
       fetch(`${base}/api/products`, { cache: "no-store" }).then((r) => r.json()),
     ]).then(([b, p]) => { setBookings(b); setProducts(p ?? []); }).catch(() => {}).finally(() => setLoaded(true));
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  };
 
-  const grouped: Record<string, { productName: string; productId: number; variant: string | null; subVariant: string | null; items: any[] }> = {};
+  useEffect(() => { reload(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleCompleteLot = async (productId: number) => {
+    setConfirmLotFor(null);
+    setCompletingLot((s) => new Set(s).add(productId));
+    try {
+      await fetch(`${base}/api/slot-bookings/${productId}/complete-lot`, { method: "POST" });
+      reload();
+    } finally {
+      setCompletingLot((s) => { const n = new Set(s); n.delete(productId); return n; });
+    }
+  };
+
+  // Build product-level groups: productId → { productName, currentLot, variantGroups }
+  type VGroup = { variant: string | null; subVariant: string | null; current: any[]; historic: Record<number, any[]> };
+  const productGroups: Record<number, { productName: string; currentLot: number; variantGroups: Record<string, VGroup> }> = {};
+
   bookings.forEach((b) => {
-    const key = `${b.productId}::${b.variant ?? ""}::${b.subVariant ?? ""}`;
-    if (!grouped[key]) grouped[key] = { productName: b.productName, productId: b.productId, variant: b.variant, subVariant: b.subVariant, items: [] };
-    grouped[key].items.push(b);
+    const prod = products.find((p: any) => p.id === b.productId);
+    const currentLot: number = Number(prod?.slotConfig?.["_currentLot"] ?? 1);
+    if (!productGroups[b.productId]) {
+      productGroups[b.productId] = { productName: b.productName, currentLot, variantGroups: {} };
+    }
+    const vKey = `${b.variant ?? ""}::${b.subVariant ?? ""}`;
+    if (!productGroups[b.productId].variantGroups[vKey]) {
+      productGroups[b.productId].variantGroups[vKey] = { variant: b.variant, subVariant: b.subVariant, current: [], historic: {} };
+    }
+    const vg = productGroups[b.productId].variantGroups[vKey];
+    if (b.lotNumber === currentLot) {
+      vg.current.push(b);
+    } else {
+      const lot = b.lotNumber ?? 1;
+      if (!vg.historic[lot]) vg.historic[lot] = [];
+      vg.historic[lot].push(b);
+    }
   });
 
   const exportExcel = async () => {
     const XLSX = await import("xlsx");
     const rows = bookings.map((b) => ({
+      "Lô": b.lotNumber ?? 1,
       "Mã Slot": b.queueCode,
       "Sản phẩm": b.productName,
       "Biến thể": b.variant ?? "",
@@ -2814,12 +2847,89 @@ function SlotStatsSection() {
     XLSX.writeFile(wb, `dat-slot-${new Date().toISOString().slice(0, 10)}.xlsx`);
   };
 
-  const uniqueCustomers = new Set(bookings.map((b) => b.phone)).size;
-  const totalConfirmed = bookings.filter((b) => b.status === "confirmed").length;
-  const totalConfirmedQty = bookings.filter((b) => b.status === "confirmed").reduce((s, b) => s + (b.quantity ?? 1), 0);
+  const currentBookings = bookings.filter((b) => {
+    const prod = products.find((p: any) => p.id === b.productId);
+    const cl = Number(prod?.slotConfig?.["_currentLot"] ?? 1);
+    return (b.lotNumber ?? 1) === cl;
+  });
+  const uniqueCustomers = new Set(currentBookings.map((b) => b.phone)).size;
+  const totalConfirmed = currentBookings.filter((b) => b.status === "confirmed").length;
+  const totalConfirmedQty = currentBookings.filter((b) => b.status === "confirmed").reduce((s, b) => s + (b.quantity ?? 1), 0);
 
   if (!loaded) return null;
   if (bookings.length === 0) return null;
+
+  const renderVariantCard = (vKey: string, vg: VGroup, slotConfig: Record<string, any> | null | undefined, items: any[], lotLabel?: string) => {
+    const pending = items.filter((b) => b.status === "pending").length;
+    const confirmed = items.filter((b) => b.status === "confirmed").length;
+    const active = items.filter((b) => b.status !== "cancelled");
+    const confirmedQty = items.filter((b) => b.status === "confirmed").reduce((s: number, b: any) => s + (b.quantity ?? 1), 0);
+    const activeQty = active.reduce((s: number, b: any) => s + (b.quantity ?? 1), 0);
+    const uniqueInGroup = new Set(items.map((b: any) => b.phone)).size;
+    const configKey = vg.subVariant ? `${vg.variant ?? ""}::${vg.subVariant}` : (vg.variant ?? "");
+    const capacityPerSlot: number | null = slotConfig ? (slotConfig[configKey]?.capacityPerSlot ?? null) : null;
+    const variantTotalSlots: number | null = slotConfig
+      ? (Number(slotConfig[configKey]?.totalSlots) || Number(slotConfig[vg.variant ?? ""]?.totalSlots) || Number(slotConfig["_totalSlots"]) || null)
+      : null;
+    const maxCapacity = variantTotalSlots != null && capacityPerSlot != null ? variantTotalSlots * capacityPerSlot : null;
+
+    return (
+      <div key={`${vKey}-${lotLabel ?? "cur"}`} className={`bg-card border rounded-2xl p-3 space-y-2 ${lotLabel ? "border-slate-200 opacity-80" : "border-border"}`}>
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0">
+            {(vg.variant || vg.subVariant) && (
+              <p className="text-[11px] text-muted-foreground">{[vg.variant, vg.subVariant].filter(Boolean).join(" · ")}</p>
+            )}
+            {lotLabel && <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded-full">{lotLabel}</span>}
+          </div>
+          <div className="flex flex-col items-end shrink-0 gap-0.5">
+            <span className="text-sm font-black text-fuchsia-600">{uniqueInGroup} khách</span>
+            <div className="flex items-center gap-1.5">
+              {confirmed > 0 && <span className="text-[10px] font-bold text-emerald-600">✓{confirmed}</span>}
+              {pending > 0 && <span className="text-[10px] font-bold text-amber-500">⏳{pending}</span>}
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-muted/50 rounded-xl p-2 space-y-1.5">
+          <div className="flex items-center justify-between text-[11px]">
+            <span className="text-muted-foreground font-semibold">Tổng SL đang đặt (chưa hủy)</span>
+            <span className="font-black text-foreground">{activeQty} cái</span>
+          </div>
+          <div className="flex items-center justify-between text-[11px]">
+            <span className="text-muted-foreground font-semibold">Đã xác nhận</span>
+            <span className="font-black text-emerald-600">{confirmedQty} cái</span>
+          </div>
+          {maxCapacity != null && (
+            <>
+              <div className="flex items-center justify-between text-[11px]">
+                <span className="text-muted-foreground font-semibold">Sức chứa ({variantTotalSlots} slot × {capacityPerSlot})</span>
+                <span className="font-black text-violet-600">{activeQty} / {maxCapacity} cái</span>
+              </div>
+              <div className="w-full bg-muted rounded-full h-1.5 overflow-hidden">
+                <div
+                  className={`h-1.5 rounded-full transition-all ${activeQty >= maxCapacity ? "bg-red-500" : activeQty / maxCapacity > 0.8 ? "bg-amber-500" : "bg-emerald-500"}`}
+                  style={{ width: `${Math.min(100, (activeQty / maxCapacity) * 100)}%` }}
+                />
+              </div>
+            </>
+          )}
+        </div>
+
+        <div className="flex flex-wrap gap-1">
+          {items.map((b: any) => (
+            <span key={b.id} title={`${b.quantity ?? 1} cái`} className={`text-[10px] font-mono px-1.5 py-0.5 rounded-full border font-bold ${
+              b.status === "confirmed" ? "bg-emerald-50 text-emerald-700 border-emerald-200" :
+              b.status === "cancelled" ? "bg-red-50 text-red-600 border-red-200 line-through" :
+              "bg-fuchsia-50 text-fuchsia-700 border-fuchsia-200"
+            }`}>
+              #{b.slotNumber} {b.phone} ×{b.quantity ?? 1}
+            </span>
+          ))}
+        </div>
+      </div>
+    );
+  };
 
   return (
     <div className="space-y-3 mt-4 pt-4 border-t border-border">
@@ -2833,14 +2943,14 @@ function SlotStatsSection() {
         </button>
       </div>
 
-      {/* Summary row */}
+      {/* Summary row — current lot only */}
       <div className="grid grid-cols-4 gap-2">
         <div className="bg-fuchsia-50 border border-fuchsia-200 rounded-2xl p-2.5 text-center">
           <p className="text-xl font-black text-fuchsia-600">{uniqueCustomers}</p>
           <p className="text-[10px] font-semibold text-fuchsia-500 leading-tight">khách đặt</p>
         </div>
         <div className="bg-slate-50 border border-slate-200 rounded-2xl p-2.5 text-center">
-          <p className="text-xl font-black text-slate-600">{bookings.length}</p>
+          <p className="text-xl font-black text-slate-600">{currentBookings.length}</p>
           <p className="text-[10px] font-semibold text-slate-500 leading-tight">tổng slot</p>
         </div>
         <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-2.5 text-center">
@@ -2853,86 +2963,87 @@ function SlotStatsSection() {
         </div>
       </div>
 
-      <div className="space-y-2">
-        {Object.entries(grouped).map(([key, g]) => {
-          const pending = g.items.filter((b) => b.status === "pending").length;
-          const confirmed = g.items.filter((b) => b.status === "confirmed").length;
-          const active = g.items.filter((b) => b.status !== "cancelled");
-          const confirmedQty = g.items.filter((b) => b.status === "confirmed").reduce((s: number, b: any) => s + (b.quantity ?? 1), 0);
-          const activeQty = active.reduce((s: number, b: any) => s + (b.quantity ?? 1), 0);
-          const uniqueInGroup = new Set(g.items.map((b: any) => b.phone)).size;
-
-          // Look up slotConfig from product data
-          const product = products.find((p: any) => p.id === g.productId);
+      {/* Per-product sections */}
+      <div className="space-y-4">
+        {Object.entries(productGroups).map(([pidStr, pg]) => {
+          const pid = Number(pidStr);
+          const product = products.find((p: any) => p.id === pid);
           const slotConfig = product?.slotConfig as Record<string, any> | null | undefined;
-          // capacityPerSlot: for sub-variants use "variant::subVariant", for plain variants use "variant"
-          const configKey = g.subVariant ? `${g.variant ?? ""}::${g.subVariant}` : (g.variant ?? "");
-          const capacityPerSlot: number | null = slotConfig
-            ? (slotConfig[configKey]?.capacityPerSlot ?? null)
-            : null;
-          // totalSlots: sub-variant key → parent variant key → global fallback
-          const variantTotalSlots: number | null = slotConfig
-            ? (Number(slotConfig[configKey]?.totalSlots) || Number(slotConfig[g.variant ?? ""]?.totalSlots) || Number(slotConfig["_totalSlots"]) || null)
-            : null;
-          const maxCapacity = variantTotalSlots != null && capacityPerSlot != null
-            ? variantTotalSlots * capacityPerSlot
-            : null;
+          const isCompleting = completingLot.has(pid);
+          const isHistoryOpen = historyExpanded.has(pid);
+          const hasHistory = Object.values(pg.variantGroups).some((vg) => Object.keys(vg.historic).length > 0);
+          const allHistoricLots = [...new Set(
+            Object.values(pg.variantGroups).flatMap((vg) => Object.keys(vg.historic).map(Number))
+          )].sort((a, b) => b - a);
 
           return (
-            <div key={key} className="bg-card border border-border rounded-2xl p-3 space-y-2">
-              <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0">
-                  <p className="text-xs font-bold truncate">{g.productName}</p>
-                  {(g.variant || g.subVariant) && (
-                    <p className="text-[11px] text-muted-foreground">{[g.variant, g.subVariant].filter(Boolean).join(" · ")}</p>
-                  )}
+            <div key={pid} className="space-y-2">
+              {/* Product header */}
+              <div className="flex items-center justify-between gap-2 px-1">
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="text-xs font-black truncate">{pg.productName}</span>
+                  <span className="shrink-0 text-[10px] font-bold text-white bg-fuchsia-500 px-2 py-0.5 rounded-full">Lô {pg.currentLot}</span>
                 </div>
-                <div className="flex flex-col items-end shrink-0 gap-0.5">
-                  <span className="text-sm font-black text-fuchsia-600">{uniqueInGroup} khách</span>
-                  <div className="flex items-center gap-1.5">
-                    {confirmed > 0 && <span className="text-[10px] font-bold text-emerald-600">✓{confirmed}</span>}
-                    {pending > 0 && <span className="text-[10px] font-bold text-amber-500">⏳{pending}</span>}
+                {confirmLotFor === pid ? (
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <span className="text-[10px] text-muted-foreground">Xác nhận?</span>
+                    <button
+                      onClick={() => handleCompleteLot(pid)}
+                      className="text-[10px] font-bold text-white bg-rose-500 hover:bg-rose-600 px-2 py-1 rounded-lg"
+                    >Có</button>
+                    <button
+                      onClick={() => setConfirmLotFor(null)}
+                      className="text-[10px] font-bold text-muted-foreground bg-muted px-2 py-1 rounded-lg"
+                    >Không</button>
                   </div>
-                </div>
-              </div>
-
-              {/* Quantity tracking */}
-              <div className="bg-muted/50 rounded-xl p-2 space-y-1.5">
-                <div className="flex items-center justify-between text-[11px]">
-                  <span className="text-muted-foreground font-semibold">Tổng SL đang đặt (chưa hủy)</span>
-                  <span className="font-black text-foreground">{activeQty} cái</span>
-                </div>
-                <div className="flex items-center justify-between text-[11px]">
-                  <span className="text-muted-foreground font-semibold">Đã xác nhận</span>
-                  <span className="font-black text-emerald-600">{confirmedQty} cái</span>
-                </div>
-                {maxCapacity != null && (
-                  <>
-                    <div className="flex items-center justify-between text-[11px]">
-                      <span className="text-muted-foreground font-semibold">Sức chứa ({variantTotalSlots} slot × {capacityPerSlot})</span>
-                      <span className="font-black text-violet-600">{activeQty} / {maxCapacity} cái</span>
-                    </div>
-                    <div className="w-full bg-muted rounded-full h-1.5 overflow-hidden">
-                      <div
-                        className={`h-1.5 rounded-full transition-all ${activeQty >= maxCapacity ? "bg-red-500" : activeQty / maxCapacity > 0.8 ? "bg-amber-500" : "bg-emerald-500"}`}
-                        style={{ width: `${Math.min(100, (activeQty / maxCapacity) * 100)}%` }}
-                      />
-                    </div>
-                  </>
+                ) : (
+                  <button
+                    disabled={isCompleting}
+                    onClick={() => setConfirmLotFor(pid)}
+                    className="shrink-0 flex items-center gap-1 text-[10px] font-bold text-white bg-rose-500 hover:bg-rose-600 disabled:opacity-50 px-2.5 py-1.5 rounded-xl transition-colors"
+                  >
+                    {isCompleting ? "..." : <><CheckCircle size={11} /> Hoàn thành đặt slot Lô này</>}
+                  </button>
                 )}
               </div>
 
-              <div className="flex flex-wrap gap-1">
-                {g.items.map((b: any) => (
-                  <span key={b.id} title={`${b.quantity ?? 1} cái`} className={`text-[10px] font-mono px-1.5 py-0.5 rounded-full border font-bold ${
-                    b.status === "confirmed" ? "bg-emerald-50 text-emerald-700 border-emerald-200" :
-                    b.status === "cancelled" ? "bg-red-50 text-red-600 border-red-200 line-through" :
-                    "bg-fuchsia-50 text-fuchsia-700 border-fuchsia-200"
-                  }`}>
-                    #{b.slotNumber} {b.phone} ×{b.quantity ?? 1}
-                  </span>
-                ))}
+              {/* Current lot variant cards */}
+              <div className="space-y-2">
+                {Object.entries(pg.variantGroups).map(([vKey, vg]) =>
+                  renderVariantCard(vKey, vg, slotConfig, vg.current)
+                )}
               </div>
+
+              {/* History toggle */}
+              {hasHistory && (
+                <div>
+                  <button
+                    onClick={() => setHistoryExpanded((s) => {
+                      const n = new Set(s);
+                      if (n.has(pid)) n.delete(pid); else n.add(pid);
+                      return n;
+                    })}
+                    className="flex items-center gap-1.5 text-[11px] font-semibold text-muted-foreground hover:text-foreground transition-colors px-1 py-1"
+                  >
+                    <ChevronDown size={12} className={`transition-transform ${isHistoryOpen ? "rotate-180" : ""}`} />
+                    Lịch sử ({allHistoricLots.map((l) => `Lô ${l}`).join(", ")})
+                  </button>
+                  {isHistoryOpen && (
+                    <div className="space-y-2 mt-1 pl-3 border-l-2 border-slate-200">
+                      {allHistoricLots.map((lotNum) => (
+                        <div key={lotNum} className="space-y-1.5">
+                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Lô {lotNum}</p>
+                          {Object.entries(pg.variantGroups).map(([vKey, vg]) => {
+                            const items = vg.historic[lotNum];
+                            if (!items || items.length === 0) return null;
+                            return renderVariantCard(vKey, vg, slotConfig, items, `Lô ${lotNum}`);
+                          })}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           );
         })}
