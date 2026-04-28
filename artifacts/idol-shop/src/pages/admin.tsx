@@ -5374,6 +5374,7 @@ function CostTab() {
 type DealRequest = {
   id: string; customerName: string; phone: string;
   item: string; note: string; priority: "high" | "normal";
+  cod?: boolean;
   status: "pending" | "found" | "closed"; createdAt: string;
 };
 const DEAL_REQUESTS_KEY = "admin_deal_requests";
@@ -5422,23 +5423,24 @@ function DealHuntTab() {
   const [formItem, setFormItem] = useState("");
   const [formNote, setFormNote] = useState("");
   const [formPriority, setFormPriority] = useState<"normal" | "high">("normal");
+  const [formCod, setFormCod] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
 
-  const resetForm = () => { setFormName(""); setFormPhone(""); setFormItem(""); setFormNote(""); setFormPriority("normal"); setEditId(null); };
+  const resetForm = () => { setFormName(""); setFormPhone(""); setFormItem(""); setFormNote(""); setFormPriority("normal"); setFormCod(false); setEditId(null); };
 
   const openEdit = (r: DealRequest) => {
     setFormName(r.customerName); setFormPhone(r.phone); setFormItem(r.item);
-    setFormNote(r.note); setFormPriority(r.priority); setEditId(r.id);
+    setFormNote(r.note); setFormPriority(r.priority); setFormCod(!!r.cod); setEditId(r.id);
     setShowForm(true);
   };
 
   const submit = () => {
     if (!formName.trim() || !formItem.trim()) return;
     if (editId) {
-      save(requests.map(r => r.id === editId ? { ...r, customerName: formName.trim(), phone: formPhone.trim(), item: formItem.trim(), note: formNote.trim(), priority: formPriority } : r));
+      save(requests.map(r => r.id === editId ? { ...r, customerName: formName.trim(), phone: formPhone.trim(), item: formItem.trim(), note: formNote.trim(), priority: formPriority, cod: formCod } : r));
       toast({ title: "Đã cập nhật yêu cầu" });
     } else {
-      save([{ id: crypto.randomUUID(), customerName: formName.trim(), phone: formPhone.trim(), item: formItem.trim(), note: formNote.trim(), priority: formPriority, status: "pending", createdAt: new Date().toISOString() }, ...requests]);
+      save([{ id: crypto.randomUUID(), customerName: formName.trim(), phone: formPhone.trim(), item: formItem.trim(), note: formNote.trim(), priority: formPriority, cod: formCod, status: "pending", createdAt: new Date().toISOString() }, ...requests]);
       toast({ title: "Đã thêm yêu cầu tìm deal" });
     }
     resetForm(); setShowForm(false);
@@ -5464,6 +5466,9 @@ function DealHuntTab() {
             {r.phone && <span className="text-xs text-muted-foreground">{r.phone}</span>}
             {r.priority === "high" && (
               <span className="text-[9px] font-black bg-pink-100 text-pink-600 border border-pink-200 px-1.5 py-0.5 rounded-full">⚡ Gấp</span>
+            )}
+            {r.cod && (
+              <span className="text-[9px] font-black bg-blue-100 text-blue-600 border border-blue-200 px-1.5 py-0.5 rounded-full">💵 COD</span>
             )}
           </div>
           <p className="text-sm font-semibold text-foreground">{r.item}</p>
@@ -5513,7 +5518,7 @@ function DealHuntTab() {
           </div>
           <Input placeholder="Món cần tìm *  (VD: Doll Lykyou ver, nhóm Aespa...)" value={formItem} onChange={e => setFormItem(e.target.value)} className="rounded-xl h-9 text-sm" />
           <Textarea placeholder="Ghi chú (giá mong muốn, điều kiện...)" value={formNote} onChange={e => setFormNote(e.target.value)} className="rounded-xl text-sm min-h-[56px]" />
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <span className="text-xs text-muted-foreground shrink-0">Mức độ:</span>
             {(["normal", "high"] as const).map(p => (
               <button key={p} type="button" onClick={() => setFormPriority(p)}
@@ -5521,6 +5526,18 @@ function DealHuntTab() {
                 {p === "normal" ? "Bình thường" : "⚡ Gấp"}
               </button>
             ))}
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setFormCod(!formCod)}
+              className={`flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full border font-semibold transition-all ${formCod ? "bg-blue-100 text-blue-600 border-blue-200" : "bg-muted text-muted-foreground border-border"}`}
+            >
+              <span className={`w-3 h-3 rounded-full border-2 flex items-center justify-center transition-all ${formCod ? "bg-blue-500 border-blue-500" : "border-muted-foreground/40"}`}>
+                {formCod && <Check size={8} className="text-white" strokeWidth={3} />}
+              </span>
+              💵 Khách xin COD
+            </button>
           </div>
           <div className="flex gap-2 pt-1">
             <Button size="sm" className="rounded-xl h-8 flex-1 text-xs" onClick={submit} disabled={!formName.trim() || !formItem.trim()}>
