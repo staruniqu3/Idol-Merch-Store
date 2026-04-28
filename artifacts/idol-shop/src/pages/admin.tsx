@@ -1721,12 +1721,16 @@ function OrdersTab() {
                       {hasCrossRef && <span className="inline-flex items-center gap-0.5 text-[9px] font-bold bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full border border-amber-200"><AlertTriangle size={8} /> Sheet</span>}
                       {isDup && <span className="inline-flex items-center gap-0.5 text-[9px] font-bold bg-rose-100 text-rose-700 px-1.5 py-0.5 rounded-full border border-rose-200"><AlertTriangle size={8} /> Trùng SĐT</span>}
                     </div>
-                    <p className="text-xs font-semibold text-foreground mt-0.5">{booking.productName}</p>
-                    {(booking.variant || booking.subVariant) && (
-                      <p className="text-[11px] text-muted-foreground">
-                        {[booking.variant, booking.subVariant].filter(Boolean).join(" · ")}
-                      </p>
-                    )}
+                    <p className="text-xs font-bold text-foreground mt-0.5">
+                      📞 {booking.phone}
+                      {booking.socialHandle && <span className="font-normal text-muted-foreground"> · {booking.socialHandle}</span>}
+                    </p>
+                    <p className="text-[11px] text-muted-foreground">
+                      {booking.productName}
+                      {booking.variant && <> · {booking.variant}</>}
+                      {booking.subVariant && <> · {booking.subVariant}</>}
+                      {" · "}<span className="font-bold text-fuchsia-700">{booking.quantity ?? 1} pack</span>
+                    </p>
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
                     {booking.status === "confirmed" && <span className="text-[10px] bg-emerald-100 text-emerald-700 font-bold px-1.5 py-0.5 rounded-full">✓ Đã xác nhận</span>}
@@ -1735,11 +1739,8 @@ function OrdersTab() {
                   </div>
                 </div>
 
-                <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-muted-foreground">
-                  <span>📞 {booking.phone}</span>
-                  {booking.socialHandle && <span>👤 {booking.socialHandle}</span>}
-                  <span className="font-bold text-fuchsia-700 bg-fuchsia-50 border border-fuchsia-200 px-1.5 py-0.5 rounded-full">📦 {booking.quantity ?? 1} cái</span>
-                  <span className="text-[10px]">{new Date(booking.createdAt).toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}</span>
+                <div className="flex flex-wrap gap-x-4 gap-y-1 text-[10px] text-muted-foreground">
+                  <span>{new Date(booking.createdAt).toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}</span>
                 </div>
 
                 {/* MBS verification status */}
