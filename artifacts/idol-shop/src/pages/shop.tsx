@@ -114,6 +114,10 @@ export default function ShopPage() {
     const key = cartKey(productId, variant, subVariant);
     setCart((prev) => prev.map((i) => cartKey(i.productId, i.variant, i.subVariant) === key ? { ...i, quantity: Math.max(1, i.quantity + delta) } : i));
   };
+  const setQty = (productId: number, qty: number, variant?: string, subVariant?: string) => {
+    const key = cartKey(productId, variant, subVariant);
+    setCart((prev) => prev.map((i) => cartKey(i.productId, i.variant, i.subVariant) === key ? { ...i, quantity: Math.max(1, isNaN(qty) ? 1 : qty) } : i));
+  };
 
   const autoAddPoints = async (memberPhone: string, totalAmount: number) => {
     const base = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
@@ -347,7 +351,15 @@ export default function ShopPage() {
                               <p className="text-xs text-primary font-black mt-0.5">{formatPrice(item.price)}</p>
                               <div className="flex items-center gap-1 mt-1.5">
                                 <Button variant="outline" size="icon" className="h-6 w-6 rounded-lg" onClick={() => changeQty(item.productId, -1, item.variant, item.subVariant)} data-testid={`button-minus-${item.productId}`}><Minus size={10} /></Button>
-                                <span className="w-5 text-center text-sm font-black">{item.quantity}</span>
+                                <input
+                                  type="number"
+                                  min={1}
+                                  value={item.quantity}
+                                  onChange={(e) => setQty(item.productId, parseInt(e.target.value), item.variant, item.subVariant)}
+                                  onBlur={(e) => { const v = parseInt(e.target.value); if (isNaN(v) || v < 1) setQty(item.productId, 1, item.variant, item.subVariant); }}
+                                  className="w-10 text-center text-sm font-black bg-transparent border border-border rounded-lg h-6 outline-none focus:border-primary [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                                  data-testid={`input-qty-${item.productId}`}
+                                />
                                 <Button variant="outline" size="icon" className="h-6 w-6 rounded-lg" onClick={() => changeQty(item.productId, 1, item.variant, item.subVariant)} data-testid={`button-plus-${item.productId}`}><Plus size={10} /></Button>
                                 <Button variant="ghost" size="icon" className="h-6 w-6 rounded-lg text-destructive ml-1" onClick={() => removeFromCart(item.productId, item.variant, item.subVariant)} data-testid={`button-remove-${item.productId}`}><X size={10} /></Button>
                               </div>
