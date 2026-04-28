@@ -1046,7 +1046,12 @@ function OrdersTab() {
   };
 
   useEffect(() => {
-    if (ordersMode === "slot") { loadSlotBookings(); loadSheetIdSetting(); }
+    if (ordersMode === "slot") {
+      loadSlotBookings();
+      loadSheetIdSetting();
+      const interval = setInterval(loadSlotBookings, 30_000);
+      return () => clearInterval(interval);
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ordersMode]);
   const { data: manualOrders = [] } = useListManualOrders();
@@ -1709,9 +1714,15 @@ function OrdersTab() {
           </div>
 
           {/* Slot bookings list */}
-          <div className="flex items-center justify-between">
-            <h3 className="font-bold">Đơn đặt slot <span className="text-fuchsia-600">({slotBookings.length})</span></h3>
-            <button onClick={loadSlotBookings} className="text-xs text-muted-foreground hover:text-foreground border border-border rounded-xl px-2 py-1">↻ Tải lại</button>
+          <div className="flex items-center justify-between gap-2">
+            <div className="min-w-0">
+              <h3 className="font-bold">Đơn đặt slot <span className="text-fuchsia-600">({slotBookings.length})</span></h3>
+              <p className="text-[10px] text-emerald-600 flex items-center gap-1">
+                <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                Tự đồng bộ mỗi 30 giây
+              </p>
+            </div>
+            <button onClick={loadSlotBookings} className="shrink-0 text-xs text-muted-foreground hover:text-foreground border border-border rounded-xl px-2 py-1">↻ Tải lại ngay</button>
           </div>
 
           {/* Cross-ref alert: phone in order Google Sheet */}
@@ -2776,6 +2787,7 @@ function SlotStatsSection() {
   const [bookings, setBookings] = useState<any[]>([]);
   const [products, setProducts] = useState<any[]>([]);
   const [loaded, setLoaded] = useState(false);
+  const [lastSync, setLastSync] = useState<Date | null>(null);
   const [completingLot, setCompletingLot] = useState<Set<number>>(new Set());
   const [confirmLotFor, setConfirmLotFor] = useState<number | null>(null);
   const [historyExpanded, setHistoryExpanded] = useState<Set<number>>(new Set());
@@ -2784,10 +2796,14 @@ function SlotStatsSection() {
     Promise.all([
       fetch(`${base}/api/slot-bookings`, { cache: "no-store" }).then((r) => r.json()),
       fetch(`${base}/api/products`, { cache: "no-store" }).then((r) => r.json()),
-    ]).then(([b, p]) => { setBookings(b); setProducts(p ?? []); }).catch(() => {}).finally(() => setLoaded(true));
+    ]).then(([b, p]) => { setBookings(b); setProducts(p ?? []); setLastSync(new Date()); }).catch(() => {}).finally(() => setLoaded(true));
   };
 
-  useEffect(() => { reload(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    reload();
+    const interval = setInterval(reload, 30_000);
+    return () => clearInterval(interval);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleCompleteLot = async (productId: number) => {
     setConfirmLotFor(null);
@@ -2933,11 +2949,19 @@ function SlotStatsSection() {
 
   return (
     <div className="space-y-3 mt-4 pt-4 border-t border-border">
-      <div className="flex items-center justify-between">
-        <h3 className="font-bold flex items-center gap-2"><Ticket size={15} className="text-fuchsia-600" /> Thống kê Đặt Slot</h3>
+      <div className="flex items-center justify-between gap-2">
+        <div className="min-w-0">
+          <h3 className="font-bold flex items-center gap-2"><Ticket size={15} className="text-fuchsia-600" /> Thống kê Đặt Slot</h3>
+          {lastSync && (
+            <p className="text-[10px] text-emerald-600 flex items-center gap-1 mt-0.5">
+              <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              Live · cập nhật {lastSync.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+            </p>
+          )}
+        </div>
         <button
           onClick={exportExcel}
-          className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-3 py-1.5 rounded-xl transition-colors"
+          className="shrink-0 flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-3 py-1.5 rounded-xl transition-colors"
         >
           <Upload size={12} /> Xuất Excel
         </button>
