@@ -34,6 +34,7 @@ const VariantItem = zod.object({
   price: zod.number().optional(),
   stock: zod.number().optional(),
   soldOut: zod.boolean().optional(),
+  memberOnly: zod.boolean().optional(),
   subVariants: zod.array(SubVariantItem).optional(),
 });
 

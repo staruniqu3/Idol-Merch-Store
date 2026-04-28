@@ -110,7 +110,7 @@ function AdminLogin({ onLogin }: { onLogin: () => void }) {
 function DashboardTab() {
   const { data: summary } = useGetOrderSummary();
   const { data: members } = useListMembers();
-  const { data: products } = useListProducts();
+  const { data: products } = useListProducts(undefined, { query: { refetchInterval: 30_000 } });
 
   const stats = [
     { label: "Tổng đơn hàng", value: summary?.totalOrders ?? 0, icon: ShoppingBag, color: "text-blue-600", bg: "bg-blue-50" },
@@ -152,7 +152,7 @@ function DashboardTab() {
 
 // ===================== Products =====================
 function ProductsTab() {
-  const { data: products } = useListProducts();
+  const { data: products } = useListProducts(undefined, { query: { refetchInterval: 30_000 } });
   const createProduct = useCreateProduct();
   const updateProduct = useUpdateProduct();
   const deleteProduct = useDeleteProduct();
@@ -227,7 +227,7 @@ function ProductsTab() {
   const openEdit = (p: NonNullable<typeof products>[0]) => {
     setEditId(p.id);
     setSubVariantInputs({});
-    setForm({ name: p.name, description: p.description ?? "", price: String(p.price), category: p.category, stock: String(p.stock), isAvailable: p.isAvailable, isSoldOut: false, orderType: p.orderType, orderLabel: (p as any).orderLabel ?? "", orderName: (p as any).orderName ?? "", imageUrl: p.imageUrl ?? "", tags: p.tags ?? [], variants: (p.variants ?? []).map((v: any) => ({ name: v.name, price: v.price ?? undefined, stock: v.stock ?? undefined, soldOut: v.soldOut ?? false, memberOnly: v.memberOnly ?? false, subVariants: (v.subVariants ?? []).map((sv: any) => ({ name: sv.name, price: sv.price ?? undefined, stock: sv.stock ?? undefined, soldOut: sv.soldOut ?? false })), _showSubs: (v.subVariants ?? []).length > 0 })), slotPrefix: (p as any).slotPrefix ?? "", slotConfig: (p as any).slotConfig ?? {} });
+    setForm({ name: p.name, description: p.description ?? "", price: String(p.price), category: p.category, stock: String(p.stock), isAvailable: p.isAvailable, isSoldOut: (p as any).isSoldOut ?? false, orderType: p.orderType, orderLabel: (p as any).orderLabel ?? "", orderName: (p as any).orderName ?? "", imageUrl: p.imageUrl ?? "", tags: p.tags ?? [], variants: (p.variants ?? []).map((v: any) => ({ name: v.name, price: v.price ?? undefined, stock: v.stock ?? undefined, soldOut: v.soldOut ?? false, memberOnly: v.memberOnly ?? false, subVariants: (v.subVariants ?? []).map((sv: any) => ({ name: sv.name, price: sv.price ?? undefined, stock: sv.stock ?? undefined, soldOut: sv.soldOut ?? false })), _showSubs: (v.subVariants ?? []).length > 0 })), slotPrefix: (p as any).slotPrefix ?? "", slotConfig: (p as any).slotConfig ?? {} });
     setOpen(true);
   };
 
@@ -989,7 +989,7 @@ const manualStatusLabels: Record<string, string> = {
 
 function OrdersTab() {
   const { data: orders } = useListOrders();
-  const { data: products } = useListProducts();
+  const { data: products } = useListProducts(undefined, { query: { refetchInterval: 30_000 } });
   const updateOrder = useUpdateOrder();
   const queryClient = useQueryClient();
   const { toast } = useToast();
