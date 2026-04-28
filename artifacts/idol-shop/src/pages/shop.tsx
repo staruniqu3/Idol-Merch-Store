@@ -426,7 +426,12 @@ export default function ShopPage() {
                   <div className="bg-muted/50 rounded-2xl p-3 mb-4 space-y-1.5">
                     {cart.map((item) => (
                       <div key={item.productId} className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">{item.name} ×{item.quantity}</span>
+                        <span className="text-muted-foreground">
+                          {item.name}
+                          {item.variant && ` · ${item.variant}`}
+                          {item.subVariant && ` · ${item.subVariant}`}
+                          {" ×"}{item.quantity}
+                        </span>
                         <span className="font-bold">{formatPrice(item.price * item.quantity)}</span>
                       </div>
                     ))}
