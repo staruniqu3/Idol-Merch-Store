@@ -2810,6 +2810,8 @@ function SlotStatsSection() {
     setCompletingLot((s) => new Set(s).add(productId));
     try {
       await fetch(`${base}/api/slot-bookings/${productId}/complete-lot`, { method: "POST" });
+      // Collapse history for this product after completing
+      setHistoryExpanded((s) => { const n = new Set(s); n.delete(productId); return n; });
       reload();
     } finally {
       setCompletingLot((s) => { const n = new Set(s); n.delete(productId); return n; });
@@ -3031,12 +3033,19 @@ function SlotStatsSection() {
                 )}
               </div>
 
-              {/* Current lot variant cards */}
-              <div className="space-y-2">
-                {Object.entries(pg.variantGroups).map(([vKey, vg]) =>
-                  renderVariantCard(vKey, vg, slotConfig, vg.current)
-                )}
-              </div>
+              {/* Current lot variant cards or empty state */}
+              {Object.values(pg.variantGroups).every((vg) => vg.current.length === 0) ? (
+                <div className="flex flex-col items-center justify-center py-6 gap-2 text-muted-foreground">
+                  <BarChart3 size={28} className="opacity-30" />
+                  <p className="text-xs">Không có đơn cần đặt slot mới</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {Object.entries(pg.variantGroups).map(([vKey, vg]) =>
+                    renderVariantCard(vKey, vg, slotConfig, vg.current)
+                  )}
+                </div>
+              )}
 
               {/* History toggle */}
               {hasHistory && (
