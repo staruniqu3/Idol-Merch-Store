@@ -465,7 +465,8 @@ export default function ShopPage() {
                     )}
 
                     {isSlotCart && (
-                      <div className="bg-fuchsia-50 border border-fuchsia-200 rounded-xl px-3 py-2.5">
+                      <div className="bg-fuchsia-50 border border-fuchsia-200 rounded-xl px-3 py-2.5 space-y-1">
+                        <p className="text-[11px] font-black text-fuchsia-700 uppercase tracking-wide">⚠️ Lưu ý</p>
                         <p className="text-[11px] text-fuchsia-800 leading-relaxed">
                           💬 Khi thanh toán vui lòng inbox Facebook/Instagram <strong>Tiệm Chu Du</strong> để gửi proof nhằm giúp staff dễ dàng xác nhận slot.
                         </p>
