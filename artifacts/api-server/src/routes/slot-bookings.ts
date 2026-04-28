@@ -54,22 +54,25 @@ router.post("/slot-bookings", async (req, res): Promise<void> => {
     }
   }
 
-  // Count active (non-cancelled) bookings for this product → capacity enforcement
-  const [{ count: totalCount }] = await db
-    .select({ count: count() })
-    .from(slotBookingsTable)
-    .where(and(
-      eq(slotBookingsTable.productId, pid),
-      ne(slotBookingsTable.status, "cancelled"),
-    ));
-
-  const totalExisting = Number(totalCount);
-
-  if (slotConfig) {
-    const totalSlots = Number((slotConfig as any)["_totalSlots"] ?? 0);
-    if (totalSlots > 0 && totalExisting >= totalSlots) {
-      res.status(409).json({ error: "Slot đã đầy, không còn lượt đặt" });
-      return;
+  // Count active (non-cancelled) bookings for this variant → per-variant capacity enforcement
+  if (slotConfig && variantVal) {
+    // For sub-variants, totalSlots is set on the parent variant key (variantVal alone)
+    // For no-sub variants, it's also set on variantVal key
+    const variantTotalSlots = Number(slotConfig[variantVal]?.totalSlots ?? slotConfig["_totalSlots"] ?? 0);
+    if (variantTotalSlots > 0) {
+      const variantConditionsCheck = [
+        eq(slotBookingsTable.productId, pid),
+        eq(slotBookingsTable.variant, variantVal),
+        ne(slotBookingsTable.status, "cancelled"),
+      ];
+      const [{ count: variantCount }] = await db
+        .select({ count: count() })
+        .from(slotBookingsTable)
+        .where(and(...variantConditionsCheck));
+      if (Number(variantCount) >= variantTotalSlots) {
+        res.status(409).json({ error: "Slot đã đầy, không còn lượt đặt cho biến thể này" });
+        return;
+      }
     }
   }
 
