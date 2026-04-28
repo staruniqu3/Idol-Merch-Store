@@ -2672,13 +2672,18 @@ function SlotStatsSection() {
     XLSX.writeFile(wb, `dat-slot-${new Date().toISOString().slice(0, 10)}.xlsx`);
   };
 
+  const uniqueCustomers = new Set(bookings.map((b) => b.phone)).size;
+  const totalPending = bookings.filter((b) => b.status === "pending").length;
+  const totalConfirmed = bookings.filter((b) => b.status === "confirmed").length;
+  const totalCancelled = bookings.filter((b) => b.status === "cancelled").length;
+
   if (!loaded) return null;
   if (bookings.length === 0) return null;
 
   return (
     <div className="space-y-3 mt-4 pt-4 border-t border-border">
       <div className="flex items-center justify-between">
-        <h3 className="font-bold flex items-center gap-2"><Ticket size={15} className="text-fuchsia-600" /> Thống kê Đặt Slot <span className="text-fuchsia-600">({bookings.length})</span></h3>
+        <h3 className="font-bold flex items-center gap-2"><Ticket size={15} className="text-fuchsia-600" /> Thống kê Đặt Slot</h3>
         <button
           onClick={exportExcel}
           className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-3 py-1.5 rounded-xl transition-colors"
@@ -2686,31 +2691,65 @@ function SlotStatsSection() {
           <Upload size={12} /> Xuất Excel
         </button>
       </div>
+
+      {/* Summary row */}
+      <div className="grid grid-cols-4 gap-2">
+        <div className="bg-fuchsia-50 border border-fuchsia-200 rounded-2xl p-2.5 text-center">
+          <p className="text-xl font-black text-fuchsia-600">{uniqueCustomers}</p>
+          <p className="text-[10px] font-semibold text-fuchsia-500 leading-tight">khách đặt</p>
+        </div>
+        <div className="bg-slate-50 border border-slate-200 rounded-2xl p-2.5 text-center">
+          <p className="text-xl font-black text-slate-600">{bookings.length}</p>
+          <p className="text-[10px] font-semibold text-slate-500 leading-tight">tổng slot</p>
+        </div>
+        <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-2.5 text-center">
+          <p className="text-xl font-black text-emerald-600">{totalConfirmed}</p>
+          <p className="text-[10px] font-semibold text-emerald-500 leading-tight">xác nhận</p>
+        </div>
+        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-2.5 text-center">
+          <p className="text-xl font-black text-amber-600">{totalPending}</p>
+          <p className="text-[10px] font-semibold text-amber-500 leading-tight">chờ duyệt</p>
+        </div>
+      </div>
+
       <div className="space-y-2">
-        {Object.entries(grouped).map(([key, g]) => (
-          <div key={key} className="bg-card border border-border rounded-2xl p-3 space-y-2">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs font-bold">{g.productName}</p>
-                {(g.variant || g.subVariant) && (
-                  <p className="text-[11px] text-muted-foreground">{[g.variant, g.subVariant].filter(Boolean).join(" · ")}</p>
-                )}
+        {Object.entries(grouped).map(([key, g]) => {
+          const pending = g.items.filter((b) => b.status === "pending").length;
+          const confirmed = g.items.filter((b) => b.status === "confirmed").length;
+          const cancelled = g.items.filter((b) => b.status === "cancelled").length;
+          const uniqueInGroup = new Set(g.items.map((b: any) => b.phone)).size;
+          return (
+            <div key={key} className="bg-card border border-border rounded-2xl p-3 space-y-2">
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="text-xs font-bold truncate">{g.productName}</p>
+                  {(g.variant || g.subVariant) && (
+                    <p className="text-[11px] text-muted-foreground">{[g.variant, g.subVariant].filter(Boolean).join(" · ")}</p>
+                  )}
+                </div>
+                <div className="flex flex-col items-end shrink-0 gap-0.5">
+                  <span className="text-sm font-black text-fuchsia-600">{uniqueInGroup} khách</span>
+                  <div className="flex items-center gap-1.5">
+                    {confirmed > 0 && <span className="text-[10px] font-bold text-emerald-600">✓{confirmed}</span>}
+                    {pending > 0 && <span className="text-[10px] font-bold text-amber-500">⏳{pending}</span>}
+                    {cancelled > 0 && <span className="text-[10px] font-bold text-red-400">✗{cancelled}</span>}
+                  </div>
+                </div>
               </div>
-              <span className="text-sm font-black text-fuchsia-600">{g.items.length} slot</span>
+              <div className="flex flex-wrap gap-1">
+                {g.items.map((b: any) => (
+                  <span key={b.id} className={`text-[10px] font-mono px-1.5 py-0.5 rounded-full border font-bold ${
+                    b.status === "confirmed" ? "bg-emerald-50 text-emerald-700 border-emerald-200" :
+                    b.status === "cancelled" ? "bg-red-50 text-red-600 border-red-200 line-through" :
+                    "bg-fuchsia-50 text-fuchsia-700 border-fuchsia-200"
+                  }`}>
+                    #{b.slotNumber} {b.phone}
+                  </span>
+                ))}
+              </div>
             </div>
-            <div className="flex flex-wrap gap-1">
-              {g.items.map((b) => (
-                <span key={b.id} className={`text-[10px] font-mono px-1.5 py-0.5 rounded-full border font-bold ${
-                  b.status === "confirmed" ? "bg-emerald-50 text-emerald-700 border-emerald-200" :
-                  b.status === "cancelled" ? "bg-red-50 text-red-600 border-red-200 line-through" :
-                  "bg-fuchsia-50 text-fuchsia-700 border-fuchsia-200"
-                }`}>
-                  #{b.slotNumber} {b.phone}
-                </span>
-              ))}
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
