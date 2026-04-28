@@ -1665,6 +1665,7 @@ function OrdersTab() {
                 <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-muted-foreground">
                   <span>📞 {booking.phone}</span>
                   {booking.socialHandle && <span>👤 {booking.socialHandle}</span>}
+                  {booking.quantity > 1 && <span className="font-bold text-fuchsia-600">× {booking.quantity}</span>}
                   <span className="text-[10px]">{new Date(booking.createdAt).toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}</span>
                 </div>
 
@@ -2661,6 +2662,7 @@ function SlotStatsSection() {
       "Số thứ tự": b.slotNumber,
       "SĐT": b.phone,
       "Facebook/Instagram": b.socialHandle ?? "",
+      "Số lượng": b.quantity ?? 1,
       "MBS": b.mbsVerified === true ? "Xác minh" : b.mbsVerified === false ? "Không hợp lệ" : "Chưa kiểm tra",
       "Trạng thái": b.status === "confirmed" ? "Đã xác nhận" : b.status === "cancelled" ? "Không hợp lệ" : "Chờ xác nhận",
       "Ghi chú admin": b.adminNote ?? "",
@@ -2743,7 +2745,7 @@ function SlotStatsSection() {
                     b.status === "cancelled" ? "bg-red-50 text-red-600 border-red-200 line-through" :
                     "bg-fuchsia-50 text-fuchsia-700 border-fuchsia-200"
                   }`}>
-                    #{b.slotNumber} {b.phone}
+                    #{b.slotNumber} {b.phone}{b.quantity > 1 ? ` ×${b.quantity}` : ""}
                   </span>
                 ))}
               </div>

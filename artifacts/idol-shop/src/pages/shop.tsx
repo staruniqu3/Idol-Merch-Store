@@ -65,6 +65,7 @@ export default function ShopPage() {
   const [slotResults, setSlotResults] = useState<string[]>([]);
   const [isSlotLoading, setIsSlotLoading] = useState(false);
   const [socialHandle, setSocialHandle] = useState("");
+  const [slotQuantity, setSlotQuantity] = useState(1);
   const [memberGateVariant, setMemberGateVariant] = useState<{ variant: any; product: any } | null>(null);
   const [memberGatePhone, setMemberGatePhone] = useState("");
   const [memberGateLoading, setMemberGateLoading] = useState(false);
@@ -200,7 +201,7 @@ export default function ShopPage() {
         const res = await fetch(`${base}/api/slot-bookings`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ productId: item.productId, variant: item.variant ?? null, subVariant: item.subVariant ?? null, phone: phone.trim(), socialHandle: socialHandle.trim() || null }),
+          body: JSON.stringify({ productId: item.productId, variant: item.variant ?? null, subVariant: item.subVariant ?? null, phone: phone.trim(), socialHandle: socialHandle.trim() || null, quantity: slotQuantity }),
         });
         if (!res.ok) {
           const err = await res.json();
@@ -224,6 +225,7 @@ export default function ShopPage() {
     setStep("cart");
     setPhone("");
     setSocialHandle("");
+    setSlotQuantity(1);
     setCart([]);
     setSlotResults([]);
   };
@@ -461,6 +463,34 @@ export default function ShopPage() {
                           data-testid="input-social-handle"
                         />
                         <p className="text-[11px] text-muted-foreground mt-1.5">Để xác nhận đặt slot.</p>
+                      </div>
+                    )}
+
+                    {isSlotCart && (
+                      <div>
+                        <Label htmlFor="slot-quantity" className="font-bold">Số lượng mua *</Label>
+                        <div className="flex items-center gap-2 mt-1">
+                          <button
+                            type="button"
+                            onClick={() => setSlotQuantity((q) => Math.max(1, q - 1))}
+                            className="w-9 h-9 rounded-xl border border-border bg-muted flex items-center justify-center text-lg font-bold hover:bg-muted/70 active:scale-95 transition-all"
+                          >−</button>
+                          <Input
+                            id="slot-quantity"
+                            value={slotQuantity}
+                            onChange={(e) => {
+                              const v = parseInt(e.target.value);
+                              if (!isNaN(v) && v >= 1) setSlotQuantity(v);
+                            }}
+                            className="rounded-xl text-center font-bold text-base w-16"
+                            inputMode="numeric"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setSlotQuantity((q) => q + 1)}
+                            className="w-9 h-9 rounded-xl border border-border bg-muted flex items-center justify-center text-lg font-bold hover:bg-muted/70 active:scale-95 transition-all"
+                          >+</button>
+                        </div>
                       </div>
                     )}
 

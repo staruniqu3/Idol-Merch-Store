@@ -8,6 +8,7 @@ export const slotBookingsTable = pgTable("slot_bookings", {
   subVariant: text("sub_variant"),
   phone: text("phone").notNull(),
   socialHandle: text("social_handle"),
+  quantity: integer("quantity").notNull().default(1),
   slotNumber: integer("slot_number").notNull(),
   queueCode: text("queue_code").notNull(),
   status: text("status").notNull().default("pending"),

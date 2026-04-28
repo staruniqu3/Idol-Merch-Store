@@ -17,7 +17,7 @@ async function getSovereignClubSheetId(): Promise<string> {
 }
 
 router.post("/slot-bookings", async (req, res): Promise<void> => {
-  const { productId, variant, subVariant, phone, socialHandle } = req.body;
+  const { productId, variant, subVariant, phone, socialHandle, quantity } = req.body;
 
   if (!productId || !phone) {
     res.status(400).json({ error: "productId and phone are required" });
@@ -107,6 +107,7 @@ router.post("/slot-bookings", async (req, res): Promise<void> => {
     subVariant: subVariantVal,
     phone: String(phone),
     socialHandle: socialHandle ? String(socialHandle).trim() : null,
+    quantity: quantity ? Math.max(1, Number(quantity)) : 1,
     slotNumber,
     queueCode,
     status: "pending",
