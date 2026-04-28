@@ -12,7 +12,7 @@ import {
 } from "@workspace/api-client-react";
 import {
   Shield, Package, ShoppingBag, ShoppingCart, Truck, Users, Gift, LogOut, Plus, Pencil, Trash2, ChevronDown,
-  TrendingUp, Star, Calendar, X, Check, BarChart3, Sparkles, Bell, Pin, Ticket, Eye, EyeOff, Tag, AlertTriangle, Copy, History, Receipt, Upload,
+  TrendingUp, Star, Calendar, X, Check, BarChart3, Sparkles, Bell, Pin, Ticket, Eye, EyeOff, Tag, AlertTriangle, Copy, History, Receipt, Upload, Search,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -5370,6 +5370,199 @@ function CostTab() {
   );
 }
 
+// ===================== Deal Hunt =====================
+type DealRequest = {
+  id: string; customerName: string; phone: string;
+  item: string; note: string; priority: "high" | "normal";
+  status: "pending" | "found" | "closed"; createdAt: string;
+};
+const DEAL_REQUESTS_KEY = "admin_deal_requests";
+const dealStatusCfg = {
+  pending: { label: "Đang tìm",    cls: "bg-amber-100 text-amber-700 border-amber-200" },
+  found:   { label: "Đã thấy",     cls: "bg-emerald-100 text-emerald-700 border-emerald-200" },
+  closed:  { label: "Đã xong",     cls: "bg-muted text-muted-foreground border-border" },
+};
+
+function DealHuntTab() {
+  const base = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
+  const { toast } = useToast();
+
+  const [requests, setRequests] = useState<DealRequest[]>(() => {
+    try { return JSON.parse(localStorage.getItem(DEAL_REQUESTS_KEY) || "[]"); } catch { return []; }
+  });
+
+  const syncToServer = (data: DealRequest[]) =>
+    fetch(`${base}/api/settings/${DEAL_REQUESTS_KEY}`, {
+      method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data),
+    }).catch(() => {});
+
+  useEffect(() => {
+    fetch(`${base}/api/settings/${DEAL_REQUESTS_KEY}`, { cache: "no-store" })
+      .then(r => r.json())
+      .then(d => {
+        if (Array.isArray(d) && d.length > 0) {
+          setRequests(d); localStorage.setItem(DEAL_REQUESTS_KEY, JSON.stringify(d));
+        } else {
+          try {
+            const local = JSON.parse(localStorage.getItem(DEAL_REQUESTS_KEY) || "[]");
+            if (local.length > 0) syncToServer(local);
+          } catch {}
+        }
+      }).catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const save = (next: DealRequest[]) => {
+    setRequests(next); localStorage.setItem(DEAL_REQUESTS_KEY, JSON.stringify(next)); syncToServer(next);
+  };
+
+  const [showForm, setShowForm] = useState(false);
+  const [formName, setFormName] = useState("");
+  const [formPhone, setFormPhone] = useState("");
+  const [formItem, setFormItem] = useState("");
+  const [formNote, setFormNote] = useState("");
+  const [formPriority, setFormPriority] = useState<"normal" | "high">("normal");
+  const [editId, setEditId] = useState<string | null>(null);
+
+  const resetForm = () => { setFormName(""); setFormPhone(""); setFormItem(""); setFormNote(""); setFormPriority("normal"); setEditId(null); };
+
+  const openEdit = (r: DealRequest) => {
+    setFormName(r.customerName); setFormPhone(r.phone); setFormItem(r.item);
+    setFormNote(r.note); setFormPriority(r.priority); setEditId(r.id);
+    setShowForm(true);
+  };
+
+  const submit = () => {
+    if (!formName.trim() || !formItem.trim()) return;
+    if (editId) {
+      save(requests.map(r => r.id === editId ? { ...r, customerName: formName.trim(), phone: formPhone.trim(), item: formItem.trim(), note: formNote.trim(), priority: formPriority } : r));
+      toast({ title: "Đã cập nhật yêu cầu" });
+    } else {
+      save([{ id: crypto.randomUUID(), customerName: formName.trim(), phone: formPhone.trim(), item: formItem.trim(), note: formNote.trim(), priority: formPriority, status: "pending", createdAt: new Date().toISOString() }, ...requests]);
+      toast({ title: "Đã thêm yêu cầu tìm deal" });
+    }
+    resetForm(); setShowForm(false);
+  };
+
+  const cycleStatus = (id: string) =>
+    save(requests.map(r => r.id === id ? { ...r, status: r.status === "pending" ? "found" : r.status === "found" ? "closed" : "pending" } : r));
+
+  const remove = (id: string) => { if (!confirm("Xoá yêu cầu này?")) return; save(requests.filter(r => r.id !== id)); };
+
+  const grouped = {
+    pending: requests.filter(r => r.status === "pending"),
+    found:   requests.filter(r => r.status === "found"),
+    closed:  requests.filter(r => r.status === "closed"),
+  };
+
+  const DealCard = ({ r }: { r: DealRequest }) => (
+    <div className={`bg-card border rounded-2xl p-3 transition-all ${r.status === "closed" ? "opacity-45 grayscale" : r.priority === "high" ? "border-pink-300" : "border-border"}`}>
+      <div className="flex items-start gap-2">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap mb-0.5">
+            <span className="font-bold text-sm">{r.customerName}</span>
+            {r.phone && <span className="text-xs text-muted-foreground">{r.phone}</span>}
+            {r.priority === "high" && (
+              <span className="text-[9px] font-black bg-pink-100 text-pink-600 border border-pink-200 px-1.5 py-0.5 rounded-full">⚡ Gấp</span>
+            )}
+          </div>
+          <p className="text-sm font-semibold text-foreground">{r.item}</p>
+          {r.note && <p className="text-xs text-muted-foreground mt-0.5 italic">"{r.note}"</p>}
+          <p className="text-[10px] text-muted-foreground/60 mt-1">
+            {new Date(r.createdAt).toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric" })}
+          </p>
+        </div>
+        <div className="flex flex-col items-end gap-1.5 shrink-0">
+          <button
+            type="button"
+            onClick={() => cycleStatus(r.id)}
+            className={`text-[9px] font-bold px-2 py-1 rounded-full border transition-all hover:opacity-80 ${dealStatusCfg[r.status].cls}`}
+          >
+            {dealStatusCfg[r.status].label}
+          </button>
+          <div className="flex items-center gap-1">
+            <button type="button" onClick={() => openEdit(r)} className="text-muted-foreground/50 hover:text-primary transition-colors"><Pencil size={11} /></button>
+            <button type="button" onClick={() => remove(r.id)} className="text-muted-foreground/50 hover:text-destructive transition-colors"><Trash2 size={11} /></button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="font-bold text-base flex items-center gap-2"><Search size={16} className="text-primary" />Tìm deal cho khách</h2>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            {grouped.pending.length > 0 ? `${grouped.pending.length} đang tìm` : "Không có yêu cầu đang chờ"}
+            {grouped.found.length > 0 && ` · ${grouped.found.length} đã thấy`}
+          </p>
+        </div>
+        <Button size="sm" className="rounded-xl h-8 gap-1.5 text-xs" onClick={() => { resetForm(); setShowForm(!showForm); }}>
+          <Plus size={13} />{showForm && !editId ? "Huỷ" : "Thêm"}
+        </Button>
+      </div>
+
+      {showForm && (
+        <div className="bg-card border border-primary/20 rounded-2xl p-4 space-y-3">
+          <p className="text-xs font-bold text-muted-foreground uppercase tracking-wide">{editId ? "Chỉnh sửa yêu cầu" : "Thêm yêu cầu mới"}</p>
+          <div className="grid grid-cols-2 gap-2">
+            <Input placeholder="Tên khách *" value={formName} onChange={e => setFormName(e.target.value)} className="rounded-xl h-9 text-sm" />
+            <Input placeholder="Số điện thoại" value={formPhone} onChange={e => setFormPhone(e.target.value)} className="rounded-xl h-9 text-sm" />
+          </div>
+          <Input placeholder="Món cần tìm *  (VD: Doll Lykyou ver, nhóm Aespa...)" value={formItem} onChange={e => setFormItem(e.target.value)} className="rounded-xl h-9 text-sm" />
+          <Textarea placeholder="Ghi chú (giá mong muốn, điều kiện...)" value={formNote} onChange={e => setFormNote(e.target.value)} className="rounded-xl text-sm min-h-[56px]" />
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-muted-foreground shrink-0">Mức độ:</span>
+            {(["normal", "high"] as const).map(p => (
+              <button key={p} type="button" onClick={() => setFormPriority(p)}
+                className={`text-xs px-2.5 py-1 rounded-full border font-semibold transition-all ${formPriority === p ? (p === "high" ? "bg-pink-100 text-pink-600 border-pink-200" : "bg-primary/10 text-primary border-primary/20") : "bg-muted text-muted-foreground border-border"}`}>
+                {p === "normal" ? "Bình thường" : "⚡ Gấp"}
+              </button>
+            ))}
+          </div>
+          <div className="flex gap-2 pt-1">
+            <Button size="sm" className="rounded-xl h-8 flex-1 text-xs" onClick={submit} disabled={!formName.trim() || !formItem.trim()}>
+              {editId ? "Lưu thay đổi" : "Thêm yêu cầu"}
+            </Button>
+            <Button size="sm" variant="ghost" className="rounded-xl h-8 text-xs" onClick={() => { resetForm(); setShowForm(false); }}>Huỷ</Button>
+          </div>
+        </div>
+      )}
+
+      {requests.length === 0 ? (
+        <div className="text-center py-12 text-muted-foreground">
+          <Search size={32} strokeWidth={1.2} className="mx-auto mb-3 opacity-40" />
+          <p className="text-sm font-medium">Chưa có yêu cầu nào</p>
+          <p className="text-xs mt-1">Thêm yêu cầu khi khách nhờ tìm hàng</p>
+        </div>
+      ) : (
+        <div className="space-y-5">
+          {grouped.pending.length > 0 && (
+            <div className="space-y-2">
+              <p className="text-[10px] font-black text-amber-600 uppercase tracking-widest">Đang tìm · {grouped.pending.length}</p>
+              {grouped.pending.map(r => <DealCard key={r.id} r={r} />)}
+            </div>
+          )}
+          {grouped.found.length > 0 && (
+            <div className="space-y-2">
+              <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">Đã tìm thấy · {grouped.found.length}</p>
+              {grouped.found.map(r => <DealCard key={r.id} r={r} />)}
+            </div>
+          )}
+          {grouped.closed.length > 0 && (
+            <div className="space-y-2">
+              <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Đã xong · {grouped.closed.length}</p>
+              {grouped.closed.map(r => <DealCard key={r.id} r={r} />)}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 const tabs = [
   { id: "dashboard", label: "Tổng quan", icon: BarChart3 },
   { id: "products", label: "Sản phẩm", icon: Package },
@@ -5383,6 +5576,7 @@ const tabs = [
   { id: "booking", label: "Booking Vé", icon: Ticket },
   { id: "coupon", label: "Coupon", icon: Tag },
   { id: "cost", label: "Chi phí Order", icon: Receipt },
+  { id: "deal", label: "Tìm Deal", icon: Search },
 ];
 
 export default function AdminPage() {
@@ -5456,6 +5650,7 @@ export default function AdminPage() {
         {activeTab === "booking" && <BookingTab />}
         {activeTab === "coupon" && <CouponTab />}
         {activeTab === "cost" && <CostTab />}
+        {activeTab === "deal" && <DealHuntTab />}
       </div>
     </div>
   );
