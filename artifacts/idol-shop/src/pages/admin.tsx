@@ -162,7 +162,7 @@ function ProductsTab() {
   const [editId, setEditId] = useState<number | null>(null);
   type SubVariantDraft = { name: string; price?: number; stock?: number; soldOut?: boolean };
   type VariantDraft = { name: string; price?: number; stock?: number; soldOut?: boolean; subVariants?: SubVariantDraft[]; _showSubs?: boolean };
-  const [form, setForm] = useState({ name: "", description: "", price: "", category: "Kpop", stock: "0", isAvailable: true, isSoldOut: false, orderType: "preorder", orderLabel: "", orderName: "", imageUrl: "", tags: [] as string[], variants: [] as VariantDraft[], slotPrefix: "", slotConfig: {} as Record<string, { capacity: number }> });
+  const [form, setForm] = useState({ name: "", description: "", price: "", category: "Kpop", stock: "0", isAvailable: true, isSoldOut: false, orderType: "preorder", orderLabel: "", orderName: "", imageUrl: "", tags: [] as string[], variants: [] as VariantDraft[], slotPrefix: "", slotConfig: {} as Record<string, any> });
   const [subVariantInputs, setSubVariantInputs] = useState<Record<number, { name: string; price: string; stock: string }>>({});
   const [customTagInput, setCustomTagInput] = useState("");
   const [customVariantInput, setCustomVariantInput] = useState({ name: "", price: "", stock: "" });
@@ -234,9 +234,10 @@ function ProductsTab() {
       const vPrices = cleanVariants.map((v) => (v as any).price).filter((p: any) => p != null && !isNaN(p)) as number[];
       const autoMinPrice = vPrices.length >= 1 ? Math.min(...vPrices) : null;
       const effectivePriceStr = autoMinPrice != null ? String(autoMinPrice) : form.price;
-      if (!form.name || !effectivePriceStr) { toast({ title: "Vui lòng nhập đủ thông tin", variant: "destructive" }); return; }
-      const price = parseFloat(effectivePriceStr);
-      if (isNaN(price)) { toast({ title: "Giá không hợp lệ", variant: "destructive" }); return; }
+      const isSlotType = form.orderType === "slot";
+      if (!form.name || (!effectivePriceStr && !isSlotType)) { toast({ title: "Vui lòng nhập đủ thông tin", variant: "destructive" }); return; }
+      const price = parseFloat(effectivePriceStr) || 0;
+      if (!isSlotType && isNaN(parseFloat(effectivePriceStr))) { toast({ title: "Giá không hợp lệ", variant: "destructive" }); return; }
       const hasVariantStock = !isPreorder && cleanVariants.length > 0 && cleanVariants.every((v) => v.stock != null);
       const stock = hasVariantStock
         ? cleanVariants.reduce((s, v) => s + (v.stock ?? 0), 0)
@@ -545,7 +546,7 @@ function ProductsTab() {
                       </div>
                     </div>
                   ) : (
-                    <div><Label>Giá (VND) *</Label><Input type="number" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} className="rounded-xl mt-1" data-testid="input-product-price" /></div>
+                    <div><Label>{form.orderType === "slot" ? "Giá (VND)" : "Giá (VND) *"}</Label><Input type="number" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} className="rounded-xl mt-1" placeholder={form.orderType === "slot" ? "Không bắt buộc" : ""} data-testid="input-product-price" /></div>
                   )}
                   {isPreorder ? (
                     <div>
@@ -644,33 +645,42 @@ function ProductsTab() {
                   </p>
                 </div>
 
-                <div>
-                  <Label className="text-xs font-bold">Số lượng slot mỗi biến thể</Label>
-                  <p className="text-[10px] text-muted-foreground mb-2">Để trống = không giới hạn</p>
-                  <div className="space-y-1.5">
-                    {form.variants.length === 0 ? (
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs text-muted-foreground flex-1">Tổng slot (không biến thể)</span>
-                        <Input
-                          type="number" min="0"
-                          value={form.slotConfig[""]?.capacity ?? ""}
-                          onChange={(e) => setForm((f) => ({ ...f, slotConfig: { ...f.slotConfig, "": { capacity: parseInt(e.target.value) || 0 } } }))}
-                          className="w-20 rounded-xl h-8 text-xs text-center"
-                          placeholder="∞"
-                        />
-                      </div>
-                    ) : (
-                      form.variants.map((v) => {
+                {/* Total slots */}
+                <div className="flex items-center gap-3 bg-card rounded-xl px-3 py-2.5 border border-primary/20">
+                  <div className="flex-1">
+                    <p className="text-xs font-bold text-foreground">Tổng số slot</p>
+                    <p className="text-[10px] text-muted-foreground">Số lượt đặt tối đa (0 = không giới hạn)</p>
+                  </div>
+                  <Input
+                    type="number" min="0"
+                    value={form.slotConfig["_totalSlots"] ?? ""}
+                    onChange={(e) => setForm((f) => ({ ...f, slotConfig: { ...f.slotConfig, _totalSlots: parseInt(e.target.value) || 0 } }))}
+                    className="w-20 rounded-xl h-8 text-xs text-center font-bold"
+                    placeholder="∞"
+                  />
+                </div>
+
+                {/* Per-slot capacity per sub-variant */}
+                {(form.variants.length > 0) && (
+                  <div>
+                    <Label className="text-xs font-bold">Số lượng tối đa / slot</Label>
+                    <p className="text-[10px] text-muted-foreground mb-2">Mỗi slot được đặt tối đa bao nhiêu? (0 = không giới hạn)</p>
+                    <div className="space-y-1.5">
+                      {form.variants.map((v) => {
                         const hasSubs = (v.subVariants ?? []).length > 0;
+                        const totalSlots: number = parseInt(form.slotConfig["_totalSlots"]) || 0;
                         if (!hasSubs) {
                           const key = v.name;
+                          const perSlot: number = form.slotConfig[key]?.capacityPerSlot ?? 0;
+                          const totalCap = totalSlots > 0 && perSlot > 0 ? totalSlots * perSlot : null;
                           return (
                             <div key={key} className="flex items-center gap-2 bg-card rounded-xl px-3 py-1.5 border border-border">
                               <span className="text-xs font-semibold flex-1 truncate">{v.name}</span>
+                              {totalCap != null && <span className="text-[10px] text-fuchsia-600 font-bold shrink-0">={totalCap}</span>}
                               <Input
                                 type="number" min="0"
-                                value={form.slotConfig[key]?.capacity ?? ""}
-                                onChange={(e) => setForm((f) => ({ ...f, slotConfig: { ...f.slotConfig, [key]: { capacity: parseInt(e.target.value) || 0 } } }))}
+                                value={form.slotConfig[key]?.capacityPerSlot ?? ""}
+                                onChange={(e) => setForm((f) => ({ ...f, slotConfig: { ...f.slotConfig, [key]: { ...(f.slotConfig[key] ?? {}), capacityPerSlot: parseInt(e.target.value) || 0 } } }))}
                                 className="w-20 rounded-xl h-7 text-xs text-center"
                                 placeholder="∞"
                               />
@@ -679,6 +689,8 @@ function ProductsTab() {
                         }
                         return (v.subVariants ?? []).map((sv) => {
                           const key = `${v.name}::${sv.name}`;
+                          const perSlot: number = form.slotConfig[key]?.capacityPerSlot ?? 0;
+                          const totalCap = totalSlots > 0 && perSlot > 0 ? totalSlots * perSlot : null;
                           return (
                             <div key={key} className="flex items-center gap-2 bg-card rounded-xl px-3 py-1.5 border border-border pl-5">
                               <span className="text-[9px] text-muted-foreground mr-0.5 shrink-0">└</span>
@@ -686,20 +698,21 @@ function ProductsTab() {
                                 <span className="font-semibold">{v.name}</span>
                                 <span className="text-muted-foreground"> · {sv.name}</span>
                               </span>
+                              {totalCap != null && <span className="text-[10px] text-fuchsia-600 font-bold shrink-0">={totalCap}</span>}
                               <Input
                                 type="number" min="0"
-                                value={form.slotConfig[key]?.capacity ?? ""}
-                                onChange={(e) => setForm((f) => ({ ...f, slotConfig: { ...f.slotConfig, [key]: { capacity: parseInt(e.target.value) || 0 } } }))}
+                                value={form.slotConfig[key]?.capacityPerSlot ?? ""}
+                                onChange={(e) => setForm((f) => ({ ...f, slotConfig: { ...f.slotConfig, [key]: { ...(f.slotConfig[key] ?? {}), capacityPerSlot: parseInt(e.target.value) || 0 } } }))}
                                 className="w-20 rounded-xl h-7 text-xs text-center"
                                 placeholder="∞"
                               />
                             </div>
                           );
                         });
-                      })
-                    )}
+                      })}
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
             )}
 

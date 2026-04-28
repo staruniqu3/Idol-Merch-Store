@@ -44,12 +44,9 @@ router.post("/slot-bookings", async (req, res): Promise<void> => {
   const existing = Number(existingCount);
 
   if (slotConfig) {
-    const key = variantVal && subVariantVal
-      ? `${variantVal}::${subVariantVal}`
-      : variantVal ?? "";
-    const cfg = slotConfig[key];
-    if (cfg && cfg.capacity > 0 && existing >= cfg.capacity) {
-      res.status(409).json({ error: "Slot đã đầy cho lựa chọn này" });
+    const totalSlots = Number((slotConfig as any)["_totalSlots"] ?? 0);
+    if (totalSlots > 0 && existing >= totalSlots) {
+      res.status(409).json({ error: "Slot đã đầy, không còn lượt đặt" });
       return;
     }
   }
