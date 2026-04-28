@@ -5,7 +5,7 @@ import { db, slotBookingsTable, productsTable } from "@workspace/db";
 const router: IRouter = Router();
 
 router.post("/slot-bookings", async (req, res): Promise<void> => {
-  const { productId, variant, subVariant, phone } = req.body;
+  const { productId, variant, subVariant, phone, isMulti } = req.body;
 
   if (!productId || !phone) {
     res.status(400).json({ error: "productId and phone are required" });
@@ -18,28 +18,17 @@ router.post("/slot-bookings", async (req, res): Promise<void> => {
   const [product] = await db.select().from(productsTable).where(eq(productsTable.id, pid));
   if (!product) { res.status(404).json({ error: "Product not found" }); return; }
 
-  const slotConfig = (product as any).slotConfig as Record<string, { capacity: number }> | null;
+  const slotConfig = (product as any).slotConfig as Record<string, any> | null;
   const slotPrefix = ((product as any).slotPrefix as string | null) ?? "SLOT";
 
-  const variantVal: string | null = variant ?? null;
-  const subVariantVal: string | null = subVariant ?? null;
+  const variantVal: string | null = isMulti ? null : (variant ?? null);
+  const subVariantVal: string | null = isMulti ? null : (subVariant ?? null);
 
-  const conditions = [eq(slotBookingsTable.productId, pid)];
-  if (variantVal) {
-    conditions.push(eq(slotBookingsTable.variant, variantVal));
-  } else {
-    conditions.push(isNull(slotBookingsTable.variant));
-  }
-  if (subVariantVal) {
-    conditions.push(eq(slotBookingsTable.subVariant, subVariantVal));
-  } else {
-    conditions.push(isNull(slotBookingsTable.subVariant));
-  }
-
+  // Count existing bookings for capacity check (always per product for _totalSlots)
   const [{ count: existingCount }] = await db
     .select({ count: count() })
     .from(slotBookingsTable)
-    .where(and(...conditions));
+    .where(eq(slotBookingsTable.productId, pid));
 
   const existing = Number(existingCount);
 
@@ -54,8 +43,12 @@ router.post("/slot-bookings", async (req, res): Promise<void> => {
   const slotNumber = existing + 1;
 
   const parts: string[] = [slotPrefix];
-  if (variantVal) parts.push(variantVal);
-  if (subVariantVal) parts.push(subVariantVal);
+  if (isMulti) {
+    parts.push("Multi");
+  } else {
+    if (variantVal) parts.push(variantVal);
+    if (subVariantVal) parts.push(subVariantVal);
+  }
   parts.push(String(slotNumber).padStart(3, "0"));
   const queueCode = parts.join("_");
 

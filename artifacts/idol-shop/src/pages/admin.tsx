@@ -161,7 +161,7 @@ function ProductsTab() {
   const [open, setOpen] = useState(false);
   const [editId, setEditId] = useState<number | null>(null);
   type SubVariantDraft = { name: string; price?: number; stock?: number; soldOut?: boolean };
-  type VariantDraft = { name: string; price?: number; stock?: number; soldOut?: boolean; subVariants?: SubVariantDraft[]; _showSubs?: boolean };
+  type VariantDraft = { name: string; price?: number; stock?: number; soldOut?: boolean; memberOnly?: boolean; subVariants?: SubVariantDraft[]; _showSubs?: boolean };
   const [form, setForm] = useState({ name: "", description: "", price: "", category: "Kpop", stock: "0", isAvailable: true, isSoldOut: false, orderType: "preorder", orderLabel: "", orderName: "", imageUrl: "", tags: [] as string[], variants: [] as VariantDraft[], slotPrefix: "", slotConfig: {} as Record<string, any> });
   const [subVariantInputs, setSubVariantInputs] = useState<Record<number, { name: string; price: string; stock: string }>>({});
   const [customTagInput, setCustomTagInput] = useState("");
@@ -210,7 +210,7 @@ function ProductsTab() {
   const openEdit = (p: NonNullable<typeof products>[0]) => {
     setEditId(p.id);
     setSubVariantInputs({});
-    setForm({ name: p.name, description: p.description ?? "", price: String(p.price), category: p.category, stock: String(p.stock), isAvailable: p.isAvailable, isSoldOut: false, orderType: p.orderType, orderLabel: (p as any).orderLabel ?? "", orderName: (p as any).orderName ?? "", imageUrl: p.imageUrl ?? "", tags: p.tags ?? [], variants: (p.variants ?? []).map((v: any) => ({ name: v.name, price: v.price ?? undefined, stock: v.stock ?? undefined, soldOut: v.soldOut ?? false, subVariants: (v.subVariants ?? []).map((sv: any) => ({ name: sv.name, price: sv.price ?? undefined, stock: sv.stock ?? undefined, soldOut: sv.soldOut ?? false })), _showSubs: (v.subVariants ?? []).length > 0 })), slotPrefix: (p as any).slotPrefix ?? "", slotConfig: (p as any).slotConfig ?? {} });
+    setForm({ name: p.name, description: p.description ?? "", price: String(p.price), category: p.category, stock: String(p.stock), isAvailable: p.isAvailable, isSoldOut: false, orderType: p.orderType, orderLabel: (p as any).orderLabel ?? "", orderName: (p as any).orderName ?? "", imageUrl: p.imageUrl ?? "", tags: p.tags ?? [], variants: (p.variants ?? []).map((v: any) => ({ name: v.name, price: v.price ?? undefined, stock: v.stock ?? undefined, soldOut: v.soldOut ?? false, memberOnly: v.memberOnly ?? false, subVariants: (v.subVariants ?? []).map((sv: any) => ({ name: sv.name, price: sv.price ?? undefined, stock: sv.stock ?? undefined, soldOut: sv.soldOut ?? false })), _showSubs: (v.subVariants ?? []).length > 0 })), slotPrefix: (p as any).slotPrefix ?? "", slotConfig: (p as any).slotConfig ?? {} });
     setOpen(true);
   };
 
@@ -222,6 +222,7 @@ function ProductsTab() {
         ...(v.price != null && !isNaN(v.price) ? { price: v.price } : {}),
         ...(!isPreorder && v.stock != null && !isNaN(v.stock) ? { stock: v.stock } : {}),
         soldOut: v.soldOut ?? false,
+        ...(v.memberOnly ? { memberOnly: true } : {}),
         ...(v.subVariants && v.subVariants.length > 0 ? {
           subVariants: v.subVariants.map((sv) => ({
             name: sv.name,
@@ -394,6 +395,16 @@ function ProductsTab() {
                           >
                             ≡ Phụ
                           </button>
+                          {form.orderType === "slot" && (
+                            <div className="flex items-center gap-1 shrink-0">
+                              <Switch
+                                checked={!!v.memberOnly}
+                                onCheckedChange={() => setForm((f) => ({ ...f, variants: f.variants.map((vv, i) => i === idx ? { ...vv, memberOnly: !vv.memberOnly } : vv) }))}
+                                className="data-[state=checked]:bg-violet-600 scale-75 origin-right"
+                              />
+                              <span className={`text-[9px] font-bold shrink-0 transition-colors ${v.memberOnly ? "text-violet-600" : "text-muted-foreground"}`}>VIP</span>
+                            </div>
+                          )}
                           <div className="flex items-center gap-1.5 shrink-0">
                             <Switch
                               checked={!!v.soldOut}

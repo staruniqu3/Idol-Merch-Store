@@ -64,6 +64,9 @@ export default function ShopPage() {
   const [phone, setPhone] = useState("");
   const [slotResults, setSlotResults] = useState<string[]>([]);
   const [isSlotLoading, setIsSlotLoading] = useState(false);
+  const [memberGateVariant, setMemberGateVariant] = useState<{ variant: any; product: any } | null>(null);
+  const [memberGatePhone, setMemberGatePhone] = useState("");
+  const [memberGateLoading, setMemberGateLoading] = useState(false);
   const createOrder = useCreateOrder();
 
   const isSlotCart = cart.length > 0 && cart.every((i) => i.orderType === "slot");
@@ -192,11 +195,13 @@ export default function ShopPage() {
     setIsSlotLoading(true);
     try {
       const codes: string[] = [];
-      for (const item of cart) {
+      const isMulti = cart.length > 1;
+      if (isMulti) {
+        const firstItem = cart[0];
         const res = await fetch(`${base}/api/slot-bookings`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ productId: item.productId, variant: item.variant ?? null, subVariant: item.subVariant ?? null, phone: phone.trim() }),
+          body: JSON.stringify({ productId: firstItem.productId, variant: null, subVariant: null, phone: phone.trim(), isMulti: true }),
         });
         if (!res.ok) {
           const err = await res.json();
@@ -204,6 +209,20 @@ export default function ShopPage() {
         }
         const data = await res.json();
         codes.push(data.queueCode);
+      } else {
+        for (const item of cart) {
+          const res = await fetch(`${base}/api/slot-bookings`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ productId: item.productId, variant: item.variant ?? null, subVariant: item.subVariant ?? null, phone: phone.trim() }),
+          });
+          if (!res.ok) {
+            const err = await res.json();
+            throw new Error(err.error ?? "Có lỗi xảy ra");
+          }
+          const data = await res.json();
+          codes.push(data.queueCode);
+        }
       }
       setSlotResults(codes);
       setCart([]);
@@ -634,7 +653,7 @@ export default function ShopPage() {
       </div>
 
       {/* Variant picker dialog */}
-      <Dialog open={!!variantPickerProduct} onOpenChange={(open) => { if (!open) { setVariantPickerProduct(null); setPickedVariant(null); } }}>
+      <Dialog open={!!variantPickerProduct} onOpenChange={(open) => { if (!open) { setVariantPickerProduct(null); setPickedVariant(null); setMemberGateVariant(null); setMemberGatePhone(""); } }}>
         <DialogContent className="max-w-xs rounded-2xl">
           <DialogHeader>
             <DialogTitle className="text-base font-black">
@@ -644,10 +663,10 @@ export default function ShopPage() {
                   <span>{pickedVariant.name}</span>
                   <span className="text-muted-foreground font-normal text-[11px] ml-1">· chọn biến thể phụ</span>
                 </button>
-              ) : "Chọn biến thể"}
+              ) : memberGateVariant ? "👑 Xác minh thành viên" : "Chọn biến thể"}
             </DialogTitle>
           </DialogHeader>
-          {variantPickerProduct && !pickedVariant && (
+          {variantPickerProduct && !pickedVariant && !memberGateVariant && (
             <div className="space-y-3">
               <p className="text-sm font-bold line-clamp-2">{variantPickerProduct.name}</p>
               <div className="flex flex-wrap gap-2">
@@ -658,12 +677,18 @@ export default function ShopPage() {
                   const soldOut = (trackStock && v.stock != null && v.stock === 0) || !!vAny.soldOut;
                   const lowStock = trackStock && v.stock != null && v.stock > 0 && v.stock <= 5;
                   const hasSubs = (vAny.subVariants ?? []).length > 0;
+                  const isMemberOnly = !!vAny.memberOnly;
                   return (
                     <button
                       key={v.name}
                       disabled={soldOut}
                       onClick={() => {
                         if (soldOut) return;
+                        if (isMemberOnly) {
+                          setMemberGateVariant({ variant: vAny, product: variantPickerProduct });
+                          setMemberGatePhone("");
+                          return;
+                        }
                         if (hasSubs) {
                           setPickedVariant(vAny);
                         } else {
@@ -672,11 +697,13 @@ export default function ShopPage() {
                           setPickedVariant(null);
                         }
                       }}
-                      className={`flex flex-col items-center px-4 py-2.5 rounded-xl border-2 transition-all ${soldOut ? "border-border bg-muted/40 text-muted-foreground opacity-50 cursor-not-allowed" : "border-primary/20 bg-primary/5 text-primary hover:bg-primary/15 hover:border-primary/40 active:scale-95"}`}
+                      className={`flex flex-col items-center px-4 py-2.5 rounded-xl border-2 transition-all ${soldOut ? "border-border bg-muted/40 text-muted-foreground opacity-50 cursor-not-allowed" : isMemberOnly ? "border-violet-300 bg-violet-50 text-violet-700 hover:bg-violet-100 hover:border-violet-400 active:scale-95" : "border-primary/20 bg-primary/5 text-primary hover:bg-primary/15 hover:border-primary/40 active:scale-95"}`}
                     >
                       <span className={`text-sm font-bold ${soldOut ? "line-through" : ""}`}>{v.name}</span>
                       {soldOut ? (
                         <span className="text-[10px] font-semibold text-red-400">Hết hàng</span>
+                      ) : isMemberOnly ? (
+                        <span className="text-[10px] font-black text-violet-600">👑 Thành viên</span>
                       ) : (
                         <span className="text-[10px] font-semibold opacity-80">{formatPrice(finalPrice)}</span>
                       )}
@@ -686,6 +713,55 @@ export default function ShopPage() {
                   );
                 })}
               </div>
+            </div>
+          )}
+
+          {variantPickerProduct && !pickedVariant && memberGateVariant && (
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <button className="text-muted-foreground text-sm" onClick={() => setMemberGateVariant(null)}>←</button>
+                <p className="text-sm font-bold">👑 {memberGateVariant.variant.name}</p>
+              </div>
+              <p className="text-xs text-violet-700 bg-violet-50 border border-violet-200 rounded-xl px-3 py-2">Biến thể này chỉ dành cho <strong>thành viên</strong>. Nhập SĐT để xác minh.</p>
+              <input
+                type="tel"
+                value={memberGatePhone}
+                onChange={(e) => setMemberGatePhone(e.target.value)}
+                placeholder="Số điện thoại thành viên"
+                className="w-full border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-violet-400"
+              />
+              <button
+                disabled={!memberGatePhone.trim() || memberGateLoading}
+                onClick={async () => {
+                  setMemberGateLoading(true);
+                  try {
+                    const base = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
+                    const res = await fetch(`${base}/api/members/lookup?phone=${encodeURIComponent(memberGatePhone.trim())}&_t=${Date.now()}`, { cache: "no-store" });
+                    if (!res.ok) throw new Error("not found");
+                    const member = await res.json();
+                    if (!member) throw new Error("not found");
+                    const vAny = memberGateVariant.variant;
+                    const finalPrice = vAny.price != null ? vAny.price : Number(memberGateVariant.product.price);
+                    const hasSubs = (vAny.subVariants ?? []).length > 0;
+                    setMemberGateVariant(null);
+                    setMemberGatePhone("");
+                    if (hasSubs) {
+                      setPickedVariant(vAny);
+                    } else {
+                      doAddToCart(memberGateVariant.product, vAny.name, finalPrice);
+                      setVariantPickerProduct(null);
+                      setPickedVariant(null);
+                    }
+                  } catch {
+                    toast({ title: "Không tìm thấy thành viên", description: "SĐT này chưa đăng ký thành viên.", variant: "destructive" });
+                  } finally {
+                    setMemberGateLoading(false);
+                  }
+                }}
+                className="w-full bg-violet-600 hover:bg-violet-700 disabled:opacity-50 text-white font-bold rounded-xl py-2 text-sm transition-colors"
+              >
+                {memberGateLoading ? "Đang xác minh..." : "Xác minh thành viên"}
+              </button>
             </div>
           )}
           {variantPickerProduct && pickedVariant && (
