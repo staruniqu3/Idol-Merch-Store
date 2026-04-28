@@ -110,13 +110,33 @@ export default function ShopPage() {
     setCart((prev) => prev.filter((i) => cartKey(i.productId, i.variant, i.subVariant) !== key));
   };
 
+  const getSlotCapacityPerSlot = (productId: number, variant?: string, subVariant?: string): number | null => {
+    const product = (products ?? []).find((p) => p.id === productId);
+    if (!product || (product as any).orderType !== "slot") return null;
+    const cfg = (product as any).slotConfig as Record<string, any> | null;
+    if (!cfg) return null;
+    const key = variant && subVariant ? `${variant}::${subVariant}` : variant ?? "";
+    const entry = cfg[key];
+    if (!entry || typeof entry !== "object") return null;
+    const cap = Number(entry.capacityPerSlot ?? 0);
+    return cap > 0 ? cap : null;
+  };
+
   const changeQty = (productId: number, delta: number, variant?: string, subVariant?: string) => {
     const key = cartKey(productId, variant, subVariant);
-    setCart((prev) => prev.map((i) => cartKey(i.productId, i.variant, i.subVariant) === key ? { ...i, quantity: Math.max(1, i.quantity + delta) } : i));
+    const cap = getSlotCapacityPerSlot(productId, variant, subVariant);
+    setCart((prev) => prev.map((i) => {
+      if (cartKey(i.productId, i.variant, i.subVariant) !== key) return i;
+      const next = Math.max(1, i.quantity + delta);
+      return { ...i, quantity: cap != null ? Math.min(next, cap) : next };
+    }));
   };
+
   const setQty = (productId: number, qty: number, variant?: string, subVariant?: string) => {
     const key = cartKey(productId, variant, subVariant);
-    setCart((prev) => prev.map((i) => cartKey(i.productId, i.variant, i.subVariant) === key ? { ...i, quantity: Math.max(1, isNaN(qty) ? 1 : qty) } : i));
+    const cap = getSlotCapacityPerSlot(productId, variant, subVariant);
+    const capped = cap != null ? Math.min(qty, cap) : qty;
+    setCart((prev) => prev.map((i) => cartKey(i.productId, i.variant, i.subVariant) === key ? { ...i, quantity: Math.max(1, isNaN(capped) ? 1 : capped) } : i));
   };
 
   const autoAddPoints = async (memberPhone: string, totalAmount: number) => {
@@ -350,16 +370,23 @@ export default function ShopPage() {
                               )}
                               <p className="text-xs text-primary font-black mt-0.5">{formatPrice(item.price)}</p>
                               <div className="flex items-center gap-1 mt-1.5">
-                                <Button variant="outline" size="icon" className="h-6 w-6 rounded-lg" onClick={() => changeQty(item.productId, -1, item.variant, item.subVariant)} data-testid={`button-minus-${item.productId}`}><Minus size={10} /></Button>
-                                <input
-                                  type="number"
-                                  min={1}
-                                  value={item.quantity}
-                                  onChange={(e) => setQty(item.productId, parseInt(e.target.value), item.variant, item.subVariant)}
-                                  onBlur={(e) => { const v = parseInt(e.target.value); if (isNaN(v) || v < 1) setQty(item.productId, 1, item.variant, item.subVariant); }}
-                                  className="w-10 text-center text-sm font-black bg-transparent border border-border rounded-lg h-6 outline-none focus:border-primary [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-                                  data-testid={`input-qty-${item.productId}`}
-                                />
+                                {(() => {
+                                  const cap = getSlotCapacityPerSlot(item.productId, item.variant, item.subVariant);
+                                  return (<>
+                                    <Button variant="outline" size="icon" className="h-6 w-6 rounded-lg" onClick={() => changeQty(item.productId, -1, item.variant, item.subVariant)} data-testid={`button-minus-${item.productId}`}><Minus size={10} /></Button>
+                                    <input
+                                      type="number"
+                                      min={1}
+                                      max={cap ?? undefined}
+                                      value={item.quantity}
+                                      onChange={(e) => setQty(item.productId, parseInt(e.target.value), item.variant, item.subVariant)}
+                                      onBlur={(e) => { const v = parseInt(e.target.value); if (isNaN(v) || v < 1) setQty(item.productId, 1, item.variant, item.subVariant); }}
+                                      className="w-10 text-center text-sm font-black bg-transparent border border-border rounded-lg h-6 outline-none focus:border-primary [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                                      data-testid={`input-qty-${item.productId}`}
+                                    />
+                                    {cap != null && <span className="text-[10px] text-fuchsia-600 font-semibold shrink-0">/{cap}</span>}
+                                  </>);
+                                })()}
                                 <Button variant="outline" size="icon" className="h-6 w-6 rounded-lg" onClick={() => changeQty(item.productId, 1, item.variant, item.subVariant)} data-testid={`button-plus-${item.productId}`}><Plus size={10} /></Button>
                                 <Button variant="ghost" size="icon" className="h-6 w-6 rounded-lg text-destructive ml-1" onClick={() => removeFromCart(item.productId, item.variant, item.subVariant)} data-testid={`button-remove-${item.productId}`}><X size={10} /></Button>
                               </div>
