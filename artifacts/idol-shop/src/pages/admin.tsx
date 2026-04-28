@@ -1738,7 +1738,7 @@ function OrdersTab() {
                 <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-muted-foreground">
                   <span>📞 {booking.phone}</span>
                   {booking.socialHandle && <span>👤 {booking.socialHandle}</span>}
-                  {booking.quantity > 1 && <span className="font-bold text-fuchsia-600">× {booking.quantity}</span>}
+                  <span className="font-bold text-fuchsia-700 bg-fuchsia-50 border border-fuchsia-200 px-1.5 py-0.5 rounded-full">📦 {booking.quantity ?? 1} cái</span>
                   <span className="text-[10px]">{new Date(booking.createdAt).toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}</span>
                 </div>
 
@@ -2720,18 +2720,21 @@ function StatsTab() {
 function SlotStatsSection() {
   const base = getBaseUrl();
   const [bookings, setBookings] = useState<any[]>([]);
+  const [products, setProducts] = useState<any[]>([]);
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
-    fetch(`${base}/api/slot-bookings`, { cache: "no-store" })
-      .then((r) => r.json()).then(setBookings).catch(() => {}).finally(() => setLoaded(true));
+    Promise.all([
+      fetch(`${base}/api/slot-bookings`, { cache: "no-store" }).then((r) => r.json()),
+      fetch(`${base}/api/products`, { cache: "no-store" }).then((r) => r.json()),
+    ]).then(([b, p]) => { setBookings(b); setProducts(p ?? []); }).catch(() => {}).finally(() => setLoaded(true));
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const grouped: Record<string, { productName: string; variant: string | null; subVariant: string | null; items: any[] }> = {};
+  const grouped: Record<string, { productName: string; productId: number; variant: string | null; subVariant: string | null; items: any[] }> = {};
   bookings.forEach((b) => {
     const key = `${b.productId}::${b.variant ?? ""}::${b.subVariant ?? ""}`;
-    if (!grouped[key]) grouped[key] = { productName: b.productName, variant: b.variant, subVariant: b.subVariant, items: [] };
+    if (!grouped[key]) grouped[key] = { productName: b.productName, productId: b.productId, variant: b.variant, subVariant: b.subVariant, items: [] };
     grouped[key].items.push(b);
   });
 
@@ -2758,9 +2761,8 @@ function SlotStatsSection() {
   };
 
   const uniqueCustomers = new Set(bookings.map((b) => b.phone)).size;
-  const totalPending = bookings.filter((b) => b.status === "pending").length;
   const totalConfirmed = bookings.filter((b) => b.status === "confirmed").length;
-  const totalCancelled = bookings.filter((b) => b.status === "cancelled").length;
+  const totalConfirmedQty = bookings.filter((b) => b.status === "confirmed").reduce((s, b) => s + (b.quantity ?? 1), 0);
 
   if (!loaded) return null;
   if (bookings.length === 0) return null;
@@ -2789,11 +2791,11 @@ function SlotStatsSection() {
         </div>
         <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-2.5 text-center">
           <p className="text-xl font-black text-emerald-600">{totalConfirmed}</p>
-          <p className="text-[10px] font-semibold text-emerald-500 leading-tight">xác nhận</p>
+          <p className="text-[10px] font-semibold text-emerald-500 leading-tight">đã xác nhận</p>
         </div>
-        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-2.5 text-center">
-          <p className="text-xl font-black text-amber-600">{totalPending}</p>
-          <p className="text-[10px] font-semibold text-amber-500 leading-tight">chờ duyệt</p>
+        <div className="bg-violet-50 border border-violet-200 rounded-2xl p-2.5 text-center">
+          <p className="text-xl font-black text-violet-600">{totalConfirmedQty}</p>
+          <p className="text-[10px] font-semibold text-violet-500 leading-tight">cái đã chốt</p>
         </div>
       </div>
 
@@ -2801,8 +2803,20 @@ function SlotStatsSection() {
         {Object.entries(grouped).map(([key, g]) => {
           const pending = g.items.filter((b) => b.status === "pending").length;
           const confirmed = g.items.filter((b) => b.status === "confirmed").length;
-          const cancelled = g.items.filter((b) => b.status === "cancelled").length;
+          const active = g.items.filter((b) => b.status !== "cancelled");
+          const confirmedQty = g.items.filter((b) => b.status === "confirmed").reduce((s: number, b: any) => s + (b.quantity ?? 1), 0);
+          const activeQty = active.reduce((s: number, b: any) => s + (b.quantity ?? 1), 0);
           const uniqueInGroup = new Set(g.items.map((b: any) => b.phone)).size;
+
+          // Look up slotConfig from product data
+          const product = products.find((p: any) => p.id === g.productId);
+          const slotConfig = product?.slotConfig as Record<string, any> | null | undefined;
+          const configKey = `${g.variant ?? ""}::${g.subVariant ?? ""}`;
+          const capacityPerSlot: number | null = slotConfig
+            ? (slotConfig[configKey]?.capacityPerSlot ?? null)
+            : null;
+          const maxCapacity = capacityPerSlot != null ? active.length * capacityPerSlot : null;
+
           return (
             <div key={key} className="bg-card border border-border rounded-2xl p-3 space-y-2">
               <div className="flex items-start justify-between gap-2">
@@ -2817,18 +2831,44 @@ function SlotStatsSection() {
                   <div className="flex items-center gap-1.5">
                     {confirmed > 0 && <span className="text-[10px] font-bold text-emerald-600">✓{confirmed}</span>}
                     {pending > 0 && <span className="text-[10px] font-bold text-amber-500">⏳{pending}</span>}
-                    {cancelled > 0 && <span className="text-[10px] font-bold text-red-400">✗{cancelled}</span>}
                   </div>
                 </div>
               </div>
+
+              {/* Quantity tracking */}
+              <div className="bg-muted/50 rounded-xl p-2 space-y-1.5">
+                <div className="flex items-center justify-between text-[11px]">
+                  <span className="text-muted-foreground font-semibold">Tổng SL đang đặt (chưa hủy)</span>
+                  <span className="font-black text-foreground">{activeQty} cái</span>
+                </div>
+                <div className="flex items-center justify-between text-[11px]">
+                  <span className="text-muted-foreground font-semibold">Đã xác nhận</span>
+                  <span className="font-black text-emerald-600">{confirmedQty} cái</span>
+                </div>
+                {maxCapacity != null && (
+                  <>
+                    <div className="flex items-center justify-between text-[11px]">
+                      <span className="text-muted-foreground font-semibold">Sức chứa ({active.length} slot × {capacityPerSlot})</span>
+                      <span className="font-black text-violet-600">{activeQty} / {maxCapacity} cái</span>
+                    </div>
+                    <div className="w-full bg-muted rounded-full h-1.5 overflow-hidden">
+                      <div
+                        className={`h-1.5 rounded-full transition-all ${activeQty >= maxCapacity ? "bg-red-500" : activeQty / maxCapacity > 0.8 ? "bg-amber-500" : "bg-emerald-500"}`}
+                        style={{ width: `${Math.min(100, (activeQty / maxCapacity) * 100)}%` }}
+                      />
+                    </div>
+                  </>
+                )}
+              </div>
+
               <div className="flex flex-wrap gap-1">
                 {g.items.map((b: any) => (
-                  <span key={b.id} className={`text-[10px] font-mono px-1.5 py-0.5 rounded-full border font-bold ${
+                  <span key={b.id} title={`${b.quantity ?? 1} cái`} className={`text-[10px] font-mono px-1.5 py-0.5 rounded-full border font-bold ${
                     b.status === "confirmed" ? "bg-emerald-50 text-emerald-700 border-emerald-200" :
                     b.status === "cancelled" ? "bg-red-50 text-red-600 border-red-200 line-through" :
                     "bg-fuchsia-50 text-fuchsia-700 border-fuchsia-200"
                   }`}>
-                    #{b.slotNumber} {b.phone}{b.quantity > 1 ? ` ×${b.quantity}` : ""}
+                    #{b.slotNumber} {b.phone} ×{b.quantity ?? 1}
                   </span>
                 ))}
               </div>
