@@ -195,13 +195,11 @@ export default function ShopPage() {
     setIsSlotLoading(true);
     try {
       const codes: string[] = [];
-      const isMulti = cart.length > 1;
-      if (isMulti) {
-        const firstItem = cart[0];
+      for (const item of cart) {
         const res = await fetch(`${base}/api/slot-bookings`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ productId: firstItem.productId, variant: null, subVariant: null, phone: phone.trim(), isMulti: true }),
+          body: JSON.stringify({ productId: item.productId, variant: item.variant ?? null, subVariant: item.subVariant ?? null, phone: phone.trim() }),
         });
         if (!res.ok) {
           const err = await res.json();
@@ -209,20 +207,6 @@ export default function ShopPage() {
         }
         const data = await res.json();
         codes.push(data.queueCode);
-      } else {
-        for (const item of cart) {
-          const res = await fetch(`${base}/api/slot-bookings`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ productId: item.productId, variant: item.variant ?? null, subVariant: item.subVariant ?? null, phone: phone.trim() }),
-          });
-          if (!res.ok) {
-            const err = await res.json();
-            throw new Error(err.error ?? "Có lỗi xảy ra");
-          }
-          const data = await res.json();
-          codes.push(data.queueCode);
-        }
       }
       setSlotResults(codes);
       setCart([]);
