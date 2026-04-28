@@ -1164,6 +1164,36 @@ function OrdersTab() {
       .filter((p) => { const k = normPhone(p); if (seen.has(k)) return false; seen.add(k); return true; });
   }, [orders, sheetPhones]);
 
+  // Slot cross-ref: phones that appear in order Google Sheet
+  const slotCrossRefIds = useMemo(() => {
+    if (sheetPhones.size === 0) return new Set<string>();
+    const matched = new Set<string>();
+    for (const b of slotBookings) {
+      if (!b.crossRefChecked && sheetPhones.has(normPhone(b.phone ?? ""))) matched.add(b.id);
+    }
+    return matched;
+  }, [slotBookings, sheetPhones]);
+
+  const slotCrossRefPhones = useMemo(() => {
+    if (slotCrossRefIds.size === 0) return [] as string[];
+    const seen = new Set<string>();
+    return slotBookings
+      .filter((b) => slotCrossRefIds.has(b.id))
+      .map((b) => b.phone ?? "")
+      .filter((p) => { const k = normPhone(p); if (seen.has(k)) return false; seen.add(k); return true; });
+  }, [slotBookings, slotCrossRefIds]);
+
+  // Slot dup: phones with 2+ active (non-cancelled) slot bookings
+  const slotDupPhones = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const b of slotBookings) {
+      if (b.status === "cancelled") continue;
+      const k = normPhone(b.phone ?? "");
+      counts[k] = (counts[k] ?? 0) + 1;
+    }
+    return new Set(Object.entries(counts).filter(([, c]) => c > 1).map(([k]) => k));
+  }, [slotBookings]);
+
   return (
     <div className="space-y-3">
       {/* ── Mode toggle ── */}
@@ -1631,6 +1661,44 @@ function OrdersTab() {
             <button onClick={loadSlotBookings} className="text-xs text-muted-foreground hover:text-foreground border border-border rounded-xl px-2 py-1">↻ Tải lại</button>
           </div>
 
+          {/* Cross-ref alert: phone in order Google Sheet */}
+          {slotCrossRefPhones.length > 0 && (
+            <div className="bg-amber-50 border border-amber-200 rounded-2xl p-3 space-y-1.5">
+              <div className="flex items-center gap-2">
+                <AlertTriangle size={13} className="text-amber-600 shrink-0" />
+                <span className="text-xs font-bold text-amber-800">
+                  {slotCrossRefPhones.length} SĐT đặt slot vừa có đơn Google Sheet — cần chú ý:
+                </span>
+              </div>
+              <div className="flex flex-wrap gap-1.5 pl-5">
+                {slotCrossRefPhones.map((p) => (
+                  <span key={p} className="font-mono text-[11px] font-bold bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full border border-amber-200">{p}</span>
+                ))}
+              </div>
+              <p className="text-[10px] text-amber-600 pl-5">Kiểm tra xem khách đã đặt trùng hoặc chưa được xử lý đơn Google Form.</p>
+            </div>
+          )}
+
+          {/* Dup alert: same phone booked multiple slots */}
+          {slotDupPhones.size > 0 && (
+            <div className="bg-rose-50 border border-rose-200 rounded-2xl p-3 space-y-1.5">
+              <div className="flex items-center gap-2">
+                <AlertTriangle size={13} className="text-rose-600 shrink-0" />
+                <span className="text-xs font-bold text-rose-800">
+                  {slotDupPhones.size} SĐT đặt nhiều slot — có thể đặt trùng:
+                </span>
+              </div>
+              <div className="flex flex-wrap gap-1.5 pl-5">
+                {[...slotDupPhones].map((p) => {
+                  const raw = slotBookings.find((b: any) => normPhone(b.phone ?? "") === p)?.phone ?? p;
+                  return (
+                    <span key={p} className="font-mono text-[11px] font-bold bg-rose-100 text-rose-700 px-2 py-0.5 rounded-full border border-rose-200">{raw}</span>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           {slotBookingsLoading && <div className="text-center py-6 text-xs text-muted-foreground">Đang tải...</div>}
           {!slotBookingsLoading && slotBookings.length === 0 && (
             <div className="text-center py-10 text-muted-foreground">
@@ -1640,14 +1708,19 @@ function OrdersTab() {
           )}
 
           {!slotBookingsLoading && slotBookings.map((booking: any) => {
-            const norm = (p: string) => p.replace(/\D/g, "").replace(/^84/, "0");
-            const inMbsList = mbsPhones.length > 0 && mbsPhones.some((p) => norm(p) === norm(booking.phone ?? ""));
+            const inMbsList = mbsPhones.length > 0 && mbsPhones.some((p) => normPhone(p) === normPhone(booking.phone ?? ""));
             const isMbsBooking = booking.mbsVerified !== undefined && booking.mbsVerified !== null;
+            const hasCrossRef = slotCrossRefIds.has(booking.id);
+            const isDup = slotDupPhones.has(normPhone(booking.phone ?? "")) && booking.status !== "cancelled";
             return (
-              <div key={booking.id} className="bg-card border border-border rounded-2xl p-3 space-y-2">
+              <div key={booking.id} className={`bg-card border rounded-2xl p-3 space-y-2 ${hasCrossRef ? "border-amber-300 ring-1 ring-amber-100" : isDup ? "border-rose-300 ring-1 ring-rose-100" : "border-border"}`}>
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-black text-fuchsia-700 font-mono">{booking.queueCode}</p>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <p className="text-sm font-black text-fuchsia-700 font-mono">{booking.queueCode}</p>
+                      {hasCrossRef && <span className="inline-flex items-center gap-0.5 text-[9px] font-bold bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full border border-amber-200"><AlertTriangle size={8} /> Sheet</span>}
+                      {isDup && <span className="inline-flex items-center gap-0.5 text-[9px] font-bold bg-rose-100 text-rose-700 px-1.5 py-0.5 rounded-full border border-rose-200"><AlertTriangle size={8} /> Trùng SĐT</span>}
+                    </div>
                     <p className="text-xs font-semibold text-foreground mt-0.5">{booking.productName}</p>
                     {(booking.variant || booking.subVariant) && (
                       <p className="text-[11px] text-muted-foreground">
@@ -1688,6 +1761,16 @@ function OrdersTab() {
 
                 {booking.adminNote && (
                   <p className="text-[11px] text-muted-foreground italic">Ghi chú: {booking.adminNote}</p>
+                )}
+
+                {hasCrossRef && (
+                  <button
+                    onClick={() => patchSlotBooking(booking.id, { crossRefChecked: true })}
+                    className="w-full flex items-center justify-center gap-2 text-xs font-bold py-1.5 px-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-700 hover:bg-green-50 hover:border-green-300 hover:text-green-700 transition-colors"
+                  >
+                    <AlertTriangle size={11} className="text-amber-500" />
+                    Đánh dấu đã kiểm tra Google Sheet
+                  </button>
                 )}
 
                 {booking.status === "pending" && (

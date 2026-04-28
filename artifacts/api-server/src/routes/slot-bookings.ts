@@ -165,12 +165,13 @@ router.get("/slot-bookings/mbs-phones", async (_req, res): Promise<void> => {
 });
 
 router.patch("/slot-bookings/:id", async (req, res): Promise<void> => {
-  const { status, adminNote } = req.body;
+  const { status, adminNote, crossRefChecked } = req.body;
   const updates: Record<string, unknown> = {};
   if (status !== undefined) updates.status = String(status);
   if (adminNote !== undefined) updates.adminNote = adminNote ? String(adminNote) : null;
+  if (crossRefChecked !== undefined) updates.crossRefChecked = Boolean(crossRefChecked);
   if (Object.keys(updates).length === 0) {
-    res.status(400).json({ error: "status or adminNote required" });
+    res.status(400).json({ error: "status, adminNote, or crossRefChecked required" });
     return;
   }
   const [booking] = await db
