@@ -327,6 +327,20 @@ export async function getAllMembers(): Promise<MemberProfile[]> {
   }));
 }
 
+export async function getSovereignClubPhones(sheetId: string): Promise<string[]> {
+  if (!sheetId) return [];
+  const sheets = await getGoogleSheetsClient();
+  const resp = await sheets.spreadsheets.values.get({
+    spreadsheetId: sheetId,
+    range: "A:A",
+  });
+  const rows = resp.data.values ?? [];
+  const norm = (p: string) => p.replace(/\D/g, "").replace(/^84/, "0");
+  return rows.slice(1)
+    .map((r) => norm((r[0] ?? "").trim()))
+    .filter((p) => p.length >= 9);
+}
+
 export async function getMemberShipping(customerCode: string): Promise<MemberShipping[]> {
   const sheets = await getGoogleSheetsClient();
   const resp = await sheets.spreadsheets.values.get({

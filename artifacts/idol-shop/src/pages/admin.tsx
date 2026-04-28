@@ -402,7 +402,7 @@ function ProductsTab() {
                                 onCheckedChange={() => setForm((f) => ({ ...f, variants: f.variants.map((vv, i) => i === idx ? { ...vv, memberOnly: !vv.memberOnly } : vv) }))}
                                 className="data-[state=checked]:bg-violet-600 scale-75 origin-right"
                               />
-                              <span className={`text-[9px] font-bold shrink-0 transition-colors ${v.memberOnly ? "text-violet-600" : "text-muted-foreground"}`}>VIP</span>
+                              <span className={`text-[9px] font-bold shrink-0 transition-colors ${v.memberOnly ? "text-violet-600" : "text-muted-foreground"}`}>MBS</span>
                             </div>
                           )}
                           <div className="flex items-center gap-1.5 shrink-0">
@@ -943,7 +943,59 @@ function OrdersTab() {
   const [expandedId, setExpandedId] = useState<number | null>(null);
 
   // ── Manual order state (API-backed) ──
-  const [ordersMode, setOrdersMode] = useState<"app" | "manual">("app");
+  const [ordersMode, setOrdersMode] = useState<"app" | "manual" | "slot">("app");
+  const base = getBaseUrl();
+  const [slotBookings, setSlotBookings] = useState<any[]>([]);
+  const [slotBookingsLoading, setSlotBookingsLoading] = useState(false);
+  const [sovereignSheetId, setSovereignSheetId] = useState("");
+  const [sheetIdSaving, setSheetIdSaving] = useState(false);
+  const [mbsPhones, setMbsPhones] = useState<string[]>([]);
+
+  const loadSlotBookings = async () => {
+    setSlotBookingsLoading(true);
+    try {
+      const r = await fetch(`${base}/api/slot-bookings`, { cache: "no-store" });
+      if (r.ok) setSlotBookings(await r.json());
+    } finally { setSlotBookingsLoading(false); }
+  };
+
+  const loadMbsPhones = async (sheetId?: string) => {
+    const id = sheetId ?? sovereignSheetId;
+    if (!id) return;
+    const r = await fetch(`${base}/api/slot-bookings/mbs-phones`, { cache: "no-store" });
+    if (r.ok) { const d = await r.json(); setMbsPhones(d.phones ?? []); }
+  };
+
+  const loadSheetIdSetting = async () => {
+    const r = await fetch(`${base}/api/settings/sovereign_club_sheet_id`, { cache: "no-store" });
+    if (r.ok) { const d = await r.json(); if (typeof d === "string") { setSovereignSheetId(d); loadMbsPhones(d); } }
+  };
+
+  const saveSheetId = async () => {
+    setSheetIdSaving(true);
+    try {
+      await fetch(`${base}/api/settings/sovereign_club_sheet_id`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(sovereignSheetId.trim()) });
+      await loadMbsPhones(sovereignSheetId.trim());
+      toast({ title: "Đã lưu Sheet ID" });
+    } finally { setSheetIdSaving(false); }
+  };
+
+  const patchSlotBooking = async (id: string, patch: Record<string, unknown>) => {
+    const r = await fetch(`${base}/api/slot-bookings/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(patch) });
+    if (r.ok) { await loadSlotBookings(); toast({ title: "Đã cập nhật" }); }
+  };
+
+  const deleteSlotBooking = async (id: string) => {
+    if (!confirm("Xoá đặt slot này?")) return;
+    await fetch(`${base}/api/slot-bookings/${id}`, { method: "DELETE" });
+    await loadSlotBookings();
+    toast({ title: "Đã xoá" });
+  };
+
+  useEffect(() => {
+    if (ordersMode === "slot") { loadSlotBookings(); loadSheetIdSetting(); }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ordersMode]);
   const { data: manualOrders = [] } = useListManualOrders();
   const createManualOrderMut = useCreateManualOrder();
   const updateManualOrderMut = useUpdateManualOrder();
@@ -1124,7 +1176,10 @@ function OrdersTab() {
           className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-bold transition-all ${ordersMode === "manual" ? "bg-background shadow text-foreground" : "text-muted-foreground hover:text-foreground"}`}>
           <Pencil size={13} /> Nhập tay
           {manualOrders.length > 0 && <span className="text-[10px] font-normal opacity-60">({manualOrders.length})</span>}
-          <span className="text-[9px] bg-amber-400 text-white font-black px-1 rounded-full ml-0.5">Private</span>
+        </button>
+        <button type="button" onClick={() => setOrdersMode("slot")}
+          className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-bold transition-all ${ordersMode === "slot" ? "bg-fuchsia-600 shadow text-white" : "text-muted-foreground hover:text-foreground"}`}>
+          <Ticket size={13} /> Slot
         </button>
       </div>
 
@@ -1538,6 +1593,134 @@ function OrdersTab() {
         );
       })()}
       </>}
+
+      {/* ── Slot orders mode ── */}
+      {ordersMode === "slot" && (
+        <div className="space-y-4">
+          {/* Sovereign Club Sheet Config */}
+          <div className="bg-violet-50 border border-violet-200 rounded-2xl p-3 space-y-2">
+            <p className="text-xs font-black text-violet-700 uppercase tracking-widest">Cấu hình MBS Sovereign Club</p>
+            <p className="text-[11px] text-violet-600">Dán URL hoặc ID của Google Sheet chứa danh sách số điện thoại MBS.</p>
+            <div className="flex gap-2">
+              <input
+                className="flex-1 border border-violet-300 rounded-xl px-3 py-2 text-xs outline-none focus:border-violet-500"
+                placeholder="Sheet ID hoặc URL"
+                value={sovereignSheetId}
+                onChange={(e) => {
+                  const raw = e.target.value.trim();
+                  const match = raw.match(/\/spreadsheets\/d\/([^/]+)/);
+                  setSovereignSheetId(match ? match[1] : raw);
+                }}
+              />
+              <button
+                onClick={saveSheetId}
+                disabled={sheetIdSaving}
+                className="bg-violet-600 hover:bg-violet-700 disabled:opacity-50 text-white text-xs font-bold px-3 py-2 rounded-xl transition-colors"
+              >
+                {sheetIdSaving ? "..." : "Lưu"}
+              </button>
+            </div>
+            {mbsPhones.length > 0 && (
+              <p className="text-[11px] text-violet-600 font-semibold">✓ Đã tải {mbsPhones.length} SĐT MBS từ Sheet</p>
+            )}
+          </div>
+
+          {/* Slot bookings list */}
+          <div className="flex items-center justify-between">
+            <h3 className="font-bold">Đơn đặt slot <span className="text-fuchsia-600">({slotBookings.length})</span></h3>
+            <button onClick={loadSlotBookings} className="text-xs text-muted-foreground hover:text-foreground border border-border rounded-xl px-2 py-1">↻ Tải lại</button>
+          </div>
+
+          {slotBookingsLoading && <div className="text-center py-6 text-xs text-muted-foreground">Đang tải...</div>}
+          {!slotBookingsLoading && slotBookings.length === 0 && (
+            <div className="text-center py-10 text-muted-foreground">
+              <Ticket size={28} strokeWidth={1.2} className="mx-auto mb-2" />
+              <p className="text-sm">Chưa có đặt slot nào</p>
+            </div>
+          )}
+
+          {!slotBookingsLoading && slotBookings.map((booking: any) => {
+            const norm = (p: string) => p.replace(/\D/g, "").replace(/^84/, "0");
+            const inMbsList = mbsPhones.length > 0 && mbsPhones.some((p) => norm(p) === norm(booking.phone ?? ""));
+            const isMbsBooking = booking.mbsVerified !== undefined && booking.mbsVerified !== null;
+            return (
+              <div key={booking.id} className="bg-card border border-border rounded-2xl p-3 space-y-2">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-black text-fuchsia-700 font-mono">{booking.queueCode}</p>
+                    <p className="text-xs font-semibold text-foreground mt-0.5">{booking.productName}</p>
+                    {(booking.variant || booking.subVariant) && (
+                      <p className="text-[11px] text-muted-foreground">
+                        {[booking.variant, booking.subVariant].filter(Boolean).join(" · ")}
+                      </p>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-1 shrink-0">
+                    {booking.status === "confirmed" && <span className="text-[10px] bg-emerald-100 text-emerald-700 font-bold px-1.5 py-0.5 rounded-full">✓ Đã xác nhận</span>}
+                    {booking.status === "cancelled" && <span className="text-[10px] bg-red-100 text-red-600 font-bold px-1.5 py-0.5 rounded-full">✗ Không hợp lệ</span>}
+                    {booking.status === "pending" && <span className="text-[10px] bg-amber-100 text-amber-700 font-bold px-1.5 py-0.5 rounded-full">⏳ Chờ xác nhận</span>}
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-muted-foreground">
+                  <span>📞 {booking.phone}</span>
+                  {booking.socialHandle && <span>👤 {booking.socialHandle}</span>}
+                  <span className="text-[10px]">{new Date(booking.createdAt).toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}</span>
+                </div>
+
+                {/* MBS verification status */}
+                {isMbsBooking && (
+                  <div className={`text-[11px] font-semibold px-2 py-1 rounded-lg ${booking.mbsVerified ? "bg-violet-50 text-violet-700 border border-violet-200" : "bg-orange-50 text-orange-700 border border-orange-200"}`}>
+                    {booking.mbsVerified ? "👑 MBS đã xác minh lúc đặt" : "⚠️ SĐT không khớp MBS lúc đặt"}
+                  </div>
+                )}
+                {!isMbsBooking && inMbsList && (
+                  <div className="text-[11px] font-semibold px-2 py-1 rounded-lg bg-violet-50 text-violet-700 border border-violet-200">
+                    👑 SĐT có trong danh sách MBS
+                  </div>
+                )}
+                {!isMbsBooking && mbsPhones.length > 0 && !inMbsList && (
+                  <div className="text-[11px] font-semibold px-2 py-1 rounded-lg bg-orange-50 text-orange-700 border border-orange-200">
+                    ⚠️ SĐT không có trong danh sách MBS
+                  </div>
+                )}
+
+                {booking.adminNote && (
+                  <p className="text-[11px] text-muted-foreground italic">Ghi chú: {booking.adminNote}</p>
+                )}
+
+                {booking.status === "pending" && (
+                  <div className="flex gap-2 pt-1">
+                    <button
+                      onClick={() => patchSlotBooking(booking.id, { status: "confirmed" })}
+                      className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl py-1.5 transition-colors"
+                    >
+                      ✓ Xác nhận
+                    </button>
+                    <button
+                      onClick={() => patchSlotBooking(booking.id, { status: "cancelled", adminNote: "Không hợp lệ" })}
+                      className="flex-1 bg-red-100 hover:bg-red-200 text-red-600 text-xs font-bold rounded-xl py-1.5 transition-colors"
+                    >
+                      ✗ Không hợp lệ
+                    </button>
+                    <button
+                      onClick={() => deleteSlotBooking(booking.id)}
+                      className="w-8 flex items-center justify-center bg-muted hover:bg-red-50 text-muted-foreground hover:text-red-600 rounded-xl transition-colors"
+                    >
+                      <Trash2 size={12} />
+                    </button>
+                  </div>
+                )}
+                {booking.status !== "pending" && (
+                  <div className="flex justify-end">
+                    <button onClick={() => deleteSlotBooking(booking.id)} className="text-[11px] text-red-400 hover:text-red-600 flex items-center gap-1"><Trash2 size={11} /> Xoá</button>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
@@ -2443,6 +2626,92 @@ function StatsTab() {
         )}
       </div>
       </>}
+
+      {/* ── Slot bookings statistics ── */}
+      <SlotStatsSection />
+    </div>
+  );
+}
+
+function SlotStatsSection() {
+  const base = getBaseUrl();
+  const [bookings, setBookings] = useState<any[]>([]);
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    fetch(`${base}/api/slot-bookings`, { cache: "no-store" })
+      .then((r) => r.json()).then(setBookings).catch(() => {}).finally(() => setLoaded(true));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const grouped: Record<string, { productName: string; variant: string | null; subVariant: string | null; items: any[] }> = {};
+  bookings.forEach((b) => {
+    const key = `${b.productId}::${b.variant ?? ""}::${b.subVariant ?? ""}`;
+    if (!grouped[key]) grouped[key] = { productName: b.productName, variant: b.variant, subVariant: b.subVariant, items: [] };
+    grouped[key].items.push(b);
+  });
+
+  const exportExcel = async () => {
+    const XLSX = await import("xlsx");
+    const rows = bookings.map((b) => ({
+      "Mã Slot": b.queueCode,
+      "Sản phẩm": b.productName,
+      "Biến thể": b.variant ?? "",
+      "Biến thể phụ": b.subVariant ?? "",
+      "Số thứ tự": b.slotNumber,
+      "SĐT": b.phone,
+      "Facebook/Instagram": b.socialHandle ?? "",
+      "MBS": b.mbsVerified === true ? "Xác minh" : b.mbsVerified === false ? "Không hợp lệ" : "Chưa kiểm tra",
+      "Trạng thái": b.status === "confirmed" ? "Đã xác nhận" : b.status === "cancelled" ? "Không hợp lệ" : "Chờ xác nhận",
+      "Ghi chú admin": b.adminNote ?? "",
+      "Thời gian": new Date(b.createdAt).toLocaleString("vi-VN"),
+    }));
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Đặt Slot");
+    XLSX.writeFile(wb, `dat-slot-${new Date().toISOString().slice(0, 10)}.xlsx`);
+  };
+
+  if (!loaded) return null;
+  if (bookings.length === 0) return null;
+
+  return (
+    <div className="space-y-3 mt-4 pt-4 border-t border-border">
+      <div className="flex items-center justify-between">
+        <h3 className="font-bold flex items-center gap-2"><Ticket size={15} className="text-fuchsia-600" /> Thống kê Đặt Slot <span className="text-fuchsia-600">({bookings.length})</span></h3>
+        <button
+          onClick={exportExcel}
+          className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-3 py-1.5 rounded-xl transition-colors"
+        >
+          <Upload size={12} /> Xuất Excel
+        </button>
+      </div>
+      <div className="space-y-2">
+        {Object.entries(grouped).map(([key, g]) => (
+          <div key={key} className="bg-card border border-border rounded-2xl p-3 space-y-2">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs font-bold">{g.productName}</p>
+                {(g.variant || g.subVariant) && (
+                  <p className="text-[11px] text-muted-foreground">{[g.variant, g.subVariant].filter(Boolean).join(" · ")}</p>
+                )}
+              </div>
+              <span className="text-sm font-black text-fuchsia-600">{g.items.length} slot</span>
+            </div>
+            <div className="flex flex-wrap gap-1">
+              {g.items.map((b) => (
+                <span key={b.id} className={`text-[10px] font-mono px-1.5 py-0.5 rounded-full border font-bold ${
+                  b.status === "confirmed" ? "bg-emerald-50 text-emerald-700 border-emerald-200" :
+                  b.status === "cancelled" ? "bg-red-50 text-red-600 border-red-200 line-through" :
+                  "bg-fuchsia-50 text-fuchsia-700 border-fuchsia-200"
+                }`}>
+                  #{b.slotNumber} {b.phone}
+                </span>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

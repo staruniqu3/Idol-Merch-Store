@@ -25,6 +25,7 @@ const ALLOWED_KEYS = new Set([
   "stats_batch_history",
   "stats_received_batch_items",
   "stats_ordered_entry_keys",
+  "sovereign_club_sheet_id",
 ]);
 
 router.get("/settings/:key", async (req, res): Promise<void> => {

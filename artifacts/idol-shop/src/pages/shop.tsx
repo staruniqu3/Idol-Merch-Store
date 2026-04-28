@@ -64,6 +64,7 @@ export default function ShopPage() {
   const [phone, setPhone] = useState("");
   const [slotResults, setSlotResults] = useState<string[]>([]);
   const [isSlotLoading, setIsSlotLoading] = useState(false);
+  const [socialHandle, setSocialHandle] = useState("");
   const [memberGateVariant, setMemberGateVariant] = useState<{ variant: any; product: any } | null>(null);
   const [memberGatePhone, setMemberGatePhone] = useState("");
   const [memberGateLoading, setMemberGateLoading] = useState(false);
@@ -199,7 +200,7 @@ export default function ShopPage() {
         const res = await fetch(`${base}/api/slot-bookings`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ productId: item.productId, variant: item.variant ?? null, subVariant: item.subVariant ?? null, phone: phone.trim() }),
+          body: JSON.stringify({ productId: item.productId, variant: item.variant ?? null, subVariant: item.subVariant ?? null, phone: phone.trim(), socialHandle: socialHandle.trim() || null }),
         });
         if (!res.ok) {
           const err = await res.json();
@@ -222,6 +223,7 @@ export default function ShopPage() {
     setCartOpen(false);
     setStep("cart");
     setPhone("");
+    setSocialHandle("");
     setCart([]);
     setSlotResults([]);
   };
@@ -447,6 +449,28 @@ export default function ShopPage() {
                       <p className="text-[11px] text-muted-foreground mt-1.5">Shop dùng để nhập đơn vào hệ thống.</p>
                     </div>
 
+                    {isSlotCart && (
+                      <div>
+                        <Label htmlFor="social-handle" className="font-bold">Tên Facebook / Instagram *</Label>
+                        <Input
+                          id="social-handle"
+                          value={socialHandle}
+                          onChange={(e) => setSocialHandle(e.target.value)}
+                          placeholder="Tên FB hoặc @username Instagram"
+                          className="rounded-xl mt-1 text-base"
+                          data-testid="input-social-handle"
+                        />
+                        <p className="text-[11px] text-muted-foreground mt-1.5">Để xác nhận đặt slot.</p>
+                      </div>
+                    )}
+
+                    {isSlotCart && (
+                      <div className="bg-fuchsia-50 border border-fuchsia-200 rounded-xl px-3 py-2.5">
+                        <p className="text-[11px] text-fuchsia-800 leading-relaxed">
+                          💬 Khi thanh toán vui lòng inbox Facebook/Instagram <strong>Tiệm Chu Du</strong> để gửi proof nhằm giúp staff dễ dàng xác nhận slot.
+                        </p>
+                      </div>
+                    )}
                   </div>
 
                   <div className="space-y-2 mt-4">
@@ -647,7 +671,7 @@ export default function ShopPage() {
                   <span>{pickedVariant.name}</span>
                   <span className="text-muted-foreground font-normal text-[11px] ml-1">· chọn biến thể phụ</span>
                 </button>
-              ) : memberGateVariant ? "👑 Xác minh thành viên" : "Chọn biến thể"}
+              ) : memberGateVariant ? "👑 Xác minh MBS" : "Chọn biến thể"}
             </DialogTitle>
           </DialogHeader>
           {variantPickerProduct && !pickedVariant && !memberGateVariant && (
@@ -687,7 +711,7 @@ export default function ShopPage() {
                       {soldOut ? (
                         <span className="text-[10px] font-semibold text-red-400">Hết hàng</span>
                       ) : isMemberOnly ? (
-                        <span className="text-[10px] font-black text-violet-600">👑 Thành viên</span>
+                        <span className="text-[10px] font-black text-violet-600">👑 MBS</span>
                       ) : (
                         <span className="text-[10px] font-semibold opacity-80">{formatPrice(finalPrice)}</span>
                       )}
@@ -706,12 +730,12 @@ export default function ShopPage() {
                 <button className="text-muted-foreground text-sm" onClick={() => setMemberGateVariant(null)}>←</button>
                 <p className="text-sm font-bold">👑 {memberGateVariant.variant.name}</p>
               </div>
-              <p className="text-xs text-violet-700 bg-violet-50 border border-violet-200 rounded-xl px-3 py-2">Biến thể này chỉ dành cho <strong>thành viên</strong>. Nhập SĐT để xác minh.</p>
+              <p className="text-xs text-violet-700 bg-violet-50 border border-violet-200 rounded-xl px-3 py-2">Biến thể này chỉ dành cho <strong>thành viên MBS Sovereign Club</strong>. Nhập SĐT để xác minh.</p>
               <input
                 type="tel"
                 value={memberGatePhone}
                 onChange={(e) => setMemberGatePhone(e.target.value)}
-                placeholder="Số điện thoại thành viên"
+                placeholder="Số điện thoại MBS"
                 className="w-full border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-violet-400"
               />
               <button
@@ -720,10 +744,13 @@ export default function ShopPage() {
                   setMemberGateLoading(true);
                   try {
                     const base = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
-                    const res = await fetch(`${base}/api/members/lookup?phone=${encodeURIComponent(memberGatePhone.trim())}&_t=${Date.now()}`, { cache: "no-store" });
-                    if (!res.ok) throw new Error("not found");
-                    const member = await res.json();
-                    if (!member) throw new Error("not found");
+                    const res = await fetch(`${base}/api/slot-bookings/mbs-check?phone=${encodeURIComponent(memberGatePhone.trim())}`, { cache: "no-store" });
+                    if (!res.ok) throw new Error("error");
+                    const data = await res.json();
+                    if (data.valid === false) {
+                      toast({ title: "SĐT không có trong danh sách MBS", description: "Số điện thoại này không thuộc Sovereign Club.", variant: "destructive" });
+                      return;
+                    }
                     const vAny = memberGateVariant.variant;
                     const finalPrice = vAny.price != null ? vAny.price : Number(memberGateVariant.product.price);
                     const hasSubs = (vAny.subVariants ?? []).length > 0;
@@ -737,14 +764,14 @@ export default function ShopPage() {
                       setPickedVariant(null);
                     }
                   } catch {
-                    toast({ title: "Không tìm thấy thành viên", description: "SĐT này chưa đăng ký thành viên.", variant: "destructive" });
+                    toast({ title: "Không thể xác minh", description: "Lỗi kết nối, vui lòng thử lại.", variant: "destructive" });
                   } finally {
                     setMemberGateLoading(false);
                   }
                 }}
                 className="w-full bg-violet-600 hover:bg-violet-700 disabled:opacity-50 text-white font-bold rounded-xl py-2 text-sm transition-colors"
               >
-                {memberGateLoading ? "Đang xác minh..." : "Xác minh thành viên"}
+                {memberGateLoading ? "Đang xác minh..." : "Xác minh MBS"}
               </button>
             </div>
           )}
