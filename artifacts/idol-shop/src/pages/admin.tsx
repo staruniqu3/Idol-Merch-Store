@@ -990,6 +990,7 @@ const manualStatusLabels: Record<string, string> = {
 function OrdersTab() {
   const { data: orders } = useListOrders();
   const { data: products } = useListProducts(undefined, { query: { refetchInterval: 30_000 } });
+  const { data: allMembers } = useListMembers({ query: { refetchInterval: 30_000 } });
   const updateOrder = useUpdateOrder();
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -1003,6 +1004,22 @@ function OrdersTab() {
   const [sovereignSheetId, setSovereignSheetId] = useState("");
   const [sheetIdSaving, setSheetIdSaving] = useState(false);
   const [mbsPhones, setMbsPhones] = useState<string[]>([]);
+  const [sheetMembersMap, setSheetMembersMap] = useState<Record<string, { name: string; customerCode?: string; tier?: string }>>({});
+
+  const loadSheetMembers = async () => {
+    try {
+      const r = await fetch(`${base}/api/sheets/all-members?_t=${Date.now()}`, { cache: "no-store" });
+      if (!r.ok) return;
+      const data = await r.json();
+      const rows = Array.isArray(data) ? data : [];
+      const map: Record<string, { name: string; customerCode?: string; tier?: string }> = {};
+      rows.forEach((m: any) => {
+        const norm = (m.phone ?? "").replace(/\D/g, "");
+        if (norm) map[norm] = { name: m.name ?? "", customerCode: m.customerCode ?? undefined, tier: m.tier ?? undefined };
+      });
+      setSheetMembersMap(map);
+    } catch {}
+  };
 
   const loadSlotBookings = async () => {
     setSlotBookingsLoading(true);
@@ -1049,6 +1066,7 @@ function OrdersTab() {
     if (ordersMode === "slot") {
       loadSlotBookings();
       loadSheetIdSetting();
+      loadSheetMembers();
       const interval = setInterval(loadSlotBookings, 30_000);
       return () => clearInterval(interval);
     }
@@ -1776,6 +1794,12 @@ function OrdersTab() {
             const isMbsBooking = booking.mbsVerified !== undefined && booking.mbsVerified !== null;
             const hasCrossRef = slotCrossRefIds.has(booking.id);
             const isDup = slotDupPhones.has(normPhone(booking.phone ?? "")) && booking.status !== "cancelled";
+            const bookingPhoneNorm = normPhone(booking.phone ?? "");
+            const sheetMember = sheetMembersMap[bookingPhoneNorm];
+            const dbMember = (allMembers ?? []).find((m: any) => normPhone(m.phone ?? "") === bookingPhoneNorm);
+            const memberCode = sheetMember?.customerCode;
+            const memberName = sheetMember?.name || (dbMember as any)?.name;
+            const hasMember = !!(memberCode || memberName);
             return (
               <div key={booking.id} className={`bg-card border rounded-2xl p-3 space-y-2 ${hasCrossRef ? "border-amber-300 ring-1 ring-amber-100" : isDup ? "border-rose-300 ring-1 ring-rose-100" : "border-border"}`}>
                 <div className="flex items-start justify-between gap-2">
@@ -1784,11 +1808,19 @@ function OrdersTab() {
                       <p className="text-sm font-black text-fuchsia-700 font-mono">{booking.queueCode}</p>
                       {hasCrossRef && <span className="inline-flex items-center gap-0.5 text-[9px] font-bold bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full border border-amber-200"><AlertTriangle size={8} /> Sheet</span>}
                       {isDup && <span className="inline-flex items-center gap-0.5 text-[9px] font-bold bg-rose-100 text-rose-700 px-1.5 py-0.5 rounded-full border border-rose-200"><AlertTriangle size={8} /> Trùng SĐT</span>}
+                      {hasMember && (
+                        <span className="inline-flex items-center gap-0.5 text-[9px] font-bold bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-full border border-blue-200">
+                          👤 {memberCode ? memberCode : memberName}
+                        </span>
+                      )}
                     </div>
                     <p className="text-xs font-bold text-foreground mt-0.5">
                       📞 {booking.phone}
                       {booking.socialHandle && <span className="font-normal text-muted-foreground"> · {booking.socialHandle}</span>}
                     </p>
+                    {hasMember && memberCode && memberName && (
+                      <p className="text-[10px] text-blue-600 font-semibold">{memberName}</p>
+                    )}
                     <p className="text-[11px] text-muted-foreground">
                       {booking.productName}
                       {booking.variant && <> · {booking.variant}</>}
