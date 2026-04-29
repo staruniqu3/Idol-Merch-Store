@@ -166,6 +166,28 @@ router.get("/slot-bookings/mbs-check", async (req, res): Promise<void> => {
   }
 });
 
+// Public: look up confirmed slot bookings by member code (for member private page)
+router.get("/slot-bookings/by-member-code", async (req, res): Promise<void> => {
+  const code = String(req.query.code ?? "").trim();
+  if (!code) { res.status(400).json({ error: "code required" }); return; }
+  const bookings = await db
+    .select()
+    .from(slotBookingsTable)
+    .where(and(eq(slotBookingsTable.memberCode, code), ne(slotBookingsTable.status, "cancelled")));
+  res.json(bookings.map((b) => ({
+    id: b.id,
+    queueCode: b.queueCode,
+    productName: b.productName,
+    variant: b.variant,
+    subVariant: b.subVariant,
+    quantity: b.quantity,
+    status: b.status,
+    lotNumber: b.lotNumber,
+    slotNumber: b.slotNumber,
+    createdAt: b.createdAt,
+  })));
+});
+
 // Public: look up slot bookings by phone (for customer status check)
 router.get("/slot-bookings/by-phone", async (req, res): Promise<void> => {
   const phone = String(req.query.phone ?? "").trim();

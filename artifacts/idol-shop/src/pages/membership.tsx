@@ -23,6 +23,19 @@ interface BookingNotePublic {
   createdAt: string;
 }
 
+interface MemberSlotBooking {
+  id: string;
+  queueCode: string;
+  productName: string;
+  variant: string | null;
+  subVariant: string | null;
+  quantity: number;
+  status: string;
+  lotNumber: number;
+  slotNumber: number;
+  createdAt: string;
+}
+
 interface MemberProfile {
   stt: string;
   customerCode: string;
@@ -410,6 +423,15 @@ export default function MembershipPage() {
   const [appOrders, setAppOrders] = useState<AppOrder[]>([]);
   const [bookingNotes, setBookingNotes] = useState<BookingNotePublic[]>([]);
   const [expandedBooking, setExpandedBooking] = useState<number | null>(null);
+  const [memberSlotBookings, setMemberSlotBookings] = useState<MemberSlotBooking[]>([]);
+
+  const fetchMemberSlotBookings = (customerCode: string) => {
+    if (!customerCode) return;
+    fetch(`${getBaseUrl()}/api/slot-bookings/by-member-code?code=${encodeURIComponent(customerCode)}`, { cache: "no-store" })
+      .then((r) => r.ok ? r.json() : [])
+      .then((data) => setMemberSlotBookings(Array.isArray(data) ? data : []))
+      .catch(() => {});
+  };
 
   const fetchBookingNotes = (phone?: string) => {
     const url = phone
@@ -495,6 +517,7 @@ export default function MembershipPage() {
     setShipping([]);
     setOrders([]);
     setAppOrders([]);
+    setMemberSlotBookings([]);
     setProfileError(null);
     setProfileLoading(true);
     const base = getBaseUrl();
@@ -508,6 +531,7 @@ export default function MembershipPage() {
         const profileData: MemberProfile = await profileResp.json();
         setProfile(profileData);
         fetchBookingNotes(phone);
+        if (profileData.customerCode) fetchMemberSlotBookings(profileData.customerCode);
         fetchCoupons(phone, profileData.tier ?? "Newcomers");
         const [shippingResp, sheetsOrdersResp, appOrdersResp] = await Promise.allSettled([
           fetch(`${base}/api/sheets/member-shipping?code=${encodeURIComponent(profileData.customerCode)}&_t=${ts}`, { cache: "no-store" }),
@@ -569,7 +593,7 @@ export default function MembershipPage() {
               {!profileLoading && nameQuery && (
                 <button
                   type="button"
-                  onClick={() => { setNameQuery(""); setProfile(null); setSelectedMember(null); setProfileError(null); setShowDropdown(false); }}
+                  onClick={() => { setNameQuery(""); setProfile(null); setSelectedMember(null); setProfileError(null); setShowDropdown(false); setMemberSlotBookings([]); }}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-white/50 hover:text-white/90 text-lg leading-none z-10"
                 >×</button>
               )}
@@ -787,6 +811,51 @@ export default function MembershipPage() {
                     </div>
                   </div>
                 </button>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Slot bookings assigned to this member */}
+        {memberSlotBookings.length > 0 && (
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <Hash size={14} className="text-fuchsia-600" />
+              <h2 className="text-sm font-bold text-foreground">Đặt Slot</h2>
+              <span className="text-[10px] bg-fuchsia-500/10 text-fuchsia-600 font-bold px-1.5 py-0.5 rounded-full">{memberSlotBookings.length}</span>
+            </div>
+            {memberSlotBookings.map((b) => {
+              const isConfirmed = b.status === "confirmed";
+              const productLabel = [b.productName, b.variant, b.subVariant].filter(Boolean).join(" · ");
+              return (
+                <div
+                  key={b.id}
+                  className={`border rounded-2xl p-4 relative overflow-hidden ${isConfirmed ? "bg-gradient-to-br from-fuchsia-50 to-pink-50 border-fuchsia-200/60" : "bg-muted/40 border-border"}`}
+                >
+                  <div className="absolute right-0 top-0 bottom-0 w-16 flex items-center justify-center opacity-5">
+                    <Hash size={48} />
+                  </div>
+                  <div className="flex items-start gap-3 relative">
+                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 text-lg ${isConfirmed ? "bg-fuchsia-100" : "bg-muted"}`}>
+                      🎟️
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap mb-1">
+                        <span className={`font-mono font-black text-xs tracking-widest px-2 py-0.5 rounded-lg border ${isConfirmed ? "bg-fuchsia-500/10 text-fuchsia-700 border-fuchsia-200" : "bg-muted text-muted-foreground border-border"}`}>{b.queueCode}</span>
+                        {b.quantity > 1 && <span className="text-[10px] font-bold text-muted-foreground">×{b.quantity}</span>}
+                      </div>
+                      <p className="font-bold text-sm text-foreground">{productLabel}</p>
+                      {isConfirmed ? (
+                        <p className="text-xs font-semibold text-emerald-600 mt-0.5">✅ Đã lấy slot · Chờ chuyển khoản</p>
+                      ) : (
+                        <p className="text-xs font-semibold text-amber-600 mt-0.5">⏳ Đang chờ xác nhận</p>
+                      )}
+                      <p className="text-[11px] text-muted-foreground mt-1">
+                        {new Date(b.createdAt).toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric" })}
+                      </p>
+                    </div>
+                  </div>
+                </div>
               );
             })}
           </div>
