@@ -1001,6 +1001,8 @@ function OrdersTab() {
   const base = getBaseUrl();
   const [slotBookings, setSlotBookings] = useState<any[]>([]);
   const [slotBookingsLoading, setSlotBookingsLoading] = useState(false);
+  const [slotCodeInputs, setSlotCodeInputs] = useState<Record<string, string>>({});
+  const [slotStatusEditOpen, setSlotStatusEditOpen] = useState<Record<string, boolean>>({});
   const [sovereignSheetId, setSovereignSheetId] = useState("");
   const [sheetIdSaving, setSheetIdSaving] = useState(false);
   const [mbsPhones, setMbsPhones] = useState<string[]>([]);
@@ -1870,38 +1872,110 @@ function OrdersTab() {
                   </button>
                 )}
 
+                {/* Saved member code badge */}
                 {booking.memberCode && (
                   <div className="flex items-center gap-1.5 text-[11px] bg-blue-50 border border-blue-200 rounded-lg px-2 py-1">
-                    <span className="font-bold text-blue-700">👤 Mã TV:</span>
+                    <span className="font-bold text-blue-700">👤 Mã TV đã gán:</span>
                     <span className="font-black text-blue-800 font-mono">{booking.memberCode}</span>
                   </div>
                 )}
 
+                {/* ── PENDING: manual member code input + confirm/cancel ── */}
                 {booking.status === "pending" && (
-                  <div className="flex gap-2 pt-1">
-                    <button
-                      onClick={() => patchSlotBooking(booking.id, { status: "confirmed", ...(memberCode ? { memberCode } : {}) })}
-                      className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl py-1.5 transition-colors"
-                    >
-                      ✓ Xác nhận{memberCode ? ` · ${memberCode}` : ""}
-                    </button>
-                    <button
-                      onClick={() => patchSlotBooking(booking.id, { status: "cancelled", adminNote: "Không hợp lệ" })}
-                      className="flex-1 bg-red-100 hover:bg-red-200 text-red-600 text-xs font-bold rounded-xl py-1.5 transition-colors"
-                    >
-                      ✗ Không hợp lệ
-                    </button>
-                    <button
-                      onClick={() => deleteSlotBooking(booking.id)}
-                      className="w-8 flex items-center justify-center bg-muted hover:bg-red-50 text-muted-foreground hover:text-red-600 rounded-xl transition-colors"
-                    >
-                      <Trash2 size={12} />
-                    </button>
+                  <div className="space-y-2 pt-1">
+                    <div className="flex gap-1.5 items-center">
+                      <span className="text-[11px] text-muted-foreground shrink-0">Mã TV:</span>
+                      <input
+                        type="text"
+                        value={slotCodeInputs[booking.id] ?? memberCode ?? ""}
+                        onChange={(e) => setSlotCodeInputs((prev) => ({ ...prev, [booking.id]: e.target.value }))}
+                        placeholder="Nhập mã TV (tuỳ chọn)"
+                        className="flex-1 h-7 text-xs font-mono rounded-lg border border-border bg-background px-2 focus:outline-none focus:ring-1 focus:ring-ring"
+                      />
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => {
+                          const code = (slotCodeInputs[booking.id] ?? memberCode ?? "").trim();
+                          patchSlotBooking(booking.id, { status: "confirmed", ...(code ? { memberCode: code } : {}) });
+                        }}
+                        className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl py-1.5 transition-colors"
+                      >
+                        ✓ Xác nhận
+                      </button>
+                      <button
+                        onClick={() => patchSlotBooking(booking.id, { status: "cancelled", adminNote: "Không hợp lệ" })}
+                        className="flex-1 bg-red-100 hover:bg-red-200 text-red-600 text-xs font-bold rounded-xl py-1.5 transition-colors"
+                      >
+                        ✗ Không hợp lệ
+                      </button>
+                      <button
+                        onClick={() => deleteSlotBooking(booking.id)}
+                        className="w-8 flex items-center justify-center bg-muted hover:bg-red-50 text-muted-foreground hover:text-red-600 rounded-xl transition-colors"
+                      >
+                        <Trash2 size={12} />
+                      </button>
+                    </div>
                   </div>
                 )}
+
+                {/* ── CONFIRMED / CANCELLED: edit status panel ── */}
                 {booking.status !== "pending" && (
-                  <div className="flex justify-end">
-                    <button onClick={() => deleteSlotBooking(booking.id)} className="text-[11px] text-red-400 hover:text-red-600 flex items-center gap-1"><Trash2 size={11} /> Xoá</button>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <button
+                        onClick={() => setSlotStatusEditOpen((prev) => ({ ...prev, [booking.id]: !prev[booking.id] }))}
+                        className="text-[11px] font-bold text-primary hover:underline flex items-center gap-1"
+                      >
+                        ✏️ Sửa trạng thái
+                      </button>
+                      <button onClick={() => deleteSlotBooking(booking.id)} className="text-[11px] text-red-400 hover:text-red-600 flex items-center gap-1"><Trash2 size={11} /> Xoá</button>
+                    </div>
+                    {slotStatusEditOpen[booking.id] && (
+                      <div className="space-y-2 bg-muted/60 rounded-xl p-2.5">
+                        <div className="flex gap-1.5 items-center">
+                          <span className="text-[11px] text-muted-foreground shrink-0">Mã TV:</span>
+                          <input
+                            type="text"
+                            value={slotCodeInputs[booking.id] ?? booking.memberCode ?? memberCode ?? ""}
+                            onChange={(e) => setSlotCodeInputs((prev) => ({ ...prev, [booking.id]: e.target.value }))}
+                            placeholder="Nhập mã TV (tuỳ chọn)"
+                            className="flex-1 h-7 text-xs font-mono rounded-lg border border-border bg-background px-2 focus:outline-none focus:ring-1 focus:ring-ring"
+                          />
+                        </div>
+                        <div className="flex gap-1.5 flex-wrap">
+                          <button
+                            onClick={() => {
+                              const code = (slotCodeInputs[booking.id] ?? booking.memberCode ?? memberCode ?? "").trim();
+                              patchSlotBooking(booking.id, { status: "pending", ...(code ? { memberCode: code } : { memberCode: null }) });
+                              setSlotStatusEditOpen((prev) => ({ ...prev, [booking.id]: false }));
+                            }}
+                            className="flex-1 min-w-0 bg-amber-100 hover:bg-amber-200 text-amber-700 text-[11px] font-bold rounded-lg py-1.5 transition-colors"
+                          >
+                            ⏳ Chờ xác nhận
+                          </button>
+                          <button
+                            onClick={() => {
+                              const code = (slotCodeInputs[booking.id] ?? booking.memberCode ?? memberCode ?? "").trim();
+                              patchSlotBooking(booking.id, { status: "confirmed", ...(code ? { memberCode: code } : {}) });
+                              setSlotStatusEditOpen((prev) => ({ ...prev, [booking.id]: false }));
+                            }}
+                            className="flex-1 min-w-0 bg-emerald-100 hover:bg-emerald-200 text-emerald-700 text-[11px] font-bold rounded-lg py-1.5 transition-colors"
+                          >
+                            ✓ Xác nhận
+                          </button>
+                          <button
+                            onClick={() => {
+                              patchSlotBooking(booking.id, { status: "cancelled", adminNote: "Không hợp lệ" });
+                              setSlotStatusEditOpen((prev) => ({ ...prev, [booking.id]: false }));
+                            }}
+                            className="flex-1 min-w-0 bg-red-100 hover:bg-red-200 text-red-600 text-[11px] font-bold rounded-lg py-1.5 transition-colors"
+                          >
+                            ✗ Không hợp lệ
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
