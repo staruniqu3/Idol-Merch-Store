@@ -204,10 +204,11 @@ router.get("/slot-bookings/by-member-code", async (req, res): Promise<void> => {
 router.get("/slot-bookings/by-phone", async (req, res): Promise<void> => {
   const phone = String(req.query.phone ?? "").trim();
   if (!phone) { res.status(400).json({ error: "phone required" }); return; }
+  // Only return bookings without a member code — MBS members see their slots on the membership page
   const bookings = await db
     .select()
     .from(slotBookingsTable)
-    .where(and(eq(slotBookingsTable.phone, phone), ne(slotBookingsTable.status, "cancelled")));
+    .where(and(eq(slotBookingsTable.phone, phone), ne(slotBookingsTable.status, "cancelled"), isNull(slotBookingsTable.memberCode)));
   res.json(bookings.map((b) => ({
     id: b.id,
     queueCode: b.queueCode,
