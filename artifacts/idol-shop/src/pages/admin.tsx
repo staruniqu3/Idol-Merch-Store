@@ -929,6 +929,65 @@ function TrackingFieldsEditor({ orderId, order }: { orderId: number; order: Orde
   );
 }
 
+// ── SlotMemberPicker ─────────────────────────────────────────────────────────
+type SlotMemberOption = { name: string; customerCode: string; phone: string };
+
+function SlotMemberPicker({
+  value, onChange, members, placeholder = "Tìm tên, mã TV hoặc SĐT...",
+}: {
+  value: string;
+  onChange: (code: string) => void;
+  members: SlotMemberOption[];
+  placeholder?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const norm = (s: string) => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  const q = value.trim();
+  const results = q.length >= 1
+    ? members.filter((m) =>
+        norm(m.name).includes(norm(q)) ||
+        m.phone.replace(/\D/g, "").includes(q.replace(/\D/g, "")) ||
+        (m.customerCode && m.customerCode.toLowerCase().includes(q.toLowerCase()))
+      ).slice(0, 6)
+    : [];
+  const matched = q ? members.find((m) => m.customerCode && m.customerCode.toLowerCase() === q.toLowerCase()) : null;
+
+  return (
+    <div className="relative flex-1">
+      <input
+        type="text"
+        value={value}
+        onChange={(e) => { onChange(e.target.value); setOpen(true); }}
+        onFocus={() => setOpen(true)}
+        onBlur={() => setTimeout(() => setOpen(false), 150)}
+        placeholder={placeholder}
+        className="w-full h-7 text-xs font-mono rounded-lg border border-border bg-background px-2 focus:outline-none focus:ring-1 focus:ring-ring"
+      />
+      {matched && (
+        <p className="text-[10px] text-blue-600 font-semibold mt-0.5 px-0.5">👤 {matched.name}</p>
+      )}
+      {open && results.length > 0 && (
+        <div className="absolute top-full left-0 right-0 mt-1 bg-card border border-border rounded-xl shadow-xl z-[200] overflow-hidden">
+          {results.map((m) => (
+            <button
+              key={m.phone}
+              type="button"
+              onMouseDown={(e) => { e.preventDefault(); onChange(m.customerCode || m.name); setOpen(false); }}
+              className="w-full px-3 py-2 text-left hover:bg-muted flex items-center gap-2"
+            >
+              <div className="w-6 h-6 rounded-lg bg-primary/10 flex items-center justify-center shrink-0 text-[10px] font-bold text-primary">{m.name[0]}</div>
+              <div className="min-w-0">
+                <p className="text-xs font-semibold truncate">{m.name}</p>
+                <p className="text-[10px] text-muted-foreground">{m.phone}{m.customerCode ? ` · ${m.customerCode}` : ""}</p>
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function MemberCodeEditor({ orderId, currentCode }: { orderId: number; currentCode: string | null }) {
   const [editing, setEditing] = useState(false);
   const [val, setVal] = useState(currentCode ?? "");
@@ -1271,6 +1330,15 @@ function OrdersTab() {
     }
     return new Set(Object.entries(counts).filter(([, c]) => c > 1).map(([k]) => k));
   }, [slotBookings]);
+
+  // Flat member list for SlotMemberPicker autocomplete
+  const allSlotMembers = useMemo<SlotMemberOption[]>(() =>
+    Object.entries(sheetMembersMap).map(([phone, m]) => ({
+      name: m.name,
+      customerCode: m.customerCode ?? "",
+      phone,
+    })).filter((m) => m.name),
+  [sheetMembersMap]);
 
   return (
     <div className="space-y-3">
@@ -1885,12 +1953,10 @@ function OrdersTab() {
                   <div className="space-y-2 pt-1">
                     <div className="flex gap-1.5 items-center">
                       <span className="text-[11px] text-muted-foreground shrink-0">Mã TV:</span>
-                      <input
-                        type="text"
+                      <SlotMemberPicker
                         value={slotCodeInputs[booking.id] ?? memberCode ?? ""}
-                        onChange={(e) => setSlotCodeInputs((prev) => ({ ...prev, [booking.id]: e.target.value }))}
-                        placeholder="Nhập mã TV (tuỳ chọn)"
-                        className="flex-1 h-7 text-xs font-mono rounded-lg border border-border bg-background px-2 focus:outline-none focus:ring-1 focus:ring-ring"
+                        onChange={(v) => setSlotCodeInputs((prev) => ({ ...prev, [booking.id]: v }))}
+                        members={allSlotMembers}
                       />
                     </div>
                     <div className="flex gap-2">
@@ -1935,12 +2001,10 @@ function OrdersTab() {
                       <div className="space-y-2 bg-muted/60 rounded-xl p-2.5">
                         <div className="flex gap-1.5 items-center">
                           <span className="text-[11px] text-muted-foreground shrink-0">Mã TV:</span>
-                          <input
-                            type="text"
+                          <SlotMemberPicker
                             value={slotCodeInputs[booking.id] ?? booking.memberCode ?? memberCode ?? ""}
-                            onChange={(e) => setSlotCodeInputs((prev) => ({ ...prev, [booking.id]: e.target.value }))}
-                            placeholder="Nhập mã TV (tuỳ chọn)"
-                            className="flex-1 h-7 text-xs font-mono rounded-lg border border-border bg-background px-2 focus:outline-none focus:ring-1 focus:ring-ring"
+                            onChange={(v) => setSlotCodeInputs((prev) => ({ ...prev, [booking.id]: v }))}
+                            members={allSlotMembers}
                           />
                         </div>
                         <div className="flex gap-1.5 flex-wrap">
