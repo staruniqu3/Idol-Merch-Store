@@ -235,13 +235,33 @@ function formatVND(n: number) {
 
 type NoticeItem = { id: number; title: string; content: string; type: string; isPinned: boolean; createdAt: string };
 type StatusEntry = { id: number; phone: string; customerName: string | null; memberCode?: string | null; status: string; items: string | null; updatedAt: string };
-type SlotLookupResult = { id: string; queueCode: string; productName: string; variant: string | null; subVariant: string | null; quantity: number; status: string; memberCode: string | null; createdAt: string };
+type SlotLookupResult = { id: string; queueCode: string; productName: string; variant: string | null; subVariant: string | null; quantity: number; status: string; memberCode: string | null; paymentDeadline: string | null; createdAt: string };
 
 const SLOT_STATUS_CFG: Record<string, { label: string; dot: string; badge: string }> = {
-  pending:   { label: "⏳ Đang chờ xác nhận",               dot: "bg-amber-400",   badge: "bg-amber-100 text-amber-700" },
-  confirmed: { label: "✅ Đã lấy slot · Chờ chuyển khoản",  dot: "bg-emerald-400", badge: "bg-emerald-100 text-emerald-700" },
-  cancelled: { label: "❌ Không hợp lệ",                     dot: "bg-red-400",     badge: "bg-red-100 text-red-700" },
+  pending:         { label: "⏳ Đang chờ xác nhận",              dot: "bg-amber-400",   badge: "bg-amber-100 text-amber-700" },
+  confirmed:       { label: "✅ Đã lấy slot · Chờ chuyển khoản", dot: "bg-emerald-400", badge: "bg-emerald-100 text-emerald-700" },
+  payment_pending: { label: "💳 Chuyển khoản trong",             dot: "bg-blue-400",    badge: "bg-blue-100 text-blue-700" },
+  form_required:   { label: "📋 Đã chuyển khoản · Điền form",    dot: "bg-violet-400",  badge: "bg-violet-100 text-violet-700" },
+  cancelled:       { label: "❌ Không hợp lệ",                    dot: "bg-red-400",     badge: "bg-red-100 text-red-700" },
 };
+
+function SlotCountdown({ deadline }: { deadline: string }) {
+  const [remaining, setRemaining] = useState("");
+  useEffect(() => {
+    const update = () => {
+      const diff = new Date(deadline).getTime() - Date.now();
+      if (diff <= 0) { setRemaining("Đã hết hạn"); return; }
+      const h = Math.floor(diff / 3600000);
+      const m = Math.floor((diff % 3600000) / 60000);
+      const s = Math.floor((diff % 60000) / 1000);
+      setRemaining(`${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`);
+    };
+    update();
+    const id = setInterval(update, 1000);
+    return () => clearInterval(id);
+  }, [deadline]);
+  return <span className="font-mono font-black">{remaining}</span>;
+}
 
 const STATUS_CFG: Record<string, { label: string; dot: string; badge: string }> = {
   awaiting:  { label: "⏳ Chờ xác nhận",      dot: "bg-amber-400",        badge: "bg-amber-100 text-amber-700" },
@@ -615,16 +635,23 @@ export default function ShippingPage() {
                 {slotLookupResults.map((b) => {
                   const cfg = SLOT_STATUS_CFG[b.status] ?? { label: b.status, dot: "bg-muted-foreground", badge: "bg-muted text-muted-foreground" };
                   const label = [b.productName, b.variant, b.subVariant].filter(Boolean).join(" · ");
+                  const isFormRequired = b.status === "form_required";
                   return (
-                    <div key={b.id} className="bg-muted/60 rounded-xl p-3 space-y-1.5">
+                    <div key={b.id} className={`rounded-xl p-3 space-y-1.5 ${isFormRequired ? "bg-muted/30 opacity-60" : "bg-muted/60"}`}>
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className={`w-2 h-2 rounded-full shrink-0 ${cfg.dot}`} />
-                        <span className="font-mono font-bold text-sm text-fuchsia-700">{b.queueCode}</span>
+                        <span className={`font-mono font-bold text-sm ${isFormRequired ? "text-muted-foreground line-through" : "text-fuchsia-700"}`}>{b.queueCode}</span>
                         {b.quantity > 1 && <span className="text-[10px] font-bold text-muted-foreground">×{b.quantity}</span>}
                       </div>
                       <p className="text-[11px] text-muted-foreground pl-4">{label}</p>
                       <div className="pl-4 flex flex-wrap gap-1.5 items-center">
-                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${cfg.badge}`}>{cfg.label}</span>
+                        {b.status === "payment_pending" && b.paymentDeadline ? (
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${cfg.badge} flex items-center gap-1`}>
+                            {cfg.label} <SlotCountdown deadline={b.paymentDeadline} />
+                          </span>
+                        ) : (
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${cfg.badge}`}>{cfg.label}</span>
+                        )}
                         {b.memberCode && (
                           <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">👤 {b.memberCode}</span>
                         )}

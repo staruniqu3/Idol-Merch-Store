@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, and, isNull, count, ne, max } from "drizzle-orm";
+import { eq, and, isNull, count, ne, max, lt } from "drizzle-orm";
 import { db, slotBookingsTable, productsTable, settingsTable } from "@workspace/db";
 import { getSovereignClubPhones } from "../lib/google-sheets";
 
@@ -136,6 +136,17 @@ router.post("/slot-bookings", async (req, res): Promise<void> => {
 });
 
 router.get("/slot-bookings", async (_req, res): Promise<void> => {
+  // Auto-delete form_required bookings older than 3 days
+  const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
+  await db
+    .delete(slotBookingsTable)
+    .where(
+      and(
+        eq(slotBookingsTable.status, "form_required"),
+        lt(slotBookingsTable.formSubmittedAt, threeDaysAgo)
+      )
+    );
+
   const bookings = await db
     .select()
     .from(slotBookingsTable)
@@ -184,6 +195,7 @@ router.get("/slot-bookings/by-member-code", async (req, res): Promise<void> => {
     status: b.status,
     lotNumber: b.lotNumber,
     slotNumber: b.slotNumber,
+    paymentDeadline: b.paymentDeadline,
     createdAt: b.createdAt,
   })));
 });
@@ -205,6 +217,7 @@ router.get("/slot-bookings/by-phone", async (req, res): Promise<void> => {
     quantity: b.quantity,
     status: b.status,
     memberCode: b.memberCode,
+    paymentDeadline: b.paymentDeadline,
     createdAt: b.createdAt,
   })));
 });
@@ -227,7 +240,21 @@ router.get("/slot-bookings/mbs-phones", async (_req, res): Promise<void> => {
 router.patch("/slot-bookings/:id", async (req, res): Promise<void> => {
   const { status, adminNote, crossRefChecked, memberCode } = req.body;
   const updates: Record<string, unknown> = {};
-  if (status !== undefined) updates.status = String(status);
+  if (status !== undefined) {
+    updates.status = String(status);
+    // Set paymentDeadline to NOW + 24h when moving to payment_pending
+    if (status === "payment_pending") {
+      updates.paymentDeadline = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    }
+    // Clear paymentDeadline when leaving payment_pending
+    if (status !== "payment_pending" && status !== undefined) {
+      // Only clear if explicitly changing away
+    }
+    // Set formSubmittedAt when moving to form_required
+    if (status === "form_required") {
+      updates.formSubmittedAt = new Date();
+    }
+  }
   if (adminNote !== undefined) updates.adminNote = adminNote ? String(adminNote) : null;
   if (crossRefChecked !== undefined) updates.crossRefChecked = Boolean(crossRefChecked);
   if (memberCode !== undefined) updates.memberCode = memberCode ? String(memberCode) : null;

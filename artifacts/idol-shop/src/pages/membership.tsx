@@ -33,7 +33,26 @@ interface MemberSlotBooking {
   status: string;
   lotNumber: number;
   slotNumber: number;
+  paymentDeadline: string | null;
   createdAt: string;
+}
+
+function MemberSlotCountdown({ deadline }: { deadline: string }) {
+  const [remaining, setRemaining] = useState("");
+  useEffect(() => {
+    const update = () => {
+      const diff = new Date(deadline).getTime() - Date.now();
+      if (diff <= 0) { setRemaining("Đã hết hạn"); return; }
+      const h = Math.floor(diff / 3600000);
+      const m = Math.floor((diff % 3600000) / 60000);
+      const s = Math.floor((diff % 60000) / 1000);
+      setRemaining(`${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`);
+    };
+    update();
+    const id = setInterval(update, 1000);
+    return () => clearInterval(id);
+  }, [deadline]);
+  return <span className="font-mono font-black tabular-nums">{remaining}</span>;
 }
 
 interface MemberProfile {
@@ -825,31 +844,53 @@ export default function MembershipPage() {
               <span className="text-[10px] bg-fuchsia-500/10 text-fuchsia-600 font-bold px-1.5 py-0.5 rounded-full">{memberSlotBookings.length}</span>
             </div>
             {memberSlotBookings.map((b) => {
-              const isConfirmed = b.status === "confirmed";
+              const isFormRequired = b.status === "form_required";
+              const isPaymentPending = b.status === "payment_pending";
               const productLabel = [b.productName, b.variant, b.subVariant].filter(Boolean).join(" · ");
+              const statusContent = (() => {
+                if (b.status === "pending")   return <p className="text-xs font-semibold text-amber-600 mt-0.5">⏳ Đang chờ xác nhận</p>;
+                if (b.status === "confirmed") return <p className="text-xs font-semibold text-emerald-600 mt-0.5">✅ Đã lấy slot · Chờ chuyển khoản</p>;
+                if (isPaymentPending) return (
+                  <p className="text-xs font-semibold text-blue-600 mt-0.5 flex items-center gap-1 flex-wrap">
+                    💳 Chuyển khoản trong
+                    {b.paymentDeadline ? <MemberSlotCountdown deadline={b.paymentDeadline} /> : "24h"}
+                  </p>
+                );
+                if (isFormRequired) return <p className="text-xs font-semibold text-violet-500 mt-0.5">📋 Đã chuyển khoản · Đang xử lý</p>;
+                return null;
+              })();
               return (
                 <div
                   key={b.id}
-                  className={`border rounded-2xl p-4 relative overflow-hidden ${isConfirmed ? "bg-gradient-to-br from-fuchsia-50 to-pink-50 border-fuchsia-200/60" : "bg-muted/40 border-border"}`}
+                  className={`border rounded-2xl p-4 relative overflow-hidden ${
+                    isFormRequired
+                      ? "bg-muted/30 border-border opacity-50 grayscale"
+                      : isPaymentPending
+                        ? "bg-gradient-to-br from-blue-50 to-sky-50 border-blue-200/60"
+                        : b.status === "confirmed"
+                          ? "bg-gradient-to-br from-fuchsia-50 to-pink-50 border-fuchsia-200/60"
+                          : "bg-muted/40 border-border"
+                  }`}
                 >
                   <div className="absolute right-0 top-0 bottom-0 w-16 flex items-center justify-center opacity-5">
                     <Hash size={48} />
                   </div>
                   <div className="flex items-start gap-3 relative">
-                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 text-lg ${isConfirmed ? "bg-fuchsia-100" : "bg-muted"}`}>
+                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 text-lg ${isFormRequired ? "bg-muted" : isPaymentPending ? "bg-blue-100" : b.status === "confirmed" ? "bg-fuchsia-100" : "bg-muted"}`}>
                       🎟️
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap mb-1">
-                        <span className={`font-mono font-black text-xs tracking-widest px-2 py-0.5 rounded-lg border ${isConfirmed ? "bg-fuchsia-500/10 text-fuchsia-700 border-fuchsia-200" : "bg-muted text-muted-foreground border-border"}`}>{b.queueCode}</span>
+                        <span className={`font-mono font-black text-xs tracking-widest px-2 py-0.5 rounded-lg border ${
+                          isFormRequired ? "bg-muted text-muted-foreground border-border line-through"
+                          : isPaymentPending ? "bg-blue-500/10 text-blue-700 border-blue-200"
+                          : b.status === "confirmed" ? "bg-fuchsia-500/10 text-fuchsia-700 border-fuchsia-200"
+                          : "bg-muted text-muted-foreground border-border"
+                        }`}>{b.queueCode}</span>
                         {b.quantity > 1 && <span className="text-[10px] font-bold text-muted-foreground">×{b.quantity}</span>}
                       </div>
                       <p className="font-bold text-sm text-foreground">{productLabel}</p>
-                      {isConfirmed ? (
-                        <p className="text-xs font-semibold text-emerald-600 mt-0.5">✅ Đã lấy slot · Chờ chuyển khoản</p>
-                      ) : (
-                        <p className="text-xs font-semibold text-amber-600 mt-0.5">⏳ Đang chờ xác nhận</p>
-                      )}
+                      {statusContent}
                       <p className="text-[11px] text-muted-foreground mt-1">
                         {new Date(b.createdAt).toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric" })}
                       </p>

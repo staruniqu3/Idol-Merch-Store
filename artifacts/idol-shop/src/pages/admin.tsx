@@ -1899,9 +1899,11 @@ function OrdersTab() {
                     </p>
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
-                    {booking.status === "confirmed" && <span className="text-[10px] bg-emerald-100 text-emerald-700 font-bold px-1.5 py-0.5 rounded-full">✓ Đã xác nhận</span>}
-                    {booking.status === "cancelled" && <span className="text-[10px] bg-red-100 text-red-600 font-bold px-1.5 py-0.5 rounded-full">✗ Không hợp lệ</span>}
-                    {booking.status === "pending" && <span className="text-[10px] bg-amber-100 text-amber-700 font-bold px-1.5 py-0.5 rounded-full">⏳ Chờ xác nhận</span>}
+                    {booking.status === "pending"         && <span className="text-[10px] bg-amber-100   text-amber-700   font-bold px-1.5 py-0.5 rounded-full">⏳ Chờ xác nhận</span>}
+                    {booking.status === "confirmed"       && <span className="text-[10px] bg-emerald-100 text-emerald-700 font-bold px-1.5 py-0.5 rounded-full">✅ Đã xác nhận</span>}
+                    {booking.status === "payment_pending" && <span className="text-[10px] bg-blue-100    text-blue-700    font-bold px-1.5 py-0.5 rounded-full">💳 Chờ chuyển khoản</span>}
+                    {booking.status === "form_required"   && <span className="text-[10px] bg-violet-100  text-violet-700  font-bold px-1.5 py-0.5 rounded-full">📋 Đã CK · Điền form</span>}
+                    {booking.status === "cancelled"       && <span className="text-[10px] bg-red-100     text-red-600     font-bold px-1.5 py-0.5 rounded-full">❌ Huỷ slot</span>}
                   </div>
                 </div>
 
@@ -2007,37 +2009,35 @@ function OrdersTab() {
                             members={allSlotMembers}
                           />
                         </div>
-                        <div className="flex gap-1.5 flex-wrap">
-                          <button
-                            onClick={() => {
-                              const code = (slotCodeInputs[booking.id] ?? booking.memberCode ?? memberCode ?? "").trim();
-                              patchSlotBooking(booking.id, { status: "pending", ...(code ? { memberCode: code } : { memberCode: null }) });
-                              setSlotStatusEditOpen((prev) => ({ ...prev, [booking.id]: false }));
-                            }}
-                            className="flex-1 min-w-0 bg-amber-100 hover:bg-amber-200 text-amber-700 text-[11px] font-bold rounded-lg py-1.5 transition-colors"
-                          >
-                            ⏳ Chờ xác nhận
-                          </button>
-                          <button
-                            onClick={() => {
-                              const code = (slotCodeInputs[booking.id] ?? booking.memberCode ?? memberCode ?? "").trim();
-                              patchSlotBooking(booking.id, { status: "confirmed", ...(code ? { memberCode: code } : {}) });
-                              setSlotStatusEditOpen((prev) => ({ ...prev, [booking.id]: false }));
-                            }}
-                            className="flex-1 min-w-0 bg-emerald-100 hover:bg-emerald-200 text-emerald-700 text-[11px] font-bold rounded-lg py-1.5 transition-colors"
-                          >
-                            ✓ Xác nhận
-                          </button>
-                          <button
-                            onClick={() => {
-                              patchSlotBooking(booking.id, { status: "cancelled", adminNote: "Không hợp lệ" });
-                              setSlotStatusEditOpen((prev) => ({ ...prev, [booking.id]: false }));
-                            }}
-                            className="flex-1 min-w-0 bg-red-100 hover:bg-red-200 text-red-600 text-[11px] font-bold rounded-lg py-1.5 transition-colors"
-                          >
-                            ✗ Không hợp lệ
-                          </button>
+                        <div className="grid grid-cols-2 gap-1.5">
+                          {[
+                            { s: "pending",        label: "⏳ Chờ xác nhận",         cls: "bg-amber-100 hover:bg-amber-200 text-amber-700" },
+                            { s: "confirmed",      label: "✅ Đã lấy slot · Chờ CK",  cls: "bg-emerald-100 hover:bg-emerald-200 text-emerald-700" },
+                            { s: "payment_pending",label: "💳 Chuyển khoản 24h",      cls: "bg-blue-100 hover:bg-blue-200 text-blue-700" },
+                            { s: "form_required",  label: "📋 Đã CK · Điền form",     cls: "bg-violet-100 hover:bg-violet-200 text-violet-700" },
+                          ].map(({ s, label, cls }) => (
+                            <button
+                              key={s}
+                              onClick={() => {
+                                const code = (slotCodeInputs[booking.id] ?? booking.memberCode ?? memberCode ?? "").trim();
+                                patchSlotBooking(booking.id, { status: s, ...(code ? { memberCode: code } : {}) });
+                                setSlotStatusEditOpen((prev) => ({ ...prev, [booking.id]: false }));
+                              }}
+                              className={`text-[10px] font-bold rounded-lg py-1.5 px-1 transition-colors ${cls} ${booking.status === s ? "ring-2 ring-offset-1 ring-current" : ""}`}
+                            >
+                              {label}
+                            </button>
+                          ))}
                         </div>
+                        <button
+                          onClick={() => {
+                            patchSlotBooking(booking.id, { status: "cancelled" });
+                            setSlotStatusEditOpen((prev) => ({ ...prev, [booking.id]: false }));
+                          }}
+                          className="w-full text-[10px] font-bold rounded-lg py-1.5 bg-red-100 hover:bg-red-200 text-red-600 transition-colors"
+                        >
+                          ❌ Huỷ slot
+                        </button>
                       </div>
                     )}
                   </div>

@@ -17,6 +17,8 @@ export const slotBookingsTable = pgTable("slot_bookings", {
   mbsVerified: boolean("mbs_verified"),
   adminNote: text("admin_note"),
   crossRefChecked: boolean("cross_ref_checked").notNull().default(false),
+  paymentDeadline: timestamp("payment_deadline", { withTimezone: true }),
+  formSubmittedAt: timestamp("form_submitted_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
