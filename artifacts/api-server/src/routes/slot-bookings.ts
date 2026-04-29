@@ -166,6 +166,27 @@ router.get("/slot-bookings/mbs-check", async (req, res): Promise<void> => {
   }
 });
 
+// Public: look up slot bookings by phone (for customer status check)
+router.get("/slot-bookings/by-phone", async (req, res): Promise<void> => {
+  const phone = String(req.query.phone ?? "").trim();
+  if (!phone) { res.status(400).json({ error: "phone required" }); return; }
+  const bookings = await db
+    .select()
+    .from(slotBookingsTable)
+    .where(and(eq(slotBookingsTable.phone, phone), ne(slotBookingsTable.status, "cancelled")));
+  res.json(bookings.map((b) => ({
+    id: b.id,
+    queueCode: b.queueCode,
+    productName: b.productName,
+    variant: b.variant,
+    subVariant: b.subVariant,
+    quantity: b.quantity,
+    status: b.status,
+    memberCode: b.memberCode,
+    createdAt: b.createdAt,
+  })));
+});
+
 // Admin: get full MBS phone list
 router.get("/slot-bookings/mbs-phones", async (_req, res): Promise<void> => {
   const sheetId = await getSovereignClubSheetId();
@@ -182,13 +203,14 @@ router.get("/slot-bookings/mbs-phones", async (_req, res): Promise<void> => {
 });
 
 router.patch("/slot-bookings/:id", async (req, res): Promise<void> => {
-  const { status, adminNote, crossRefChecked } = req.body;
+  const { status, adminNote, crossRefChecked, memberCode } = req.body;
   const updates: Record<string, unknown> = {};
   if (status !== undefined) updates.status = String(status);
   if (adminNote !== undefined) updates.adminNote = adminNote ? String(adminNote) : null;
   if (crossRefChecked !== undefined) updates.crossRefChecked = Boolean(crossRefChecked);
+  if (memberCode !== undefined) updates.memberCode = memberCode ? String(memberCode) : null;
   if (Object.keys(updates).length === 0) {
-    res.status(400).json({ error: "status, adminNote, or crossRefChecked required" });
+    res.status(400).json({ error: "status, adminNote, crossRefChecked, or memberCode required" });
     return;
   }
   const [booking] = await db

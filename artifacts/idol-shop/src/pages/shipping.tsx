@@ -235,6 +235,13 @@ function formatVND(n: number) {
 
 type NoticeItem = { id: number; title: string; content: string; type: string; isPinned: boolean; createdAt: string };
 type StatusEntry = { id: number; phone: string; customerName: string | null; memberCode?: string | null; status: string; items: string | null; updatedAt: string };
+type SlotLookupResult = { id: string; queueCode: string; productName: string; variant: string | null; subVariant: string | null; quantity: number; status: string; memberCode: string | null; createdAt: string };
+
+const SLOT_STATUS_CFG: Record<string, { label: string; dot: string; badge: string }> = {
+  pending:   { label: "⏳ Đang chờ xác nhận",               dot: "bg-amber-400",   badge: "bg-amber-100 text-amber-700" },
+  confirmed: { label: "✅ Đã lấy slot · Chờ chuyển khoản",  dot: "bg-emerald-400", badge: "bg-emerald-100 text-emerald-700" },
+  cancelled: { label: "❌ Không hợp lệ",                     dot: "bg-red-400",     badge: "bg-red-100 text-red-700" },
+};
 
 const STATUS_CFG: Record<string, { label: string; dot: string; badge: string }> = {
   awaiting:  { label: "⏳ Chờ xác nhận",      dot: "bg-amber-400",        badge: "bg-amber-100 text-amber-700" },
@@ -378,6 +385,7 @@ export default function ShippingPage() {
   const [lookupPhone, setLookupPhone] = useState("");
   const [lookupResults, setLookupResults] = useState<TrackingResult[] | null>(null);
   const [sheetLookupResults, setSheetLookupResults] = useState<SheetShipping[] | null>(null);
+  const [slotLookupResults, setSlotLookupResults] = useState<SlotLookupResult[] | null>(null);
   const [lookupLoading, setLookupLoading] = useState(false);
   const [lookupError, setLookupError] = useState("");
   const [notices, setNotices] = useState<NoticeItem[]>([]);
@@ -392,6 +400,7 @@ export default function ShippingPage() {
     setLookupError("");
     setLookupResults(null);
     setSheetLookupResults(null);
+    setSlotLookupResults(null);
     try {
       const base = getBaseUrl();
       const normalized = normalizePhone(lookupPhone.trim());
@@ -400,15 +409,24 @@ export default function ShippingPage() {
       const sheetMatches = sheetData.filter((s) => s.phone && normalizePhone(s.phone) === normalized);
       if (sheetMatches.length > 0) setSheetLookupResults(sheetMatches);
 
-      // Also search DB orders
-      const res = await fetch(`${base}/api/tracking?phone=${encodeURIComponent(lookupPhone.trim())}&_t=${Date.now()}`, { cache: "no-store" });
+      // Search DB orders + slot bookings in parallel
+      const [res, slotRes] = await Promise.all([
+        fetch(`${base}/api/tracking?phone=${encodeURIComponent(lookupPhone.trim())}&_t=${Date.now()}`, { cache: "no-store" }),
+        fetch(`${base}/api/slot-bookings/by-phone?phone=${encodeURIComponent(lookupPhone.trim())}&_t=${Date.now()}`, { cache: "no-store" }),
+      ]);
+      let dbFound = false;
+      let slotFound = false;
       if (res.ok) {
         const data = await res.json();
         const filtered = Array.isArray(data) ? data.filter((r: TrackingResult) => r.status !== "form_incomplete") : [];
-        if (filtered.length > 0) setLookupResults(filtered);
+        if (filtered.length > 0) { setLookupResults(filtered); dbFound = true; }
+      }
+      if (slotRes.ok) {
+        const slotData = await slotRes.json();
+        if (Array.isArray(slotData) && slotData.length > 0) { setSlotLookupResults(slotData); slotFound = true; }
       }
 
-      if (sheetMatches.length === 0) {
+      if (sheetMatches.length === 0 && !dbFound && !slotFound) {
         setLookupError("Không tìm thấy mã vận đơn nào với số điện thoại này");
       }
     } catch { setLookupError("Có lỗi xảy ra, vui lòng thử lại"); }
@@ -579,6 +597,36 @@ export default function ShippingPage() {
                         <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${cfg.bg} ${cfg.color}`}>{cfg.label}</span>
                         {s.shippingFee && (
                           <span className="text-[10px] text-muted-foreground">{s.shippingFee}đ</span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {slotLookupResults && slotLookupResults.length > 0 && (
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <Hash size={12} className="text-fuchsia-600" />
+                  <span className="text-xs font-bold text-foreground">Đặt Slot</span>
+                  <span className="text-[10px] text-muted-foreground ml-auto">{slotLookupResults.length} slot</span>
+                </div>
+                {slotLookupResults.map((b) => {
+                  const cfg = SLOT_STATUS_CFG[b.status] ?? { label: b.status, dot: "bg-muted-foreground", badge: "bg-muted text-muted-foreground" };
+                  const label = [b.productName, b.variant, b.subVariant].filter(Boolean).join(" · ");
+                  return (
+                    <div key={b.id} className="bg-muted/60 rounded-xl p-3 space-y-1.5">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className={`w-2 h-2 rounded-full shrink-0 ${cfg.dot}`} />
+                        <span className="font-mono font-bold text-sm text-fuchsia-700">{b.queueCode}</span>
+                        {b.quantity > 1 && <span className="text-[10px] font-bold text-muted-foreground">×{b.quantity}</span>}
+                      </div>
+                      <p className="text-[11px] text-muted-foreground pl-4">{label}</p>
+                      <div className="pl-4 flex flex-wrap gap-1.5 items-center">
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${cfg.badge}`}>{cfg.label}</span>
+                        {b.memberCode && (
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">👤 {b.memberCode}</span>
                         )}
                       </div>
                     </div>

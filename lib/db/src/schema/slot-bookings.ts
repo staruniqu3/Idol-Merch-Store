@@ -13,6 +13,7 @@ export const slotBookingsTable = pgTable("slot_bookings", {
   slotNumber: integer("slot_number").notNull(),
   queueCode: text("queue_code").notNull(),
   status: text("status").notNull().default("pending"),
+  memberCode: text("member_code"),
   mbsVerified: boolean("mbs_verified"),
   adminNote: text("admin_note"),
   crossRefChecked: boolean("cross_ref_checked").notNull().default(false),

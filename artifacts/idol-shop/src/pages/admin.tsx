@@ -1870,13 +1870,20 @@ function OrdersTab() {
                   </button>
                 )}
 
+                {booking.memberCode && (
+                  <div className="flex items-center gap-1.5 text-[11px] bg-blue-50 border border-blue-200 rounded-lg px-2 py-1">
+                    <span className="font-bold text-blue-700">👤 Mã TV:</span>
+                    <span className="font-black text-blue-800 font-mono">{booking.memberCode}</span>
+                  </div>
+                )}
+
                 {booking.status === "pending" && (
                   <div className="flex gap-2 pt-1">
                     <button
-                      onClick={() => patchSlotBooking(booking.id, { status: "confirmed" })}
+                      onClick={() => patchSlotBooking(booking.id, { status: "confirmed", ...(memberCode ? { memberCode } : {}) })}
                       className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl py-1.5 transition-colors"
                     >
-                      ✓ Xác nhận
+                      ✓ Xác nhận{memberCode ? ` · ${memberCode}` : ""}
                     </button>
                     <button
                       onClick={() => patchSlotBooking(booking.id, { status: "cancelled", adminNote: "Không hợp lệ" })}
