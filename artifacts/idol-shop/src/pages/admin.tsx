@@ -4385,9 +4385,9 @@ const CURRENCY_ROWS: { code: string; label: string; flag: string }[] = [
   { code: "SGD", label: "SGD - VND", flag: "🇸🇬" },
 ];
 
-type ManualRates = Record<string, { pickup?: string; weight?: string }>;
+type ManualRates = Record<string, { pickup?: string; weight?: string; vn?: string }>;
 
-type RateEditState = { code: string; field: "pickup" | "weight" } | null;
+type RateEditState = { code: string; field: "pickup" | "weight" | "vn" } | null;
 
 function fmtRate(n: number) {
   if (n >= 1000) return new Intl.NumberFormat("vi-VN").format(Math.round(n));
@@ -4897,11 +4897,12 @@ function CostTab() {
       <div className="bg-card border border-border rounded-2xl overflow-hidden">
         <div className="overflow-x-auto">
         {/* Column headers */}
-        <div className="grid grid-cols-[minmax(110px,1.8fr)_1fr_1fr_1fr] gap-0 bg-muted/60 border-b border-border min-w-[360px]">
+        <div className="grid grid-cols-[minmax(110px,1.8fr)_1fr_1fr_1fr_1fr] gap-0 bg-muted/60 border-b border-border min-w-[440px]">
           <div className="px-3 py-2 text-[10px] font-bold text-muted-foreground uppercase">Tiền tệ</div>
           <div className="px-3 py-2 text-[10px] font-bold text-blue-600 uppercase text-right">Realtime</div>
           <div className="px-3 py-2 text-[10px] font-bold text-violet-600 uppercase text-right">Pickup</div>
           <div className="px-3 py-2 text-[10px] font-bold text-amber-600 uppercase text-right">Tiền cân/kg</div>
+          <div className="px-3 py-2 text-[10px] font-bold text-emerald-600 uppercase text-right">Đổi NH Việt</div>
         </div>
 
         {loading ? (
@@ -4911,13 +4912,15 @@ function CostTab() {
             const rt = realtimeRates[row.code];
             const pickupVal = manual[row.code]?.pickup ?? "";
             const weightVal = manual[row.code]?.weight ?? "";
+            const vnVal = manual[row.code]?.vn ?? "";
             const isEditingPickup = editing?.code === row.code && editing.field === "pickup";
             const isEditingWeight = editing?.code === row.code && editing.field === "weight";
+            const isEditingVn = editing?.code === row.code && editing.field === "vn";
 
             return (
               <div
                 key={row.code}
-                className={`grid grid-cols-[minmax(110px,1.8fr)_1fr_1fr_1fr] gap-0 items-center border-b border-border/50 last:border-b-0 min-w-[360px] ${idx % 2 === 0 ? "" : "bg-muted/20"}`}
+                className={`grid grid-cols-[minmax(110px,1.8fr)_1fr_1fr_1fr_1fr] gap-0 items-center border-b border-border/50 last:border-b-0 min-w-[440px] ${idx % 2 === 0 ? "" : "bg-muted/20"}`}
               >
                 {/* Currency name */}
                 <div className="px-3 py-2.5 flex items-center gap-1.5">
@@ -4981,6 +4984,29 @@ function CostTab() {
                     </button>
                   )}
                 </div>
+
+                {/* VN bank exchange rate - editable */}
+                <div className="px-2 py-1.5 text-right">
+                  {isEditingVn ? (
+                    <input
+                      autoFocus
+                      type="number"
+                      value={editVal}
+                      onChange={(e) => setEditVal(e.target.value)}
+                      onBlur={commitEdit}
+                      onKeyDown={(e) => { if (e.key === "Enter") commitEdit(); if (e.key === "Escape") setEditing(null); }}
+                      className="w-full text-xs text-right border border-emerald-400 rounded-lg px-1.5 py-1 bg-emerald-50 outline-none focus:ring-1 focus:ring-emerald-400"
+                    />
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => startEdit(row.code, "vn")}
+                      className="text-xs font-semibold text-emerald-700 hover:bg-emerald-50 px-1.5 py-0.5 rounded-lg transition-colors w-full text-right"
+                    >
+                      {vnVal ? new Intl.NumberFormat("vi-VN").format(Number(vnVal)) : <span className="text-muted-foreground/50 font-normal">—</span>}
+                    </button>
+                  )}
+                </div>
               </div>
             );
           })
@@ -4989,7 +5015,7 @@ function CostTab() {
       </div>
 
       <p className="text-[10px] text-muted-foreground text-center">
-        Tỷ giá Realtime theo thị trường quốc tế (cập nhật hàng ngày). Pickup và Tiền cân cập nhật thủ công.
+        Tỷ giá Realtime theo thị trường quốc tế (cập nhật hàng ngày). Pickup, Tiền cân và Đổi NH Việt cập nhật thủ công.
       </p>
 
       {/* ── Giá gửi quốc tế ── */}
