@@ -2929,10 +2929,13 @@ function StatsTab() {
                                       <div key={b.phone} className="flex items-center gap-2 px-2 py-1.5 rounded-lg bg-card border border-border">
                                         <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${b.source === "app" ? "bg-blue-400" : "bg-amber-400"}`} />
                                         <span className="text-xs font-bold tracking-wide flex-1">{b.phone}</span>
-                                        {b.name && <span className="text-[11px] text-muted-foreground truncate max-w-[100px]">{b.name}</span>}
+                                        {b.name && <span className="text-[11px] text-muted-foreground truncate max-w-[90px]">{b.name}</span>}
                                         <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-full shrink-0 ${b.source === "app" ? "bg-blue-100 text-blue-600" : "bg-amber-100 text-amber-600"}`}>
                                           {b.source === "app" ? "App" : "Tay"}
                                         </span>
+                                        <button type="button" onClick={() => navigator.clipboard.writeText(b.phone).catch(() => {})} className="text-muted-foreground hover:text-primary shrink-0 transition-colors" title="Copy SĐT">
+                                          <Copy size={11} />
+                                        </button>
                                         {/* Only allow deleting manually-added entries */}
                                         {(extraBuyers.some((e) => e.phone === b.phone)) && (
                                           <button type="button" onClick={() => removeBuyer(b.phone)} className="text-muted-foreground hover:text-destructive ml-0.5 shrink-0">
