@@ -160,10 +160,13 @@ function ProductsTab() {
   const { toast } = useToast();
   const [open, setOpen] = useState(false);
   const [editId, setEditId] = useState<number | null>(null);
-  type SubVariantDraft = { name: string; price?: number; stock?: number; soldOut?: boolean };
+  type SubSubVariantDraft = { name: string; price?: number; stock?: number; soldOut?: boolean };
+  type SubVariantDraft = { name: string; price?: number; stock?: number; soldOut?: boolean; subSubVariants?: SubSubVariantDraft[]; _showSubSubs?: boolean };
   type VariantDraft = { name: string; price?: number; stock?: number; soldOut?: boolean; memberOnly?: boolean; subVariants?: SubVariantDraft[]; _showSubs?: boolean };
   const [form, setForm] = useState({ name: "", description: "", price: "", category: "Kpop", stock: "0", isAvailable: true, isSoldOut: false, orderType: "preorder", orderLabel: "", orderName: "", imageUrl: "", tags: [] as string[], variants: [] as VariantDraft[], slotPrefix: "", slotConfig: {} as Record<string, any> });
   const [subVariantInputs, setSubVariantInputs] = useState<Record<number, { name: string; price: string; stock: string }>>({});
+  const [subSubVariantInputs, setSubSubVariantInputs] = useState<Record<string, { name: string; price: string; stock: string }>>({});
+  const [copiedSubVariants, setCopiedSubVariants] = useState<SubVariantDraft[] | null>(null);
   const [customTagInput, setCustomTagInput] = useState("");
   const [customVariantInput, setCustomVariantInput] = useState({ name: "", price: "", stock: "" });
   const [customCategoryInput, setCustomCategoryInput] = useState("");
@@ -215,7 +218,7 @@ function ProductsTab() {
     "Weverse Album", "Limited Edition", "Merch Bundle",
   ];
 
-  const resetForm = () => { setForm({ name: "", description: "", price: "", category: "Kpop", stock: "0", isAvailable: true, isSoldOut: false, orderType: "preorder", orderLabel: "", orderName: "", imageUrl: "", tags: [], variants: [], slotPrefix: "", slotConfig: {} }); setCustomTagInput(""); setCustomVariantInput({ name: "", price: "", stock: "" }); setSubVariantInputs({}); };
+  const resetForm = () => { setForm({ name: "", description: "", price: "", category: "Kpop", stock: "0", isAvailable: true, isSoldOut: false, orderType: "preorder", orderLabel: "", orderName: "", imageUrl: "", tags: [], variants: [], slotPrefix: "", slotConfig: {} }); setCustomTagInput(""); setCustomVariantInput({ name: "", price: "", stock: "" }); setSubVariantInputs({}); setSubSubVariantInputs({}); setCopiedSubVariants(null); };
 
   const addCustomTag = () => {
     const tag = customTagInput.trim();
@@ -227,7 +230,8 @@ function ProductsTab() {
   const openEdit = (p: NonNullable<typeof products>[0]) => {
     setEditId(p.id);
     setSubVariantInputs({});
-    setForm({ name: p.name, description: p.description ?? "", price: String(p.price), category: p.category, stock: String(p.stock), isAvailable: p.isAvailable, isSoldOut: (p as any).isSoldOut ?? false, orderType: p.orderType, orderLabel: (p as any).orderLabel ?? "", orderName: (p as any).orderName ?? "", imageUrl: p.imageUrl ?? "", tags: p.tags ?? [], variants: (p.variants ?? []).map((v: any) => ({ name: v.name, price: v.price ?? undefined, stock: v.stock ?? undefined, soldOut: v.soldOut ?? false, memberOnly: v.memberOnly ?? false, subVariants: (v.subVariants ?? []).map((sv: any) => ({ name: sv.name, price: sv.price ?? undefined, stock: sv.stock ?? undefined, soldOut: sv.soldOut ?? false })), _showSubs: (v.subVariants ?? []).length > 0 })), slotPrefix: (p as any).slotPrefix ?? "", slotConfig: (p as any).slotConfig ?? {} });
+    setSubSubVariantInputs({});
+    setForm({ name: p.name, description: p.description ?? "", price: String(p.price), category: p.category, stock: String(p.stock), isAvailable: p.isAvailable, isSoldOut: (p as any).isSoldOut ?? false, orderType: p.orderType, orderLabel: (p as any).orderLabel ?? "", orderName: (p as any).orderName ?? "", imageUrl: p.imageUrl ?? "", tags: p.tags ?? [], variants: (p.variants ?? []).map((v: any) => ({ name: v.name, price: v.price ?? undefined, stock: v.stock ?? undefined, soldOut: v.soldOut ?? false, memberOnly: v.memberOnly ?? false, subVariants: (v.subVariants ?? []).map((sv: any) => ({ name: sv.name, price: sv.price ?? undefined, stock: sv.stock ?? undefined, soldOut: sv.soldOut ?? false, subSubVariants: (sv.subSubVariants ?? []).map((ssv: any) => ({ name: ssv.name, price: ssv.price ?? undefined, stock: ssv.stock ?? undefined, soldOut: ssv.soldOut ?? false })), _showSubSubs: (sv.subSubVariants ?? []).length > 0 })), _showSubs: (v.subVariants ?? []).length > 0 })), slotPrefix: (p as any).slotPrefix ?? "", slotConfig: (p as any).slotConfig ?? {} });
     setOpen(true);
   };
 
@@ -246,6 +250,14 @@ function ProductsTab() {
             ...(sv.price != null && !isNaN(sv.price) ? { price: sv.price } : {}),
             ...(!isPreorder && sv.stock != null && !isNaN(sv.stock) ? { stock: sv.stock } : {}),
             soldOut: sv.soldOut ?? false,
+            ...(sv.subSubVariants && sv.subSubVariants.length > 0 ? {
+              subSubVariants: sv.subSubVariants.map((ssv) => ({
+                name: ssv.name,
+                ...(ssv.price != null && !isNaN(ssv.price) ? { price: ssv.price } : {}),
+                ...(!isPreorder && ssv.stock != null && !isNaN(ssv.stock) ? { stock: ssv.stock } : {}),
+                soldOut: ssv.soldOut ?? false,
+              }))
+            } : {}),
           }))
         } : {}),
       }));
@@ -440,26 +452,142 @@ function ProductsTab() {
                         </div>
                         {v._showSubs && (
                           <div className="px-3 pb-2 border-t border-violet-100 bg-violet-50/60 rounded-b-xl space-y-1.5 pt-2">
-                            <p className="text-[9px] font-black text-violet-600 uppercase tracking-widest">Biến thể phụ</p>
-                            {(v.subVariants ?? []).map((sv, svIdx) => (
-                              <div key={svIdx} className={`flex items-center gap-1.5 rounded-lg px-2 py-1 border text-[10px] ${sv.soldOut ? "bg-red-50 border-red-200" : "bg-white border-violet-200"}`}>
-                                <span className={`font-bold flex-1 min-w-0 ${sv.soldOut ? "text-red-400 line-through" : "text-foreground"}`}>{sv.name}</span>
-                                {sv.price != null && <span className="font-bold text-primary">{new Intl.NumberFormat("vi-VN").format(sv.price)}₫</span>}
-                                {sv.stock != null && <span className="px-1 rounded bg-primary/10 text-primary font-bold">kho:{sv.stock}</span>}
-                                <Switch
-                                  checked={!!sv.soldOut}
-                                  onCheckedChange={() => setForm((f) => ({ ...f, variants: f.variants.map((vv, vi) => vi === idx ? { ...vv, subVariants: (vv.subVariants ?? []).map((s, si) => si === svIdx ? { ...s, soldOut: !s.soldOut } : s) } : vv) }))}
-                                  className="data-[state=checked]:bg-red-500 scale-[0.65] origin-right shrink-0"
-                                />
-                                <button
-                                  type="button"
-                                  onClick={() => setForm((f) => ({ ...f, variants: f.variants.map((vv, vi) => vi === idx ? { ...vv, subVariants: (vv.subVariants ?? []).filter((_, si) => si !== svIdx) } : vv) }))}
-                                  className="w-4 h-4 rounded-full flex items-center justify-center hover:bg-red-100 text-muted-foreground hover:text-red-600 transition-colors shrink-0 text-sm leading-none"
-                                >
-                                  ×
-                                </button>
+                            {/* Header row with copy/paste */}
+                            <div className="flex items-center justify-between">
+                              <p className="text-[9px] font-black text-violet-600 uppercase tracking-widest">Biến thể phụ</p>
+                              <div className="flex gap-1">
+                                {(v.subVariants ?? []).length > 0 && (
+                                  <button
+                                    type="button"
+                                    onClick={() => setCopiedSubVariants((v.subVariants ?? []).map((sv) => ({ ...sv, _showSubSubs: false })))}
+                                    className="text-[9px] font-bold px-2 py-0.5 rounded-lg bg-violet-100 text-violet-700 hover:bg-violet-200 transition-colors border border-violet-200"
+                                    title="Copy toàn bộ biến thể phụ"
+                                  >
+                                    📋 Copy
+                                  </button>
+                                )}
+                                {copiedSubVariants && (
+                                  <button
+                                    type="button"
+                                    onClick={() => setForm((f) => ({ ...f, variants: f.variants.map((vv, i) => i === idx ? { ...vv, subVariants: copiedSubVariants.map((sv) => ({ ...sv })) } : vv) }))}
+                                    className="text-[9px] font-bold px-2 py-0.5 rounded-lg bg-emerald-100 text-emerald-700 hover:bg-emerald-200 transition-colors border border-emerald-200"
+                                    title={`Dán ${copiedSubVariants.length} biến thể phụ`}
+                                  >
+                                    ✦ Dán ({copiedSubVariants.length})
+                                  </button>
+                                )}
                               </div>
-                            ))}
+                            </div>
+
+                            {(v.subVariants ?? []).map((sv, svIdx) => {
+                              const ssvKey = `${idx}-${svIdx}`;
+                              const ssvInput = subSubVariantInputs[ssvKey] ?? { name: "", price: "", stock: "" };
+                              const addSubSubVariant = () => {
+                                const name = ssvInput.name.trim();
+                                if (!name) return;
+                                const price = ssvInput.price ? parseFloat(ssvInput.price) : undefined;
+                                const stock = ssvInput.stock ? parseInt(ssvInput.stock) : undefined;
+                                setForm((f) => ({ ...f, variants: f.variants.map((vv, vi) => vi === idx ? { ...vv, subVariants: (vv.subVariants ?? []).map((s, si) => si === svIdx ? { ...s, subSubVariants: [...(s.subSubVariants ?? []), { name, price, stock }] } : s) } : vv) }));
+                                setSubSubVariantInputs((s) => ({ ...s, [ssvKey]: { name: "", price: "", stock: "" } }));
+                              };
+                              return (
+                                <div key={svIdx} className={`rounded-lg border text-[10px] ${sv.soldOut ? "bg-red-50 border-red-200" : "bg-white border-violet-200"}`}>
+                                  {/* Sub-variant row */}
+                                  <div className="flex items-center gap-1.5 px-2 py-1">
+                                    <span className={`font-bold flex-1 min-w-0 ${sv.soldOut ? "text-red-400 line-through" : "text-foreground"}`}>{sv.name}</span>
+                                    {sv.price != null && <span className="font-bold text-primary">{new Intl.NumberFormat("vi-VN").format(sv.price)}₫</span>}
+                                    {sv.stock != null && <span className="px-1 rounded bg-primary/10 text-primary font-bold">kho:{sv.stock}</span>}
+                                    {(sv.subSubVariants ?? []).length > 0 && (
+                                      <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-fuchsia-100 text-fuchsia-600 border border-fuchsia-200">
+                                        {(sv.subSubVariants ?? []).length} size
+                                      </span>
+                                    )}
+                                    {/* Toggle sub-sub-variants */}
+                                    <button
+                                      type="button"
+                                      onClick={() => setForm((f) => ({ ...f, variants: f.variants.map((vv, vi) => vi === idx ? { ...vv, subVariants: (vv.subVariants ?? []).map((s, si) => si === svIdx ? { ...s, _showSubSubs: !s._showSubSubs } : s) } : vv) }))}
+                                      className={`text-[8px] font-bold px-1.5 py-0.5 rounded border transition-colors shrink-0 ${sv._showSubSubs ? "bg-fuchsia-100 text-fuchsia-700 border-fuchsia-300" : "bg-muted/60 text-muted-foreground border-border hover:bg-fuchsia-50 hover:text-fuchsia-600"}`}
+                                    >
+                                      ≡ Size
+                                    </button>
+                                    <Switch
+                                      checked={!!sv.soldOut}
+                                      onCheckedChange={() => setForm((f) => ({ ...f, variants: f.variants.map((vv, vi) => vi === idx ? { ...vv, subVariants: (vv.subVariants ?? []).map((s, si) => si === svIdx ? { ...s, soldOut: !s.soldOut } : s) } : vv) }))}
+                                      className="data-[state=checked]:bg-red-500 scale-[0.65] origin-right shrink-0"
+                                    />
+                                    <button
+                                      type="button"
+                                      onClick={() => setForm((f) => ({ ...f, variants: f.variants.map((vv, vi) => vi === idx ? { ...vv, subVariants: (vv.subVariants ?? []).filter((_, si) => si !== svIdx) } : vv) }))}
+                                      className="w-4 h-4 rounded-full flex items-center justify-center hover:bg-red-100 text-muted-foreground hover:text-red-600 transition-colors shrink-0 text-sm leading-none"
+                                    >
+                                      ×
+                                    </button>
+                                  </div>
+
+                                  {/* Sub-sub-variants (e.g. sizes) */}
+                                  {sv._showSubSubs && (
+                                    <div className="px-2 pb-1.5 pt-1 border-t border-fuchsia-100 bg-fuchsia-50/60 space-y-1">
+                                      <p className="text-[8px] font-black text-fuchsia-500 uppercase tracking-widest">Size / Phụ phụ</p>
+                                      {(sv.subSubVariants ?? []).map((ssv, ssvIdx) => (
+                                        <div key={ssvIdx} className={`flex items-center gap-1 rounded px-1.5 py-0.5 border text-[9px] ${ssv.soldOut ? "bg-red-50 border-red-200" : "bg-white border-fuchsia-200"}`}>
+                                          <span className={`font-bold flex-1 ${ssv.soldOut ? "text-red-400 line-through" : "text-foreground"}`}>{ssv.name}</span>
+                                          {ssv.price != null && <span className="font-bold text-primary">{new Intl.NumberFormat("vi-VN").format(ssv.price)}₫</span>}
+                                          {ssv.stock != null && <span className="px-1 rounded bg-primary/10 text-primary font-bold">kho:{ssv.stock}</span>}
+                                          <Switch
+                                            checked={!!ssv.soldOut}
+                                            onCheckedChange={() => setForm((f) => ({ ...f, variants: f.variants.map((vv, vi) => vi === idx ? { ...vv, subVariants: (vv.subVariants ?? []).map((s, si) => si === svIdx ? { ...s, subSubVariants: (s.subSubVariants ?? []).map((ss, ssi) => ssi === ssvIdx ? { ...ss, soldOut: !ss.soldOut } : ss) } : s) } : vv) }))}
+                                            className="data-[state=checked]:bg-red-500 scale-[0.6] origin-right shrink-0"
+                                          />
+                                          <button
+                                            type="button"
+                                            onClick={() => setForm((f) => ({ ...f, variants: f.variants.map((vv, vi) => vi === idx ? { ...vv, subVariants: (vv.subVariants ?? []).map((s, si) => si === svIdx ? { ...s, subSubVariants: (s.subSubVariants ?? []).filter((_, ssi) => ssi !== ssvIdx) } : s) } : vv) }))}
+                                            className="w-3.5 h-3.5 rounded-full flex items-center justify-center hover:bg-red-100 text-muted-foreground hover:text-red-600 transition-colors shrink-0 text-xs leading-none"
+                                          >
+                                            ×
+                                          </button>
+                                        </div>
+                                      ))}
+                                      {/* Add sub-sub-variant */}
+                                      <div className="flex gap-1 pt-0.5">
+                                        <Input
+                                          value={ssvInput.name}
+                                          onChange={(e) => setSubSubVariantInputs((s) => ({ ...s, [ssvKey]: { ...ssvInput, name: e.target.value } }))}
+                                          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addSubSubVariant(); } }}
+                                          placeholder="Tên size (S, M, L...)"
+                                          className="rounded h-6 text-[9px] flex-1 bg-white px-1.5"
+                                        />
+                                        <Input
+                                          value={ssvInput.price}
+                                          onChange={(e) => setSubSubVariantInputs((s) => ({ ...s, [ssvKey]: { ...ssvInput, price: e.target.value } }))}
+                                          placeholder="Giá"
+                                          type="number"
+                                          className="rounded h-6 text-[9px] w-16 bg-white px-1.5"
+                                        />
+                                        {form.orderType !== "preorder" && (
+                                          <Input
+                                            value={ssvInput.stock}
+                                            onChange={(e) => setSubSubVariantInputs((s) => ({ ...s, [ssvKey]: { ...ssvInput, stock: e.target.value } }))}
+                                            placeholder="Kho"
+                                            type="number"
+                                            min="0"
+                                            className="rounded h-6 text-[9px] w-12 bg-white px-1.5"
+                                          />
+                                        )}
+                                        <button
+                                          type="button"
+                                          onClick={addSubSubVariant}
+                                          className="shrink-0 h-6 px-2 rounded text-[9px] font-bold bg-fuchsia-600 text-white hover:bg-fuchsia-700 transition-colors"
+                                        >
+                                          +
+                                        </button>
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
+
+                            {/* Add sub-variant row */}
                             <div className="flex gap-1.5 pt-0.5">
                               <Input
                                 value={subInput.name}
@@ -836,12 +964,18 @@ function ProductsTab() {
               <div className="flex flex-col items-center gap-0.5">
                 <Switch
                   checked={!!(p as any).isSoldOut}
-                  onCheckedChange={(v) =>
+                  onCheckedChange={(v) => {
+                    const currentVariants = (p.variants ?? []) as any[];
+                    const newVariants = currentVariants.map((vv: any) => ({
+                      ...vv,
+                      soldOut: v,
+                      subVariants: (vv.subVariants ?? []).map((sv: any) => ({ ...sv, soldOut: v })),
+                    }));
                     updateProduct.mutate(
-                      { id: p.id, data: { isSoldOut: v } as any },
+                      { id: p.id, data: { isSoldOut: v, ...(newVariants.length > 0 ? { variants: newVariants } : {}) } as any },
                       { onSuccess: () => queryClient.invalidateQueries({ queryKey: getListProductsQueryKey() }) }
-                    )
-                  }
+                    );
+                  }}
                 />
                 <span className={`text-[9px] font-bold transition-colors ${(p as any).isSoldOut ? "text-red-500" : "text-muted-foreground"}`}>Sold</span>
               </div>
