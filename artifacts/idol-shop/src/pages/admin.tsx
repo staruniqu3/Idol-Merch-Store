@@ -2512,14 +2512,17 @@ function PreorderTab() {
 const STATS_ACCOUNTED_KEY         = "stats_accounted_order_ids";
 const STATS_ACCOUNTED_MANUAL_KEY  = "stats_accounted_manual_ids";
 const STATS_ORDERED_ITEMS_KEY     = "stats_ordered_items";
-const STATS_BATCH_HISTORY_KEY     = "stats_batch_history";
-const STATS_RECEIVED_ITEMS_KEY    = "stats_received_batch_items";
+const STATS_BATCH_HISTORY_KEY      = "stats_batch_history";
+const STATS_RECEIVED_ITEMS_KEY     = "stats_received_batch_items";
+const STATS_BATCH_MANUAL_BUYERS_KEY = "stats_batch_manual_buyers";
 
+type BatchBuyer = { phone: string; name: string; orderId?: number | string; source: "app" | "manual" };
 type BatchRecord = {
   completedAt: string;
   orderCount: number;
   totalQty: number;
   items: Array<{ name: string; qty: number; revenue: number }>;
+  buyers?: BatchBuyer[];
 };
 
 function StatsTab() {
@@ -2564,6 +2567,12 @@ function StatsTab() {
   };
   const receivedItemKey = (batchAt: string, itemName: string) => `${batchAt}::${itemName}`;
   const [expandedReceiveBatch, setExpandedReceiveBatch] = useState<number | null>(null);
+  // per-batch manually added buyers: keyed by completedAt
+  const [manualBatchBuyers, setManualBatchBuyers] = useState<Record<string, Array<{ phone: string; name: string }>>>(() => {
+    try { return JSON.parse(localStorage.getItem(STATS_BATCH_MANUAL_BUYERS_KEY) || "{}"); } catch { return {}; }
+  });
+  const [buyerInputs, setBuyerInputs] = useState<Record<string, { phone: string; name: string }>>({});
+  const [showBuyerList, setShowBuyerList] = useState<Record<string, boolean>>({});
 
   const [accountedIds, setAccountedIds] = useState<Set<number>>(() => {
     try { return new Set(JSON.parse(localStorage.getItem(STATS_ACCOUNTED_KEY) || "[]")); } catch { return new Set(); }
@@ -2603,6 +2612,7 @@ function StatsTab() {
       loadFromServer<BatchRecord[]>(STATS_BATCH_HISTORY_KEY, setBatchHistory, STATS_BATCH_HISTORY_KEY, []),
       loadFromServer<string[]>(STATS_RECEIVED_ITEMS_KEY, (d) => setReceivedItems(new Set(d)), STATS_RECEIVED_ITEMS_KEY, []),
       loadFromServer<string[]>("stats_ordered_entry_keys", (d) => setOrderedEntryKeys(new Set(d)), "stats_ordered_entry_keys", []),
+      loadFromServer<Record<string, Array<{ phone: string; name: string }>>>(STATS_BATCH_MANUAL_BUYERS_KEY, (d) => { setManualBatchBuyers(d); localStorage.setItem(STATS_BATCH_MANUAL_BUYERS_KEY, JSON.stringify(d)); }, STATS_BATCH_MANUAL_BUYERS_KEY, {}),
     ]);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -2660,11 +2670,24 @@ function StatsTab() {
     const snapshot = Object.entries(itemMap)
       .sort((a, b) => b[1].qty - a[1].qty)
       .map(([name, { qty, revenue }]) => ({ name, qty, revenue }));
+    // Snapshot unique buyers from app orders + manual orders
+    const buyerMap = new Map<string, BatchBuyer>();
+    activeOrders.forEach((o) => {
+      const phone = (o.memberPhone ?? "").trim();
+      if (phone && !buyerMap.has(phone))
+        buyerMap.set(phone, { phone, name: o.memberName ?? "", orderId: o.id, source: "app" });
+    });
+    activeManualOrders.forEach((o) => {
+      const phone = (o.phone ?? "").trim();
+      if (phone && !buyerMap.has(phone))
+        buyerMap.set(phone, { phone, name: o.customerName ?? "", orderId: o.id, source: "manual" });
+    });
     const record: BatchRecord = {
       completedAt: new Date().toISOString(),
       orderCount: activeOrders.length + activeManualOrders.length,
       totalQty: snapshot.reduce((s, i) => s + i.qty, 0),
       items: snapshot,
+      buyers: [...buyerMap.values()],
     };
     const newHistory = [record, ...batchHistory];
     setBatchHistory(newHistory);
@@ -2832,6 +2855,126 @@ function StatsTab() {
                             </button>
                           );
                         })}
+
+                        {/* ── Buyer list section ── */}
+                        {(() => {
+                          const bKey = batch.completedAt;
+                          const appBuyers   = batch.buyers ?? [];
+                          const extraBuyers = manualBatchBuyers[bKey] ?? [];
+                          const allBuyers   = [...appBuyers, ...extraBuyers];
+                          const isListOpen  = showBuyerList[bKey] ?? false;
+                          const input       = buyerInputs[bKey] ?? { phone: "", name: "" };
+
+                          const saveManualBuyers = (updated: Record<string, Array<{ phone: string; name: string }>>) => {
+                            setManualBatchBuyers(updated);
+                            localStorage.setItem(STATS_BATCH_MANUAL_BUYERS_KEY, JSON.stringify(updated));
+                            putToServer(STATS_BATCH_MANUAL_BUYERS_KEY, updated);
+                          };
+
+                          const addBuyer = () => {
+                            const phone = input.phone.trim();
+                            if (!phone) return;
+                            const already = allBuyers.some((b) => b.phone === phone);
+                            if (already) return;
+                            const updated = { ...manualBatchBuyers, [bKey]: [...(manualBatchBuyers[bKey] ?? []), { phone, name: input.name.trim() }] };
+                            saveManualBuyers(updated);
+                            setBuyerInputs((p) => ({ ...p, [bKey]: { phone: "", name: "" } }));
+                          };
+
+                          const removeBuyer = (phone: string) => {
+                            const updated = { ...manualBatchBuyers, [bKey]: (manualBatchBuyers[bKey] ?? []).filter((b) => b.phone !== phone) };
+                            saveManualBuyers(updated);
+                          };
+
+                          const copyPhones = () => {
+                            const text = allBuyers.map((b) => b.phone).join("\n");
+                            navigator.clipboard.writeText(text).catch(() => {});
+                          };
+
+                          return (
+                            <div className="mt-1 rounded-xl border border-border overflow-hidden">
+                              {/* Buyer list header — always visible */}
+                              <button
+                                type="button"
+                                onClick={() => setShowBuyerList((p) => ({ ...p, [bKey]: !isListOpen }))}
+                                className="w-full flex items-center justify-between px-3 py-2 bg-card hover:bg-muted/40 transition-colors"
+                              >
+                                <div className="flex items-center gap-2">
+                                  <Users size={13} className="text-primary" />
+                                  <span className="text-xs font-semibold text-foreground">Danh sách khách</span>
+                                  <span className="text-[10px] bg-primary/10 text-primary font-bold px-1.5 py-0.5 rounded-full">{allBuyers.length}</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  {allBuyers.length > 0 && (
+                                    <button
+                                      type="button"
+                                      onClick={(e) => { e.stopPropagation(); copyPhones(); }}
+                                      className="text-[10px] text-muted-foreground hover:text-primary px-2 py-0.5 rounded border border-border hover:border-primary/40 transition-colors bg-background"
+                                    >
+                                      📋 Copy SĐT
+                                    </button>
+                                  )}
+                                  <ChevronDown size={12} className={`text-muted-foreground transition-transform ${isListOpen ? "rotate-180" : ""}`} />
+                                </div>
+                              </button>
+
+                              {/* Buyer list body */}
+                              {isListOpen && (
+                                <div className="bg-muted/10 border-t border-border p-2 space-y-1.5">
+                                  {/* Existing buyers */}
+                                  {allBuyers.length === 0 ? (
+                                    <p className="text-[11px] text-muted-foreground text-center py-2">Chưa có khách nào — thêm bên dưới</p>
+                                  ) : (
+                                    allBuyers.map((b) => (
+                                      <div key={b.phone} className="flex items-center gap-2 px-2 py-1.5 rounded-lg bg-card border border-border">
+                                        <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${b.source === "app" ? "bg-blue-400" : "bg-amber-400"}`} />
+                                        <span className="text-xs font-bold tracking-wide flex-1">{b.phone}</span>
+                                        {b.name && <span className="text-[11px] text-muted-foreground truncate max-w-[100px]">{b.name}</span>}
+                                        <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-full shrink-0 ${b.source === "app" ? "bg-blue-100 text-blue-600" : "bg-amber-100 text-amber-600"}`}>
+                                          {b.source === "app" ? "App" : "Tay"}
+                                        </span>
+                                        {/* Only allow deleting manually-added entries */}
+                                        {(extraBuyers.some((e) => e.phone === b.phone)) && (
+                                          <button type="button" onClick={() => removeBuyer(b.phone)} className="text-muted-foreground hover:text-destructive ml-0.5 shrink-0">
+                                            <X size={11} />
+                                          </button>
+                                        )}
+                                      </div>
+                                    ))
+                                  )}
+
+                                  {/* Add phone manually */}
+                                  <div className="flex gap-1.5 pt-1">
+                                    <input
+                                      type="tel"
+                                      placeholder="SĐT..."
+                                      value={input.phone}
+                                      onChange={(e) => setBuyerInputs((p) => ({ ...p, [bKey]: { ...input, phone: e.target.value } }))}
+                                      onKeyDown={(e) => { if (e.key === "Enter") addBuyer(); }}
+                                      className="flex-1 min-w-0 text-xs px-2 py-1.5 rounded-lg border border-border bg-background focus:outline-none focus:border-primary/60"
+                                    />
+                                    <input
+                                      type="text"
+                                      placeholder="Tên (tuỳ chọn)"
+                                      value={input.name}
+                                      onChange={(e) => setBuyerInputs((p) => ({ ...p, [bKey]: { ...input, name: e.target.value } }))}
+                                      onKeyDown={(e) => { if (e.key === "Enter") addBuyer(); }}
+                                      className="flex-1 min-w-0 text-xs px-2 py-1.5 rounded-lg border border-border bg-background focus:outline-none focus:border-primary/60"
+                                    />
+                                    <button
+                                      type="button"
+                                      onClick={addBuyer}
+                                      disabled={!input.phone.trim()}
+                                      className="text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-primary text-primary-foreground disabled:opacity-40 shrink-0"
+                                    >
+                                      + Thêm
+                                    </button>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })()}
                       </div>
                     )}
                   </div>

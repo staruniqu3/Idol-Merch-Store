@@ -25,6 +25,7 @@ const ALLOWED_KEYS = new Set([
   "stats_batch_history",
   "stats_received_batch_items",
   "stats_ordered_entry_keys",
+  "stats_batch_manual_buyers",
   "sovereign_club_sheet_id",
 ]);
 
