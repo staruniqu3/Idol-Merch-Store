@@ -1568,11 +1568,15 @@ function OrdersTab() {
                         <input type="number" min="0" placeholder="Giá" value={item.price || ""}
                           onChange={(e) => setFormItem(idx, "price", parseFloat(e.target.value) || 0)}
                           className="w-20 shrink-0 text-xs border border-border rounded-xl px-2 py-2 bg-background outline-none focus:ring-2 focus:ring-primary/30" />
-                        {formItems.length > 1 && (
-                          <button type="button" onClick={() => removeFormItem(idx)} className="text-muted-foreground hover:text-destructive transition-colors shrink-0">
-                            <X size={13} />
-                          </button>
-                        )}
+                        <button type="button" onClick={() => {
+                          if (formItems.length === 1) {
+                            setFormItems([{ name: "", qty: 1, price: 0 }]);
+                          } else {
+                            removeFormItem(idx);
+                          }
+                        }} className="text-muted-foreground hover:text-destructive transition-colors shrink-0" title="Xóa dòng">
+                          <X size={13} />
+                        </button>
                       </div>
                       {/* Discount price row */}
                       {item.price > 0 && (
@@ -1634,6 +1638,12 @@ function OrdersTab() {
                                     </option>
                                   ))}
                                 </select>
+                                {item.subVariant && (
+                                  <button type="button" onClick={() => handleItemSubVariantChange(idx, "")}
+                                    className="text-muted-foreground hover:text-destructive transition-colors shrink-0" title="Bỏ chọn">
+                                    <X size={12} />
+                                  </button>
+                                )}
                               </div>
                             );
                           })()}
@@ -1867,6 +1877,12 @@ function OrdersTab() {
                                               </option>
                                             ))}
                                           </select>
+                                          {it.subVariant && (
+                                            <button type="button" onClick={() => handleEditSubVariantSmart("")}
+                                              className="text-muted-foreground hover:text-destructive transition-colors shrink-0" title="Bỏ chọn">
+                                              <X size={12} />
+                                            </button>
+                                          )}
                                         </div>
                                       )}
                                     </div>
