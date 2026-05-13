@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { customFetch } from "./custom-fetch";
 
-export type ManualOrderItem = { name: string; qty: number; price: number; variant?: string; subVariant?: string };
+export type ManualOrderItem = { name: string; qty: number; price: number; variant?: string; subVariant?: string; discountedPrice?: number };
 export type ManualOrder = {
   id: string; customerName: string; phone: string;
   items: ManualOrderItem[]; note: string; date: string; status: string;

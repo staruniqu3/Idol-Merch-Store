@@ -1298,7 +1298,7 @@ function OrdersTab() {
   const [formStatus, setFormStatus] = useState("pending");
   const [formItems,  setFormItems]  = useState<ManualOrderItem[]>([{ name: "", qty: 1, price: 0 }]);
 
-  const formTotal = formItems.reduce((s, i) => s + i.qty * i.price, 0);
+  const formTotal = formItems.reduce((s, i) => s + i.qty * (i.discountedPrice ?? i.price), 0);
 
   const resetForm = () => {
     setFormName(""); setFormPhone(""); setFormNote(""); setFormStatus("pending");
@@ -1319,7 +1319,7 @@ function OrdersTab() {
   const [editStatus, setEditStatus] = useState("pending");
   const [editItems,  setEditItems]  = useState<ManualOrderItem[]>([]);
 
-  const editTotal = editItems.reduce((s, i) => s + i.qty * i.price, 0);
+  const editTotal = editItems.reduce((s, i) => s + i.qty * (i.discountedPrice ?? i.price), 0);
 
   const openEditManual = (order: ManualOrder) => {
     setEditName(order.customerName);
@@ -1574,6 +1574,29 @@ function OrdersTab() {
                           </button>
                         )}
                       </div>
+                      {/* Discount price row */}
+                      {item.price > 0 && (
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[10px] text-muted-foreground shrink-0 w-14">Giá giảm:</span>
+                          <input type="number" min="0" placeholder="Để trống nếu không giảm"
+                            value={item.discountedPrice ?? ""}
+                            onChange={(e) => {
+                              const v = parseFloat(e.target.value);
+                              setFormItem(idx, "discountedPrice", isNaN(v) ? 0 : v);
+                            }}
+                            className="flex-1 min-w-0 text-xs border border-rose-300/60 rounded-xl px-2 py-1.5 bg-rose-50/50 outline-none focus:ring-2 focus:ring-rose-300/50"
+                          />
+                          {item.discountedPrice != null && item.discountedPrice > 0 && item.discountedPrice < item.price && (
+                            <span className="text-[10px] font-black text-rose-600 bg-rose-100 border border-rose-200 px-1.5 py-0.5 rounded-full shrink-0">
+                              –{Math.round((1 - item.discountedPrice / item.price) * 100)}%
+                            </span>
+                          )}
+                          {item.discountedPrice != null && item.discountedPrice > 0 && (
+                            <button type="button" onClick={() => setFormItem(idx, "discountedPrice", 0)}
+                              className="text-muted-foreground hover:text-destructive shrink-0"><X size={11} /></button>
+                          )}
+                        </div>
+                      )}
                       {hasVariants && (
                         <div className="space-y-1">
                           <div className="flex items-center gap-1.5">
@@ -1658,7 +1681,7 @@ function OrdersTab() {
             <div className="space-y-2">
               {manualOrders.map((order) => {
                 const isExpanded = expandedManualId === order.id;
-                const total = order.items.reduce((s, i) => s + i.qty * i.price, 0);
+                const total = order.items.reduce((s, i) => s + i.qty * (i.discountedPrice ?? i.price), 0);
                 const statusColor = order.status === "delivered" ? "bg-emerald-100 text-emerald-700 border-emerald-200"
                   : order.status === "cancelled" ? "bg-red-100 text-red-600 border-red-200"
                   : order.status === "shipped" ? "bg-blue-100 text-blue-700 border-blue-200"
@@ -1689,17 +1712,33 @@ function OrdersTab() {
                     {isExpanded && editingManualId !== order.id && (
                       <div className="border-t border-border p-3 space-y-3 bg-muted/30">
                         <div className="space-y-1">
-                          {order.items.map((it, i) => (
-                            <div key={i} className="flex justify-between text-sm gap-2">
-                              <span className="flex flex-wrap items-center gap-1 min-w-0">
-                                <span className="truncate">{it.name} ×{it.qty}</span>
-                                {it.variant && (
-                                  <span className="text-[9px] bg-primary/10 text-primary font-bold px-1.5 py-0.5 rounded-full shrink-0">{it.variant}</span>
-                                )}
-                              </span>
-                              <span className="text-muted-foreground font-semibold shrink-0">{formatPrice(it.qty * it.price)}</span>
-                            </div>
-                          ))}
+                          {order.items.map((it, i) => {
+                            const hasDiscount = it.discountedPrice != null && it.discountedPrice > 0 && it.discountedPrice < it.price;
+                            const discountPct = hasDiscount ? Math.round((1 - it.discountedPrice! / it.price) * 100) : 0;
+                            const effectivePrice = it.discountedPrice && it.discountedPrice > 0 ? it.discountedPrice : it.price;
+                            return (
+                              <div key={i} className="flex justify-between text-sm gap-2 items-start">
+                                <span className="flex flex-wrap items-center gap-1 min-w-0">
+                                  <span className="truncate">{it.name} ×{it.qty}</span>
+                                  {it.variant && (
+                                    <span className="text-[9px] bg-primary/10 text-primary font-bold px-1.5 py-0.5 rounded-full shrink-0">{it.variant}</span>
+                                  )}
+                                  {it.subVariant && (
+                                    <span className="text-[9px] bg-violet-100 text-violet-600 font-bold px-1.5 py-0.5 rounded-full shrink-0">{it.subVariant}</span>
+                                  )}
+                                  {hasDiscount && (
+                                    <span className="text-[9px] font-black text-rose-600 bg-rose-100 border border-rose-200 px-1.5 py-0.5 rounded-full shrink-0">–{discountPct}%</span>
+                                  )}
+                                </span>
+                                <div className="flex flex-col items-end shrink-0">
+                                  {hasDiscount && (
+                                    <span className="text-[10px] text-muted-foreground/60 line-through">{formatPrice(it.qty * it.price)}</span>
+                                  )}
+                                  <span className={`font-semibold ${hasDiscount ? "text-rose-600" : "text-muted-foreground"}`}>{formatPrice(it.qty * effectivePrice)}</span>
+                                </div>
+                              </div>
+                            );
+                          })}
                           <div className="pt-1 border-t border-border/50 flex justify-between text-xs font-bold">
                             <span>Tổng</span><span>{formatPrice(total)}</span>
                           </div>
@@ -1785,6 +1824,20 @@ function OrdersTab() {
                                     <button type="button" onClick={() => removeEditItem(idx)}
                                       className="w-6 h-6 rounded-full flex items-center justify-center hover:bg-red-100 text-muted-foreground hover:text-red-600 shrink-0 text-base leading-none">×</button>
                                   </div>
+                                  {it.price > 0 && (
+                                    <div className="flex items-center gap-1.5">
+                                      <span className="text-[10px] text-muted-foreground shrink-0 w-14">Giá giảm:</span>
+                                      <Input type="number" min="0" placeholder="Để trống nếu không giảm"
+                                        value={it.discountedPrice ?? ""}
+                                        onChange={(e) => { const v = parseFloat(e.target.value); setEditItem(idx, "discountedPrice", isNaN(v) ? 0 : v); }}
+                                        className="rounded-xl h-7 text-xs flex-1 border-rose-300/60 bg-rose-50/50" />
+                                      {it.discountedPrice != null && it.discountedPrice > 0 && it.discountedPrice < it.price && (
+                                        <span className="text-[10px] font-black text-rose-600 bg-rose-100 border border-rose-200 px-1.5 py-0.5 rounded-full shrink-0">
+                                          –{Math.round((1 - it.discountedPrice / it.price) * 100)}%
+                                        </span>
+                                      )}
+                                    </div>
+                                  )}
                                   {hasEditVariants && (
                                     <div className="space-y-1 pl-0">
                                       <div className="flex items-center gap-1.5">
