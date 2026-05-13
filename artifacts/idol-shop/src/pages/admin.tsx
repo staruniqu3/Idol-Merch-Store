@@ -1659,8 +1659,12 @@ function OrdersTab() {
               </div>
 
               {/* Total + submit */}
-              <div className="flex items-center justify-between pt-1 border-t border-border">
-                <span className="text-sm font-black text-primary">{formatPrice(formTotal)}</span>
+              <div className="flex items-center gap-2 pt-1 border-t border-border">
+                <span className="text-sm font-black text-primary flex-1">{formatPrice(formTotal)}</span>
+                <button type="button" onClick={() => { resetForm(); setShowAddForm(false); }}
+                  className="text-xs font-bold px-3 py-2 rounded-xl border border-border text-muted-foreground hover:text-foreground hover:border-border/80 transition-colors">
+                  ← Huỷ
+                </button>
                 <button type="button" onClick={submitManualOrder}
                   disabled={!formName.trim() || formItems.every((i) => !i.name.trim())}
                   className="bg-primary text-white text-xs font-bold px-4 py-2 rounded-xl hover:bg-primary/90 transition-colors disabled:opacity-40">
@@ -1689,7 +1693,7 @@ function OrdersTab() {
                   : "bg-muted text-muted-foreground border-border";
                 return (
                   <div key={order.id} className="bg-card border border-border rounded-2xl overflow-hidden">
-                    <button type="button" onClick={() => setExpandedManualId(isExpanded ? null : order.id)}
+                    <button type="button" onClick={() => { setExpandedManualId(isExpanded ? null : order.id); if (editingManualId === order.id) setEditingManualId(null); }}
                       className="w-full p-3 flex items-center gap-3 text-left">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
@@ -1935,7 +1939,7 @@ function OrdersTab() {
           const hasCrossRef = crossRefOrders.has(order.id);
           return (
             <div key={order.id} className={`bg-card border rounded-2xl overflow-hidden ${hasCrossRef ? "border-amber-300 ring-1 ring-amber-200" : "border-border"}`} data-testid={`admin-order-${order.id}`}>
-              <button className="w-full p-3 flex items-center gap-3 text-left" onClick={() => setExpandedId(isExpanded ? null : order.id)}>
+              <div className="w-full p-3 flex items-center gap-3 text-left cursor-pointer select-none" onClick={() => setExpandedId(isExpanded ? null : order.id)}>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-bold text-sm">#{order.id} · {order.memberName}</span>
@@ -1956,6 +1960,7 @@ function OrdersTab() {
                   <div className="flex items-center gap-1.5 mt-0.5">
                     <span className="text-xs text-muted-foreground">{order.memberPhone} · {formatDate(order.createdAt)}</span>
                     <button
+                      type="button"
                       className="text-muted-foreground hover:text-foreground transition-colors shrink-0"
                       onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(order.memberPhone); }}
                       title="Copy số điện thoại"
@@ -1968,7 +1973,7 @@ function OrdersTab() {
                   <span className="font-black text-sm text-primary">{formatPrice(order.totalAmount)}</span>
                   <ChevronDown size={14} className={`transition-transform text-muted-foreground ${isExpanded ? "rotate-180" : ""}`} />
                 </div>
-              </button>
+              </div>
               {isExpanded && (
                 <div className="border-t border-border p-3 space-y-3 bg-muted/30">
                   <div className="space-y-1">
