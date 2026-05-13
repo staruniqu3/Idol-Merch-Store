@@ -1362,22 +1362,34 @@ function OrdersTab() {
     setFormItems((prev) => prev.map((it, i) => {
       if (i !== idx) return it;
       if (matched) {
-        // If product has variants, pick first variant by default and use its price
-        const firstVariant = matched.variants?.[0];
-        const price = firstVariant?.price ?? matched.price;
-        return { ...it, name: value, price, variant: firstVariant?.name ?? "" };
+        const firstVariant = (matched.variants as any)?.[0];
+        const firstSub = firstVariant?.subVariants?.[0];
+        const price = firstSub?.price ?? firstVariant?.price ?? matched.price;
+        return { ...it, name: value, price, variant: firstVariant?.name ?? "", subVariant: firstSub?.name ?? "" };
       }
-      return { ...it, name: value, variant: "" };
+      return { ...it, name: value, variant: "", subVariant: "" };
     }));
   };
 
-  // When a variant is chosen — update variant name and price
   const handleItemVariantChange = (idx: number, variantName: string) => {
     setFormItems((prev) => prev.map((it, i) => {
       if (i !== idx) return it;
       const matched = (products ?? []).find((p) => p.name === it.name);
-      const variant = matched?.variants?.find((v) => v.name === variantName);
-      return { ...it, variant: variantName, price: variant?.price ?? matched?.price ?? it.price };
+      const variant = (matched?.variants as any[])?.find((v: any) => v.name === variantName);
+      const firstSub = variant?.subVariants?.[0];
+      const price = firstSub?.price ?? variant?.price ?? matched?.price ?? it.price;
+      return { ...it, variant: variantName, subVariant: firstSub?.name ?? "", price };
+    }));
+  };
+
+  const handleItemSubVariantChange = (idx: number, subVariantName: string) => {
+    setFormItems((prev) => prev.map((it, i) => {
+      if (i !== idx) return it;
+      const matched = (products ?? []).find((p) => p.name === it.name);
+      const variant = (matched?.variants as any[])?.find((v: any) => v.name === it.variant);
+      const sub = variant?.subVariants?.find((sv: any) => sv.name === subVariantName);
+      const price = sub?.price ?? variant?.price ?? matched?.price ?? it.price;
+      return { ...it, subVariant: subVariantName, price };
     }));
   };
 
@@ -1563,20 +1575,45 @@ function OrdersTab() {
                         )}
                       </div>
                       {hasVariants && (
-                        <div className="flex items-center gap-1.5 pl-0">
-                          <span className="text-[10px] text-muted-foreground shrink-0">Biến thể:</span>
-                          <select
-                            value={item.variant ?? ""}
-                            onChange={(e) => handleItemVariantChange(idx, e.target.value)}
-                            className="flex-1 min-w-0 text-xs border border-primary/30 rounded-xl px-2 py-1.5 bg-primary/5 text-foreground outline-none focus:ring-2 focus:ring-primary/30 font-medium"
-                          >
-                            {variants.map((v) => (
-                              <option key={v.name} value={v.name}>
-                                {v.name}{v.price ? ` — ${v.price.toLocaleString("vi-VN")}₫` : ""}
-                                {v.soldOut ? " (hết)" : ""}
-                              </option>
-                            ))}
-                          </select>
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-[10px] text-muted-foreground shrink-0 w-10">Biến thể:</span>
+                            <select
+                              value={item.variant ?? ""}
+                              onChange={(e) => handleItemVariantChange(idx, e.target.value)}
+                              className="flex-1 min-w-0 text-xs border border-primary/30 rounded-xl px-2 py-1.5 bg-primary/5 text-foreground outline-none focus:ring-2 focus:ring-primary/30 font-medium"
+                            >
+                              {variants.map((v) => (
+                                <option key={v.name} value={v.name}>
+                                  {v.name}{(v as any).price ? ` — ${(v as any).price.toLocaleString("vi-VN")}₫` : ""}
+                                  {(v as any).soldOut ? " (hết)" : ""}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                          {(() => {
+                            const selVariant = (variants as any[]).find((v) => v.name === item.variant);
+                            const subVariants: any[] = selVariant?.subVariants ?? [];
+                            if (subVariants.length === 0) return null;
+                            return (
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-[10px] text-muted-foreground shrink-0 w-10">Phụ:</span>
+                                <select
+                                  value={item.subVariant ?? ""}
+                                  onChange={(e) => handleItemSubVariantChange(idx, e.target.value)}
+                                  className="flex-1 min-w-0 text-xs border border-violet-300/60 rounded-xl px-2 py-1.5 bg-violet-50/60 text-foreground outline-none focus:ring-2 focus:ring-violet-300/50 font-medium"
+                                >
+                                  <option value="">— Chọn biến thể phụ —</option>
+                                  {subVariants.map((sv) => (
+                                    <option key={sv.name} value={sv.name}>
+                                      {sv.name}{sv.price ? ` — ${sv.price.toLocaleString("vi-VN")}₫` : ""}
+                                      {sv.soldOut ? " (hết)" : ""}
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
+                            );
+                          })()}
                         </div>
                       )}
                     </div>
@@ -1715,20 +1752,71 @@ function OrdersTab() {
                             {(products ?? []).map((p) => <option key={p.id} value={p.name} />)}
                           </datalist>
                           <div className="space-y-1.5 mt-1">
-                            {editItems.map((it, idx) => (
-                              <div key={idx} className="flex gap-1.5 items-center">
-                                <Input value={it.name} onChange={(e) => setEditItem(idx, "name", e.target.value)}
-                                  list="edit-product-list" placeholder="Tên sản phẩm" className="rounded-xl h-7 text-xs flex-1" />
-                                <Input value={it.variant ?? ""} onChange={(e) => setEditItem(idx, "variant", e.target.value)}
-                                  placeholder="Biến thể" className="rounded-xl h-7 text-xs w-20" />
-                                <Input type="number" min="1" value={it.qty} onChange={(e) => setEditItem(idx, "qty", parseInt(e.target.value) || 1)}
-                                  className="rounded-xl h-7 text-xs w-12 text-center" />
-                                <Input type="number" min="0" value={it.price} onChange={(e) => setEditItem(idx, "price", parseFloat(e.target.value) || 0)}
-                                  placeholder="Giá" className="rounded-xl h-7 text-xs w-24" />
-                                <button type="button" onClick={() => removeEditItem(idx)}
-                                  className="w-6 h-6 rounded-full flex items-center justify-center hover:bg-red-100 text-muted-foreground hover:text-red-600 shrink-0 text-base leading-none">×</button>
-                              </div>
-                            ))}
+                            {editItems.map((it, idx) => {
+                              const matchedP = (products ?? []).find((p) => p.name === it.name);
+                              const editVariants: any[] = (matchedP?.variants as any[]) ?? [];
+                              const hasEditVariants = editVariants.length > 0;
+                              const selEditVariant = editVariants.find((v) => v.name === it.variant);
+                              const editSubVariants: any[] = selEditVariant?.subVariants ?? [];
+                              const handleEditVariantSmart = (variantName: string) => {
+                                const v = editVariants.find((vv: any) => vv.name === variantName);
+                                const firstSub = v?.subVariants?.[0];
+                                const price = firstSub?.price ?? v?.price ?? matchedP?.price ?? it.price;
+                                setEditItems((prev) => prev.map((x, i) => i === idx ? { ...x, variant: variantName, subVariant: firstSub?.name ?? "", price } : x));
+                              };
+                              const handleEditSubVariantSmart = (subName: string) => {
+                                const sv = editSubVariants.find((s: any) => s.name === subName);
+                                const price = sv?.price ?? selEditVariant?.price ?? matchedP?.price ?? it.price;
+                                setEditItems((prev) => prev.map((x, i) => i === idx ? { ...x, subVariant: subName, price } : x));
+                              };
+                              return (
+                                <div key={idx} className="space-y-1">
+                                  <div className="flex gap-1.5 items-center">
+                                    <Input value={it.name} onChange={(e) => setEditItem(idx, "name", e.target.value)}
+                                      list="edit-product-list" placeholder="Tên sản phẩm" className="rounded-xl h-7 text-xs flex-1" />
+                                    {!hasEditVariants && (
+                                      <Input value={it.variant ?? ""} onChange={(e) => setEditItem(idx, "variant", e.target.value)}
+                                        placeholder="Biến thể" className="rounded-xl h-7 text-xs w-20" />
+                                    )}
+                                    <Input type="number" min="1" value={it.qty} onChange={(e) => setEditItem(idx, "qty", parseInt(e.target.value) || 1)}
+                                      className="rounded-xl h-7 text-xs w-12 text-center" />
+                                    <Input type="number" min="0" value={it.price} onChange={(e) => setEditItem(idx, "price", parseFloat(e.target.value) || 0)}
+                                      placeholder="Giá" className="rounded-xl h-7 text-xs w-24" />
+                                    <button type="button" onClick={() => removeEditItem(idx)}
+                                      className="w-6 h-6 rounded-full flex items-center justify-center hover:bg-red-100 text-muted-foreground hover:text-red-600 shrink-0 text-base leading-none">×</button>
+                                  </div>
+                                  {hasEditVariants && (
+                                    <div className="space-y-1 pl-0">
+                                      <div className="flex items-center gap-1.5">
+                                        <span className="text-[10px] text-muted-foreground shrink-0 w-10">Biến thể:</span>
+                                        <select value={it.variant ?? ""} onChange={(e) => handleEditVariantSmart(e.target.value)}
+                                          className="flex-1 min-w-0 text-xs border border-primary/30 rounded-xl px-2 py-1 bg-primary/5 text-foreground outline-none font-medium">
+                                          {editVariants.map((v: any) => (
+                                            <option key={v.name} value={v.name}>
+                                              {v.name}{v.price ? ` — ${v.price.toLocaleString("vi-VN")}₫` : ""}{v.soldOut ? " (hết)" : ""}
+                                            </option>
+                                          ))}
+                                        </select>
+                                      </div>
+                                      {editSubVariants.length > 0 && (
+                                        <div className="flex items-center gap-1.5">
+                                          <span className="text-[10px] text-muted-foreground shrink-0 w-10">Phụ:</span>
+                                          <select value={it.subVariant ?? ""} onChange={(e) => handleEditSubVariantSmart(e.target.value)}
+                                            className="flex-1 min-w-0 text-xs border border-violet-300/60 rounded-xl px-2 py-1 bg-violet-50/60 text-foreground outline-none font-medium">
+                                            <option value="">— Chọn biến thể phụ —</option>
+                                            {editSubVariants.map((sv: any) => (
+                                              <option key={sv.name} value={sv.name}>
+                                                {sv.name}{sv.price ? ` — ${sv.price.toLocaleString("vi-VN")}₫` : ""}{sv.soldOut ? " (hết)" : ""}
+                                              </option>
+                                            ))}
+                                          </select>
+                                        </div>
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
                             <button type="button" onClick={addEditItem}
                               className="text-xs text-primary font-bold hover:underline">+ Thêm dòng</button>
                           </div>
