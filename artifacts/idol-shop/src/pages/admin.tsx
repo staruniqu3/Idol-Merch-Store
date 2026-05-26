@@ -387,15 +387,21 @@ function ProductsTab() {
                       <div key={idx} className={`rounded-xl border transition-colors ${v.soldOut ? "bg-red-50 border-red-200" : "bg-background border-border"}`}>
                         <div className="flex items-center gap-2 px-3 py-1.5">
                           <div className="flex-1 min-w-0 flex items-center gap-1.5 flex-wrap">
-                            <span className={`text-[11px] font-bold ${v.soldOut ? "text-red-500 line-through" : "text-foreground"}`}>{v.name}</span>
-                            {v.price != null && (
-                              <span className={`text-[10px] font-bold ${v.soldOut ? "text-red-400 line-through" : "text-primary"}`}>
-                                {new Intl.NumberFormat("vi-VN").format(v.price)}₫
-                              </span>
-                            )}
-                            {v.stock != null && (
-                              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-primary/10 text-primary">kho: {v.stock}</span>
-                            )}
+                            <input
+                              value={v.name}
+                              onChange={(e) => setForm((f) => ({ ...f, variants: f.variants.map((vv, i) => i === idx ? { ...vv, name: e.target.value } : vv) }))}
+                              className={`text-[11px] font-bold bg-transparent border-0 outline-none border-b border-transparent focus:border-primary/40 focus:bg-primary/5 rounded px-0.5 min-w-0 w-auto transition-colors ${v.soldOut ? "text-red-500 line-through" : "text-foreground"}`}
+                              style={{ width: `${Math.max(v.name.length, 4)}ch` }}
+                              title="Bấm để sửa tên"
+                            />
+                            <input
+                              type="number"
+                              value={v.price != null ? String(v.price) : ""}
+                              onChange={(e) => setForm((f) => ({ ...f, variants: f.variants.map((vv, i) => i === idx ? { ...vv, price: e.target.value === "" ? undefined : parseFloat(e.target.value) } : vv) }))}
+                              placeholder="Giá"
+                              className={`text-[10px] font-bold bg-transparent border-0 outline-none border-b border-transparent focus:border-primary/40 focus:bg-primary/5 rounded px-0.5 w-24 transition-colors ${v.soldOut ? "text-red-400 line-through" : "text-primary"}`}
+                              title="Bấm để sửa giá"
+                            />
                             {v.soldOut && (
                               <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full bg-red-100 text-red-600 border border-red-200 uppercase tracking-wide">Sold Out</span>
                             )}
@@ -494,9 +500,21 @@ function ProductsTab() {
                                 <div key={svIdx} className={`rounded-lg border text-[10px] ${sv.soldOut ? "bg-red-50 border-red-200" : "bg-white border-violet-200"}`}>
                                   {/* Sub-variant row */}
                                   <div className="flex items-center gap-1.5 px-2 py-1">
-                                    <span className={`font-bold flex-1 min-w-0 ${sv.soldOut ? "text-red-400 line-through" : "text-foreground"}`}>{sv.name}</span>
-                                    {sv.price != null && <span className="font-bold text-primary">{new Intl.NumberFormat("vi-VN").format(sv.price)}₫</span>}
-                                    {sv.stock != null && <span className="px-1 rounded bg-primary/10 text-primary font-bold">kho:{sv.stock}</span>}
+                                    <input
+                                      value={sv.name}
+                                      onChange={(e) => setForm((f) => ({ ...f, variants: f.variants.map((vv, vi) => vi === idx ? { ...vv, subVariants: (vv.subVariants ?? []).map((s, si) => si === svIdx ? { ...s, name: e.target.value } : s) } : vv) }))}
+                                      className={`text-[10px] font-bold bg-transparent border-0 outline-none border-b border-transparent focus:border-violet-400 focus:bg-violet-50 rounded px-0.5 flex-1 min-w-0 transition-colors ${sv.soldOut ? "text-red-400 line-through" : "text-foreground"}`}
+                                      title="Bấm để sửa tên"
+                                    />
+                                    <input
+                                      type="number"
+                                      value={sv.price != null ? String(sv.price) : ""}
+                                      onChange={(e) => setForm((f) => ({ ...f, variants: f.variants.map((vv, vi) => vi === idx ? { ...vv, subVariants: (vv.subVariants ?? []).map((s, si) => si === svIdx ? { ...s, price: e.target.value === "" ? undefined : parseFloat(e.target.value) } : s) } : vv) }))}
+                                      placeholder="Giá"
+                                      className="text-[10px] font-bold bg-transparent border-0 outline-none border-b border-transparent focus:border-violet-400 focus:bg-violet-50 rounded px-0.5 w-20 text-primary transition-colors"
+                                      title="Bấm để sửa giá"
+                                    />
+                                    {sv.stock != null && <span className="px-1 rounded bg-primary/10 text-primary font-bold text-[10px]">kho:{sv.stock}</span>}
                                     {(sv.subSubVariants ?? []).length > 0 && (
                                       <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-fuchsia-100 text-fuchsia-600 border border-fuchsia-200">
                                         {(sv.subSubVariants ?? []).length} size
@@ -530,9 +548,21 @@ function ProductsTab() {
                                       <p className="text-[8px] font-black text-fuchsia-500 uppercase tracking-widest">Size / Phụ phụ</p>
                                       {(sv.subSubVariants ?? []).map((ssv, ssvIdx) => (
                                         <div key={ssvIdx} className={`flex items-center gap-1 rounded px-1.5 py-0.5 border text-[9px] ${ssv.soldOut ? "bg-red-50 border-red-200" : "bg-white border-fuchsia-200"}`}>
-                                          <span className={`font-bold flex-1 ${ssv.soldOut ? "text-red-400 line-through" : "text-foreground"}`}>{ssv.name}</span>
-                                          {ssv.price != null && <span className="font-bold text-primary">{new Intl.NumberFormat("vi-VN").format(ssv.price)}₫</span>}
-                                          {ssv.stock != null && <span className="px-1 rounded bg-primary/10 text-primary font-bold">kho:{ssv.stock}</span>}
+                                          <input
+                                            value={ssv.name}
+                                            onChange={(e) => setForm((f) => ({ ...f, variants: f.variants.map((vv, vi) => vi === idx ? { ...vv, subVariants: (vv.subVariants ?? []).map((s, si) => si === svIdx ? { ...s, subSubVariants: (s.subSubVariants ?? []).map((ss, ssi) => ssi === ssvIdx ? { ...ss, name: e.target.value } : ss) } : s) } : vv) }))}
+                                            className={`text-[9px] font-bold bg-transparent border-0 outline-none border-b border-transparent focus:border-fuchsia-400 focus:bg-fuchsia-50 rounded px-0.5 flex-1 min-w-0 transition-colors ${ssv.soldOut ? "text-red-400 line-through" : "text-foreground"}`}
+                                            title="Bấm để sửa tên"
+                                          />
+                                          <input
+                                            type="number"
+                                            value={ssv.price != null ? String(ssv.price) : ""}
+                                            onChange={(e) => setForm((f) => ({ ...f, variants: f.variants.map((vv, vi) => vi === idx ? { ...vv, subVariants: (vv.subVariants ?? []).map((s, si) => si === svIdx ? { ...s, subSubVariants: (s.subSubVariants ?? []).map((ss, ssi) => ssi === ssvIdx ? { ...ss, price: e.target.value === "" ? undefined : parseFloat(e.target.value) } : ss) } : s) } : vv) }))}
+                                            placeholder="Giá"
+                                            className="text-[9px] font-bold bg-transparent border-0 outline-none border-b border-transparent focus:border-fuchsia-400 focus:bg-fuchsia-50 rounded px-0.5 w-16 text-primary transition-colors"
+                                            title="Bấm để sửa giá"
+                                          />
+                                          {ssv.stock != null && <span className="px-1 rounded bg-primary/10 text-primary font-bold text-[9px]">kho:{ssv.stock}</span>}
                                           <Switch
                                             checked={!!ssv.soldOut}
                                             onCheckedChange={() => setForm((f) => ({ ...f, variants: f.variants.map((vv, vi) => vi === idx ? { ...vv, subVariants: (vv.subVariants ?? []).map((s, si) => si === svIdx ? { ...s, subSubVariants: (s.subSubVariants ?? []).map((ss, ssi) => ssi === ssvIdx ? { ...ss, soldOut: !ss.soldOut } : ss) } : s) } : vv) }))}
