@@ -1327,13 +1327,16 @@ function OrdersTab() {
   const [formNote,   setFormNote]   = useState("");
   const [formStatus, setFormStatus] = useState("pending");
   const [formItems,  setFormItems]  = useState<ManualOrderItem[]>([{ name: "", qty: 1, price: 0 }]);
+  const [formGroupDiscounts, setFormGroupDiscounts] = useState<Record<string, number>>({});
 
-  const formTotal = formItems.reduce((s, i) => s + i.qty * (i.discountedPrice ?? i.price), 0);
+  const formTotal = formItems.reduce((s, i) => s + i.qty * (i.discountedPrice ?? i.price), 0)
+    - Object.values(formGroupDiscounts).reduce((s, d) => s + (d || 0), 0);
 
   const resetForm = () => {
     setFormName(""); setFormPhone(""); setFormNote(""); setFormStatus("pending");
     setFormDate(new Date().toISOString().slice(0, 10));
     setFormItems([{ name: "", qty: 1, price: 0 }]);
+    setFormGroupDiscounts({});
   };
 
   const addFormItem = () => setFormItems((p) => [...p, { name: "", qty: 1, price: 0 }]);
@@ -1434,9 +1437,12 @@ function OrdersTab() {
     if (!formName.trim()) return;
     const validItems = formItems.filter((i) => i.name.trim());
     if (validItems.length === 0) return;
+    const discountItems: ManualOrderItem[] = Object.entries(formGroupDiscounts)
+      .filter(([, d]) => d > 0)
+      .map(([name, d]) => ({ name: `Giảm: ${name}`, qty: 1, price: -d }));
     createManualOrderMut.mutate({
       id: crypto.randomUUID(), customerName: formName.trim(), phone: formPhone.trim(),
-      items: validItems, note: formNote.trim(), date: formDate, status: formStatus,
+      items: [...validItems, ...discountItems], note: formNote.trim(), date: formDate, status: formStatus,
     }, {
       onSuccess: () => { setShowAddForm(false); resetForm(); toast({ title: "Đã thêm đơn nhập tay" }); },
       onError: () => toast({ title: "Lỗi khi thêm đơn", variant: "destructive" }),
@@ -1653,6 +1659,32 @@ function OrdersTab() {
                             </div>
                           );
                         })()}
+                        {/* Group discount — shown when group has multiple items */}
+                        {(isMulti || hasVariants) && group.name && (
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-[10px] text-muted-foreground shrink-0">Giảm nhóm:</span>
+                            <input type="number" min="0" placeholder="Để trống nếu không giảm"
+                              value={formGroupDiscounts[group.name] || ""}
+                              onChange={(e) => {
+                                const v = parseFloat(e.target.value);
+                                setFormGroupDiscounts((prev) => ({ ...prev, [group.name]: isNaN(v) ? 0 : v }));
+                              }}
+                              className="flex-1 min-w-0 text-xs border border-rose-300/60 rounded-xl px-2 py-1.5 bg-rose-50/50 outline-none focus:ring-2 focus:ring-rose-300/50" />
+                            {(formGroupDiscounts[group.name] ?? 0) > 0 && (() => {
+                              const groupTotal = group.indices.reduce((s, i) => s + formItems[i].qty * (formItems[i].discountedPrice ?? formItems[i].price), 0);
+                              const pct = Math.round((formGroupDiscounts[group.name] / groupTotal) * 100);
+                              return (
+                                <span className="text-[10px] font-black text-rose-600 bg-rose-100 border border-rose-200 px-1.5 py-0.5 rounded-full shrink-0">
+                                  –{pct}%
+                                </span>
+                              );
+                            })()}
+                            {(formGroupDiscounts[group.name] ?? 0) > 0 && (
+                              <button type="button" onClick={() => setFormGroupDiscounts((prev) => ({ ...prev, [group.name]: 0 }))}
+                                className="text-muted-foreground hover:text-destructive shrink-0"><X size={11} /></button>
+                            )}
+                          </div>
+                        )}
                         {/* Variant rows: shown for any item with variants OR multi-variant groups */}
                         {(isMulti || hasVariants) && (
                           <div className="space-y-1.5 pl-2 border-l-2 border-primary/20">
