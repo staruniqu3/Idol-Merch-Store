@@ -4841,7 +4841,7 @@ type ProfitEntry = {
   type: "le" | "si"; profitPct: number; profitAmount: number; note: string;
 };
 type FixedExpense  = { id: string; name: string; monthlyAmount: number };
-type FlexEntry     = { id: string; name: string; amount: number; date: string };
+type FlexEntry     = { id: string; name: string; amount: number; date: string; tag?: string };
 type RefundEntry   = { id: string; customer: string; reason: string; amount: number; date: string };
 type YearPlan      = { id: string; name: string; year: number; target: number; saved: number; note: string };
 type IntlShipMethod = "bay" | "bien" | "bo";
@@ -4984,22 +4984,24 @@ function CostTab() {
   });
   const [newVarName, setNewVarName] = useState("");
   const [newVarAmt,  setNewVarAmt]  = useState("");
+  const [newVarTag,  setNewVarTag]  = useState("");
   const saveVariableExps = (next: FlexEntry[]) => { setVariableExps(next); localStorage.setItem(VARIABLE_EXP_KEY, JSON.stringify(next)); syncToServer(VARIABLE_EXP_KEY, next); };
   const addVariableExp = () => {
     const amt = parseFloat(newVarAmt);
     if (!newVarName.trim() || !amt || amt <= 0) return;
-    saveVariableExps([...variableExps, { id: crypto.randomUUID(), name: newVarName.trim(), amount: amt, date: new Date().toISOString().slice(0, 10) }]);
-    setNewVarName(""); setNewVarAmt("");
+    saveVariableExps([...variableExps, { id: crypto.randomUUID(), name: newVarName.trim(), amount: amt, date: new Date().toISOString().slice(0, 10), tag: newVarTag.trim() || undefined }]);
+    setNewVarName(""); setNewVarAmt(""); setNewVarTag("");
   };
   const [editingVarId,   setEditingVarId]   = useState<string | null>(null);
   const [editingVarName, setEditingVarName] = useState("");
   const [editingVarAmt,  setEditingVarAmt]  = useState("");
-  const startEditVar = (e: FlexEntry) => { setEditingVarId(e.id); setEditingVarName(e.name); setEditingVarAmt(String(e.amount)); };
+  const [editingVarTag,  setEditingVarTag]  = useState("");
+  const startEditVar = (e: FlexEntry) => { setEditingVarId(e.id); setEditingVarName(e.name); setEditingVarAmt(String(e.amount)); setEditingVarTag(e.tag ?? ""); };
   const commitEditVar = () => {
     if (!editingVarId) return;
     const amt = parseFloat(editingVarAmt);
     if (!editingVarName.trim() || !amt || amt <= 0) { setEditingVarId(null); return; }
-    saveVariableExps(variableExps.map((e) => e.id === editingVarId ? { ...e, name: editingVarName.trim(), amount: amt } : e));
+    saveVariableExps(variableExps.map((e) => e.id === editingVarId ? { ...e, name: editingVarName.trim(), amount: amt, tag: editingVarTag.trim() || undefined } : e));
     setEditingVarId(null);
   };
 
@@ -5164,6 +5166,11 @@ function CostTab() {
   const [expandedMonths, setExpandedMonths] = useState<Set<string>>(() => new Set([currentMonth]));
   const toggleMonth = (m: string) => setExpandedMonths((prev) => { const s = new Set(prev); s.has(m) ? s.delete(m) : s.add(m); return s; });
   const [selectedSummaryMonth, setSelectedSummaryMonth] = useState(currentMonth);
+  const [expandedVarMonths, setExpandedVarMonths] = useState<Set<string>>(() => new Set([currentMonth]));
+  const toggleVarMonth = (m: string) => setExpandedVarMonths((prev) => { const s = new Set(prev); s.has(m) ? s.delete(m) : s.add(m); return s; });
+  const [expandedColMonths, setExpandedColMonths] = useState<Set<string>>(() => new Set([currentMonth]));
+  const toggleColMonth = (m: string) => setExpandedColMonths((prev) => { const s = new Set(prev); s.has(m) ? s.delete(m) : s.add(m); return s; });
+  const [fixedExpanded, setFixedExpanded] = useState(true);
 
   const saveProfitEntries = (next: ProfitEntry[]) => { setProfitEntries(next); localStorage.setItem(PROFIT_ENTRIES_KEY, JSON.stringify(next)); syncToServer(PROFIT_ENTRIES_KEY, next); };
   const saveProfitExpenses = (next: FixedExpense[]) => { setProfitExpenses(next); localStorage.setItem(PROFIT_EXPENSES_KEY, JSON.stringify(next)); syncToServer(PROFIT_EXPENSES_KEY, next); };
@@ -6032,104 +6039,91 @@ function CostTab() {
         </div>
 
         {/* ── Chi phí cố định ── */}
-        <div className="bg-card border border-border rounded-2xl p-4 space-y-3">
-          <h5 className="text-sm font-bold">Chi phí cố định / tháng</h5>
-
-          <div className="flex gap-2">
-            <input
-              type="text" placeholder="Tên khoản chi (VD: Thuê kho)..."
-              value={newExpName}
-              onChange={(e) => setNewExpName(e.target.value)}
-              className="min-w-0 flex-1 text-sm border border-border rounded-xl px-3 py-2 bg-background outline-none focus:ring-2 focus:ring-primary/30 transition-all"
-            />
-            <input
-              type="number" min="0" placeholder="₫/tháng"
-              value={newExpAmt}
-              onChange={(e) => setNewExpAmt(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && addExpense()}
-              className="w-24 shrink-0 text-sm border border-border rounded-xl px-3 py-2 bg-background outline-none focus:ring-2 focus:ring-primary/30 transition-all"
-            />
-            <button
-              type="button" onClick={addExpense}
-              className="shrink-0 bg-primary text-white text-xs font-bold px-3 rounded-xl hover:bg-primary/90 transition-colors"
-            >
-              <Plus size={14} />
-            </button>
+        <div className="bg-card border border-border rounded-2xl overflow-hidden">
+          {/* Header — collapsible */}
+          <div
+            className="flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-black/5 transition-colors select-none"
+            onClick={() => setFixedExpanded((p) => !p)}
+          >
+            <div className="flex items-center gap-2">
+              <ChevronDown size={13} className={`text-muted-foreground transition-transform ${fixedExpanded ? "" : "-rotate-90"}`} />
+              <h5 className="text-sm font-bold">Chi phí cố định / tháng</h5>
+            </div>
+            <span className="text-xs font-black text-orange-600">
+              {new Intl.NumberFormat("vi-VN").format(Math.round(profitExpenses.reduce((s, e) => s + e.monthlyAmount, 0)))} ₫/tháng
+            </span>
           </div>
 
-          {profitExpenses.length === 0 ? (
-            <p className="text-xs text-muted-foreground text-center py-2">Chưa có khoản chi cố định nào</p>
-          ) : (
-            <div className="space-y-1">
-              {/* Header */}
-              <div className="grid grid-cols-[1fr_auto_auto_auto] gap-2 px-2 text-[10px] font-bold text-muted-foreground uppercase">
-                <span>Khoản chi</span>
-                <span className="text-right">/tháng</span>
-                <span className="text-right">/ngày</span>
-                <span />
+          {fixedExpanded && (
+            <div className="px-4 pb-4 space-y-3 border-t border-border">
+              {/* Add form */}
+              <div className="flex gap-2 pt-3">
+                <input
+                  type="text" placeholder="Tên khoản chi (VD: Thuê kho)..."
+                  value={newExpName}
+                  onChange={(e) => setNewExpName(e.target.value)}
+                  className="min-w-0 flex-1 text-sm border border-border rounded-xl px-3 py-2 bg-background outline-none focus:ring-2 focus:ring-primary/30 transition-all"
+                />
+                <input
+                  type="number" min="0" placeholder="₫/tháng"
+                  value={newExpAmt}
+                  onChange={(e) => setNewExpAmt(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && addExpense()}
+                  className="w-24 shrink-0 text-sm border border-border rounded-xl px-3 py-2 bg-background outline-none focus:ring-2 focus:ring-primary/30 transition-all"
+                />
+                <button type="button" onClick={addExpense}
+                  className="shrink-0 bg-primary text-white text-xs font-bold px-3 rounded-xl hover:bg-primary/90 transition-colors">
+                  <Plus size={14} />
+                </button>
               </div>
-              {profitExpenses.map((exp) => {
-                const vnd2 = (n: number) => new Intl.NumberFormat("vi-VN").format(Math.round(n));
-                const isEditing = editingExpId === exp.id;
 
-                if (isEditing) {
-                  return (
-                    <div key={exp.id} className="flex items-center gap-2 bg-violet-50 border border-violet-200 rounded-xl px-3 py-2">
-                      <input
-                        autoFocus
-                        type="text"
-                        value={editingExpName}
-                        onChange={(e) => setEditingExpName(e.target.value)}
-                        onKeyDown={(e) => { if (e.key === "Enter") commitEditExp(); if (e.key === "Escape") setEditingExpId(null); }}
-                        className="flex-1 text-xs border border-violet-300 rounded-lg px-2 py-1 bg-white outline-none focus:ring-1 focus:ring-violet-400 min-w-0"
-                        placeholder="Tên khoản chi"
-                      />
-                      <input
-                        type="number"
-                        value={editingExpAmt}
-                        onChange={(e) => setEditingExpAmt(e.target.value)}
-                        onKeyDown={(e) => { if (e.key === "Enter") commitEditExp(); if (e.key === "Escape") setEditingExpId(null); }}
-                        className="w-28 text-xs text-right border border-violet-300 rounded-lg px-2 py-1 bg-white outline-none focus:ring-1 focus:ring-violet-400 shrink-0"
-                        placeholder="₫/tháng"
-                      />
-                      <button type="button" onClick={commitEditExp} className="text-emerald-600 hover:text-emerald-700 transition-colors shrink-0">
-                        <Check size={14} />
-                      </button>
-                      <button type="button" onClick={() => setEditingExpId(null)} className="text-muted-foreground hover:text-foreground transition-colors shrink-0">
-                        <X size={14} />
-                      </button>
-                    </div>
-                  );
-                }
-
-                return (
-                  <div key={exp.id} className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-2 items-center bg-muted/30 rounded-xl px-3 py-2">
-                    <span className="text-xs font-semibold truncate">{exp.name}</span>
-                    <span className="text-xs text-muted-foreground text-right">{vnd2(exp.monthlyAmount)} ₫</span>
-                    <span className="text-xs font-bold text-orange-600 text-right">{vnd2(exp.monthlyAmount / 30)} ₫</span>
-                    <button
-                      type="button"
-                      onClick={() => startEditExp(exp)}
-                      className="text-muted-foreground hover:text-violet-600 transition-colors"
-                    >
-                      <Pencil size={12} />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => saveProfitExpenses(profitExpenses.filter((x) => x.id !== exp.id))}
-                      className="text-muted-foreground hover:text-destructive transition-colors"
-                    >
-                      <Trash2 size={12} />
-                    </button>
+              {profitExpenses.length === 0 ? (
+                <p className="text-xs text-muted-foreground text-center py-2">Chưa có khoản chi cố định nào</p>
+              ) : (
+                <div className="space-y-1">
+                  <div className="grid grid-cols-[1fr_auto_auto_auto] gap-2 px-2 text-[10px] font-bold text-muted-foreground uppercase">
+                    <span>Khoản chi</span>
+                    <span className="text-right">/tháng</span>
+                    <span className="text-right">/ngày</span>
+                    <span />
                   </div>
-                );
-              })}
-              <div className="flex justify-between px-3 pt-1 border-t border-border text-xs font-bold">
-                <span>Tổng</span>
-                <span className="text-orange-700">
-                  {new Intl.NumberFormat("vi-VN").format(Math.round(profitExpenses.reduce((s, e) => s + e.monthlyAmount, 0)))} ₫/tháng
-                </span>
-              </div>
+                  {profitExpenses.map((exp) => {
+                    const vnd2 = (n: number) => new Intl.NumberFormat("vi-VN").format(Math.round(n));
+                    const isEditing = editingExpId === exp.id;
+                    if (isEditing) {
+                      return (
+                        <div key={exp.id} className="flex items-center gap-2 bg-violet-50 border border-violet-200 rounded-xl px-3 py-2">
+                          <input autoFocus type="text" value={editingExpName}
+                            onChange={(e) => setEditingExpName(e.target.value)}
+                            onKeyDown={(e) => { if (e.key === "Enter") commitEditExp(); if (e.key === "Escape") setEditingExpId(null); }}
+                            className="flex-1 text-xs border border-violet-300 rounded-lg px-2 py-1 bg-white outline-none focus:ring-1 focus:ring-violet-400 min-w-0" placeholder="Tên khoản chi" />
+                          <input type="number" value={editingExpAmt}
+                            onChange={(e) => setEditingExpAmt(e.target.value)}
+                            onKeyDown={(e) => { if (e.key === "Enter") commitEditExp(); if (e.key === "Escape") setEditingExpId(null); }}
+                            className="w-28 text-xs text-right border border-violet-300 rounded-lg px-2 py-1 bg-white outline-none focus:ring-1 focus:ring-violet-400 shrink-0" placeholder="₫/tháng" />
+                          <button type="button" onClick={commitEditExp} className="text-emerald-600 hover:text-emerald-700 transition-colors shrink-0"><Check size={14} /></button>
+                          <button type="button" onClick={() => setEditingExpId(null)} className="text-muted-foreground hover:text-foreground transition-colors shrink-0"><X size={14} /></button>
+                        </div>
+                      );
+                    }
+                    return (
+                      <div key={exp.id} className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-2 items-center bg-muted/30 rounded-xl px-3 py-2">
+                        <span className="text-xs font-semibold truncate">{exp.name}</span>
+                        <span className="text-xs text-muted-foreground text-right">{vnd2(exp.monthlyAmount)} ₫</span>
+                        <span className="text-xs font-bold text-orange-600 text-right">{vnd2(exp.monthlyAmount / 30)} ₫</span>
+                        <button type="button" onClick={() => startEditExp(exp)} className="text-muted-foreground hover:text-violet-600 transition-colors"><Pencil size={12} /></button>
+                        <button type="button" onClick={() => saveProfitExpenses(profitExpenses.filter((x) => x.id !== exp.id))} className="text-muted-foreground hover:text-destructive transition-colors"><Trash2 size={12} /></button>
+                      </div>
+                    );
+                  })}
+                  <div className="flex justify-between px-3 pt-1 border-t border-border text-xs font-bold">
+                    <span>Tổng</span>
+                    <span className="text-orange-700">
+                      {new Intl.NumberFormat("vi-VN").format(Math.round(profitExpenses.reduce((s, e) => s + e.monthlyAmount, 0)))} ₫/tháng
+                    </span>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -6137,31 +6131,34 @@ function CostTab() {
         {/* ── Phí chi không cố định ── */}
         {(() => {
           const vnd2 = (n: number) => new Intl.NumberFormat("vi-VN").format(Math.round(n));
-          const monthTotal = variableExps
-            .filter((e) => e.date.startsWith(selectedSummaryMonth))
-            .reduce((s, e) => s + e.amount, 0);
+          const grandTotal = variableExps.reduce((s, e) => s + e.amount, 0);
 
           const renderRow = (e: FlexEntry) => {
             const isEditing = editingVarId === e.id;
             if (isEditing) return (
-              <div key={e.id} className="flex items-center gap-2 bg-rose-50 border border-rose-200 rounded-xl px-3 py-2">
-                <input autoFocus type="text" value={editingVarName} onChange={(ev) => setEditingVarName(ev.target.value)}
-                  onKeyDown={(ev) => { if (ev.key === "Enter") commitEditVar(); if (ev.key === "Escape") setEditingVarId(null); }}
-                  className="flex-1 text-xs border border-rose-300 rounded-lg px-2 py-1 bg-white outline-none focus:ring-1 focus:ring-rose-400 min-w-0" placeholder="Tên khoản" />
-                <input type="number" value={editingVarAmt} onChange={(ev) => setEditingVarAmt(ev.target.value)}
-                  onKeyDown={(ev) => { if (ev.key === "Enter") commitEditVar(); if (ev.key === "Escape") setEditingVarId(null); }}
-                  className="w-28 text-xs text-right border border-rose-300 rounded-lg px-2 py-1 bg-white outline-none shrink-0" placeholder="₫" />
-                <button type="button" onClick={commitEditVar} className="text-emerald-600 hover:text-emerald-700 transition-colors shrink-0"><Check size={14} /></button>
-                <button type="button" onClick={() => setEditingVarId(null)} className="text-muted-foreground hover:text-foreground transition-colors shrink-0"><X size={14} /></button>
+              <div key={e.id} className="space-y-1.5 bg-rose-50 border border-rose-200 rounded-xl px-3 py-2">
+                <div className="flex items-center gap-2">
+                  <input autoFocus type="text" value={editingVarName} onChange={(ev) => setEditingVarName(ev.target.value)}
+                    onKeyDown={(ev) => { if (ev.key === "Enter") commitEditVar(); if (ev.key === "Escape") setEditingVarId(null); }}
+                    className="flex-1 text-xs border border-rose-300 rounded-lg px-2 py-1 bg-white outline-none focus:ring-1 focus:ring-rose-400 min-w-0" placeholder="Tên khoản" />
+                  <input type="number" value={editingVarAmt} onChange={(ev) => setEditingVarAmt(ev.target.value)}
+                    onKeyDown={(ev) => { if (ev.key === "Enter") commitEditVar(); if (ev.key === "Escape") setEditingVarId(null); }}
+                    className="w-24 text-xs text-right border border-rose-300 rounded-lg px-2 py-1 bg-white outline-none shrink-0" placeholder="₫" />
+                  <button type="button" onClick={commitEditVar} className="text-emerald-600 hover:text-emerald-700 transition-colors shrink-0"><Check size={14} /></button>
+                  <button type="button" onClick={() => setEditingVarId(null)} className="text-muted-foreground hover:text-foreground transition-colors shrink-0"><X size={14} /></button>
+                </div>
+                <input type="text" value={editingVarTag} onChange={(ev) => setEditingVarTag(ev.target.value)}
+                  placeholder="Nhóm (VD: Tiền cân, Ship nội địa)…"
+                  className="w-full text-xs border border-rose-200 rounded-lg px-2 py-1 bg-white/70 outline-none focus:ring-1 focus:ring-rose-300" />
               </div>
             );
             return (
-              <div key={e.id} className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-2 items-center bg-muted/30 rounded-xl px-3 py-2">
+              <div key={e.id} className="grid grid-cols-[1fr_auto_auto_auto] gap-2 items-center bg-muted/30 rounded-xl px-3 py-2">
                 <div className="min-w-0">
                   <p className="text-xs font-semibold truncate">{e.name}</p>
                   <p className="text-[10px] text-muted-foreground">{new Date(e.date).toLocaleDateString("vi-VN")}</p>
                 </div>
-                <span className="text-xs font-bold text-rose-700 text-right">{vnd2(e.amount)} ₫</span>
+                <span className="text-xs font-bold text-rose-700 text-right whitespace-nowrap">{vnd2(e.amount)} ₫</span>
                 <button type="button" onClick={() => startEditVar(e)} className="text-muted-foreground hover:text-violet-600 transition-colors"><Pencil size={12} /></button>
                 <button type="button" onClick={() => saveVariableExps(variableExps.filter((x) => x.id !== e.id))} className="text-muted-foreground hover:text-destructive transition-colors"><Trash2 size={12} /></button>
               </div>
@@ -6169,35 +6166,100 @@ function CostTab() {
           };
 
           return (
-            <div className="bg-card border border-border rounded-2xl p-4 space-y-3">
-              <div className="flex items-center justify-between">
+            <div className="bg-card border border-border rounded-2xl overflow-hidden">
+              {/* Header — collapsible nếu có dữ liệu */}
+              <div className="flex items-center justify-between px-4 py-3">
                 <h5 className="text-sm font-bold">Phí chi không cố định</h5>
-                {monthTotal > 0 && <span className="text-[10px] text-rose-600 font-bold">{vnd2(monthTotal)} ₫ tháng này</span>}
+                {grandTotal > 0 && <span className="text-xs font-black text-rose-600">{vnd2(grandTotal)} ₫ tổng</span>}
               </div>
-              <p className="text-[10px] text-muted-foreground -mt-1">Tiền cân, tiền ship nội địa nước ngoài, phí phát sinh…</p>
-
-              <div className="flex gap-2">
-                <input type="text" placeholder="Tên khoản (VD: Tiền cân tháng 4)..." value={newVarName}
-                  onChange={(e) => setNewVarName(e.target.value)}
-                  className="min-w-0 flex-1 text-sm border border-border rounded-xl px-3 py-2 bg-background outline-none focus:ring-2 focus:ring-primary/30 transition-all" />
-                <input type="number" min="0" placeholder="₫" value={newVarAmt}
-                  onChange={(e) => setNewVarAmt(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && addVariableExp()}
-                  className="w-24 shrink-0 text-sm border border-border rounded-xl px-3 py-2 bg-background outline-none focus:ring-2 focus:ring-primary/30 transition-all" />
-                <button type="button" onClick={addVariableExp} className="shrink-0 bg-primary text-white text-xs font-bold px-3 rounded-xl hover:bg-primary/90 transition-colors"><Plus size={14} /></button>
-              </div>
-
-              {variableExps.length === 0 ? (
-                <p className="text-xs text-muted-foreground text-center py-2">Chưa có khoản phí phát sinh nào</p>
-              ) : (
-                <div className="space-y-1">
-                  {variableExps.map(renderRow)}
-                  <div className="flex justify-between px-3 pt-1 border-t border-border text-xs font-bold">
-                    <span>Tổng</span>
-                    <span className="text-rose-700">{vnd2(variableExps.reduce((s, e) => s + e.amount, 0))} ₫</span>
+              <div className="px-4 pb-4 space-y-3 border-t border-border">
+                <p className="text-[10px] text-muted-foreground pt-2">Tiền cân, ship nội địa/quốc tế, phí phát sinh… Gắn nhóm để tổng hợp theo danh mục.</p>
+                {/* Add form */}
+                <div className="space-y-1.5">
+                  <div className="flex gap-2">
+                    <input type="text" placeholder="Tên khoản (VD: Tiền cân batch 5)..." value={newVarName}
+                      onChange={(e) => setNewVarName(e.target.value)}
+                      className="min-w-0 flex-1 text-sm border border-border rounded-xl px-3 py-2 bg-background outline-none focus:ring-2 focus:ring-primary/30 transition-all" />
+                    <input type="number" min="0" placeholder="₫" value={newVarAmt}
+                      onChange={(e) => setNewVarAmt(e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && addVariableExp()}
+                      className="w-24 shrink-0 text-sm border border-border rounded-xl px-3 py-2 bg-background outline-none focus:ring-2 focus:ring-primary/30 transition-all" />
+                    <button type="button" onClick={addVariableExp} className="shrink-0 bg-primary text-white text-xs font-bold px-3 rounded-xl hover:bg-primary/90 transition-colors"><Plus size={14} /></button>
                   </div>
+                  <input type="text" placeholder="Nhóm (tuỳ chọn, VD: Tiền cân / Ship nội địa)…" value={newVarTag}
+                    onChange={(e) => setNewVarTag(e.target.value)}
+                    className="w-full text-xs border border-rose-200/70 rounded-xl px-3 py-1.5 bg-rose-50/50 outline-none focus:ring-2 focus:ring-rose-200 transition-all" />
                 </div>
-              )}
+
+                {/* Grouped list */}
+                {variableExps.length === 0 ? (
+                  <p className="text-xs text-muted-foreground text-center py-2">Chưa có khoản phí phát sinh nào</p>
+                ) : (
+                  <div className="space-y-1.5">
+                    {(() => {
+                      const months = [...new Set(variableExps.map((e) => e.date.slice(0, 7)))].sort((a, b) => b.localeCompare(a));
+                      return months.map((month) => {
+                        const monthEntries = variableExps.filter((e) => e.date.startsWith(month));
+                        const monthTotal = monthEntries.reduce((s, e) => s + e.amount, 0);
+                        const isOpen = expandedVarMonths.has(month);
+                        const [yr, mo] = month.split("-");
+                        const isCurrent = month === currentMonth;
+
+                        // group by tag within month
+                        const tagMap: Record<string, FlexEntry[]> = {};
+                        monthEntries.forEach((e) => {
+                          const tag = e.tag?.trim() || "";
+                          if (!tagMap[tag]) tagMap[tag] = [];
+                          tagMap[tag].push(e);
+                        });
+                        const tagKeys = Object.keys(tagMap).sort((a, b) => {
+                          if (a === "") return 1;
+                          if (b === "") return -1;
+                          return a.localeCompare(b);
+                        });
+
+                        return (
+                          <div key={month} className={`rounded-2xl border overflow-hidden ${isCurrent ? "border-rose-300 bg-rose-50/30" : "border-border bg-muted/20"}`}>
+                            <button type="button" onClick={() => toggleVarMonth(month)}
+                              className="w-full flex items-center justify-between px-3 py-2.5 hover:bg-black/5 transition-colors">
+                              <div className="flex items-center gap-2">
+                                <ChevronDown size={13} className={`text-muted-foreground transition-transform ${isOpen ? "" : "-rotate-90"}`} />
+                                <span className="text-xs font-bold">Tháng {parseInt(mo)}/{yr}</span>
+                                {isCurrent && <span className="text-[9px] font-black bg-rose-500 text-white px-1.5 py-0.5 rounded-full">hiện tại</span>}
+                                <span className="text-[10px] text-muted-foreground">{monthEntries.length} khoản</span>
+                              </div>
+                              <span className="text-xs font-black text-rose-700">{vnd2(monthTotal)} ₫</span>
+                            </button>
+                            {isOpen && (
+                              <div className="border-t border-border p-2 space-y-2">
+                                {tagKeys.map((tag) => {
+                                  const tagEntries = tagMap[tag];
+                                  const tagTotal = tagEntries.reduce((s, e) => s + e.amount, 0);
+                                  return (
+                                    <div key={tag || "__no_tag__"} className="space-y-1">
+                                      {tag && (
+                                        <div className="flex items-center justify-between px-2 py-0.5">
+                                          <span className="text-[10px] font-black text-rose-600 uppercase tracking-wide">{tag}</span>
+                                          <span className="text-[10px] font-bold text-rose-600">{vnd2(tagTotal)} ₫</span>
+                                        </div>
+                                      )}
+                                      {tagEntries.map(renderRow)}
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      });
+                    })()}
+                    <div className="flex justify-between px-3 pt-1 border-t border-border text-xs font-bold">
+                      <span>Tổng tất cả</span>
+                      <span className="text-rose-700">{vnd2(grandTotal)} ₫</span>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           );
         })()}
@@ -6205,9 +6267,7 @@ function CostTab() {
         {/* ── Thu từ khách ── */}
         {(() => {
           const vnd2 = (n: number) => new Intl.NumberFormat("vi-VN").format(Math.round(n));
-          const monthTotal = collections
-            .filter((e) => e.date.startsWith(selectedSummaryMonth))
-            .reduce((s, e) => s + e.amount, 0);
+          const grandTotal = collections.reduce((s, e) => s + e.amount, 0);
 
           const renderRow = (e: FlexEntry) => {
             const isEditing = editingColId === e.id;
@@ -6224,12 +6284,12 @@ function CostTab() {
               </div>
             );
             return (
-              <div key={e.id} className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-2 items-center bg-muted/30 rounded-xl px-3 py-2">
+              <div key={e.id} className="grid grid-cols-[1fr_auto_auto_auto] gap-2 items-center bg-muted/30 rounded-xl px-3 py-2">
                 <div className="min-w-0">
                   <p className="text-xs font-semibold truncate">{e.name}</p>
                   <p className="text-[10px] text-muted-foreground">{new Date(e.date).toLocaleDateString("vi-VN")}</p>
                 </div>
-                <span className="text-xs font-bold text-teal-700 text-right">{vnd2(e.amount)} ₫</span>
+                <span className="text-xs font-bold text-teal-700 text-right whitespace-nowrap">+{vnd2(e.amount)} ₫</span>
                 <button type="button" onClick={() => startEditCol(e)} className="text-muted-foreground hover:text-violet-600 transition-colors"><Pencil size={12} /></button>
                 <button type="button" onClick={() => saveCollections(collections.filter((x) => x.id !== e.id))} className="text-muted-foreground hover:text-destructive transition-colors"><Trash2 size={12} /></button>
               </div>
@@ -6237,35 +6297,64 @@ function CostTab() {
           };
 
           return (
-            <div className="bg-card border border-border rounded-2xl p-4 space-y-3">
-              <div className="flex items-center justify-between">
+            <div className="bg-card border border-border rounded-2xl overflow-hidden">
+              <div className="flex items-center justify-between px-4 py-3">
                 <h5 className="text-sm font-bold">Thu từ khách</h5>
-                {monthTotal > 0 && <span className="text-[10px] text-teal-600 font-bold">+{vnd2(monthTotal)} ₫ tháng này</span>}
+                {grandTotal > 0 && <span className="text-xs font-black text-teal-600">+{vnd2(grandTotal)} ₫ tổng</span>}
               </div>
-              <p className="text-[10px] text-muted-foreground -mt-1">Thu tiền cân, phí ship, phụ phí thu thêm từ khách…</p>
-
-              <div className="flex gap-2">
-                <input type="text" placeholder="Tên khoản (VD: Thu tiền cân batch 4)..." value={newColName}
-                  onChange={(e) => setNewColName(e.target.value)}
-                  className="min-w-0 flex-1 text-sm border border-border rounded-xl px-3 py-2 bg-background outline-none focus:ring-2 focus:ring-primary/30 transition-all" />
-                <input type="number" min="0" placeholder="₫" value={newColAmt}
-                  onChange={(e) => setNewColAmt(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && addCollection()}
-                  className="w-24 shrink-0 text-sm border border-border rounded-xl px-3 py-2 bg-background outline-none focus:ring-2 focus:ring-primary/30 transition-all" />
-                <button type="button" onClick={addCollection} className="shrink-0 bg-primary text-white text-xs font-bold px-3 rounded-xl hover:bg-primary/90 transition-colors"><Plus size={14} /></button>
-              </div>
-
-              {collections.length === 0 ? (
-                <p className="text-xs text-muted-foreground text-center py-2">Chưa có khoản thu từ khách nào</p>
-              ) : (
-                <div className="space-y-1">
-                  {collections.map(renderRow)}
-                  <div className="flex justify-between px-3 pt-1 border-t border-border text-xs font-bold">
-                    <span>Tổng</span>
-                    <span className="text-teal-700">+{vnd2(collections.reduce((s, e) => s + e.amount, 0))} ₫</span>
-                  </div>
+              <div className="px-4 pb-4 space-y-3 border-t border-border">
+                <p className="text-[10px] text-muted-foreground pt-2">Thu tiền cân, phí ship, phụ phí thu thêm từ khách…</p>
+                <div className="flex gap-2">
+                  <input type="text" placeholder="Tên khoản (VD: Thu tiền cân batch 4)..." value={newColName}
+                    onChange={(e) => setNewColName(e.target.value)}
+                    className="min-w-0 flex-1 text-sm border border-border rounded-xl px-3 py-2 bg-background outline-none focus:ring-2 focus:ring-primary/30 transition-all" />
+                  <input type="number" min="0" placeholder="₫" value={newColAmt}
+                    onChange={(e) => setNewColAmt(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && addCollection()}
+                    className="w-24 shrink-0 text-sm border border-border rounded-xl px-3 py-2 bg-background outline-none focus:ring-2 focus:ring-primary/30 transition-all" />
+                  <button type="button" onClick={addCollection} className="shrink-0 bg-primary text-white text-xs font-bold px-3 rounded-xl hover:bg-primary/90 transition-colors"><Plus size={14} /></button>
                 </div>
-              )}
+
+                {collections.length === 0 ? (
+                  <p className="text-xs text-muted-foreground text-center py-2">Chưa có khoản thu từ khách nào</p>
+                ) : (
+                  <div className="space-y-1.5">
+                    {(() => {
+                      const months = [...new Set(collections.map((e) => e.date.slice(0, 7)))].sort((a, b) => b.localeCompare(a));
+                      return months.map((month) => {
+                        const monthEntries = collections.filter((e) => e.date.startsWith(month));
+                        const monthTotal = monthEntries.reduce((s, e) => s + e.amount, 0);
+                        const isOpen = expandedColMonths.has(month);
+                        const [yr, mo] = month.split("-");
+                        const isCurrent = month === currentMonth;
+                        return (
+                          <div key={month} className={`rounded-2xl border overflow-hidden ${isCurrent ? "border-teal-300 bg-teal-50/30" : "border-border bg-muted/20"}`}>
+                            <button type="button" onClick={() => toggleColMonth(month)}
+                              className="w-full flex items-center justify-between px-3 py-2.5 hover:bg-black/5 transition-colors">
+                              <div className="flex items-center gap-2">
+                                <ChevronDown size={13} className={`text-muted-foreground transition-transform ${isOpen ? "" : "-rotate-90"}`} />
+                                <span className="text-xs font-bold">Tháng {parseInt(mo)}/{yr}</span>
+                                {isCurrent && <span className="text-[9px] font-black bg-teal-500 text-white px-1.5 py-0.5 rounded-full">hiện tại</span>}
+                                <span className="text-[10px] text-muted-foreground">{monthEntries.length} khoản</span>
+                              </div>
+                              <span className="text-xs font-black text-teal-700">+{vnd2(monthTotal)} ₫</span>
+                            </button>
+                            {isOpen && (
+                              <div className="border-t border-border p-2 space-y-1">
+                                {monthEntries.map(renderRow)}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      });
+                    })()}
+                    <div className="flex justify-between px-3 pt-1 border-t border-border text-xs font-bold">
+                      <span>Tổng tất cả</span>
+                      <span className="text-teal-700">+{vnd2(grandTotal)} ₫</span>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           );
         })()}
