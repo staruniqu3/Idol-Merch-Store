@@ -1308,6 +1308,13 @@ function OrdersTab() {
 
   const addFormItem = () => setFormItems((p) => [...p, { name: "", qty: 1, price: 0 }]);
   const removeFormItem = (idx: number) => setFormItems((p) => p.filter((_, i) => i !== idx));
+  const addVariantRow = (idx: number) => {
+    const item = formItems[idx];
+    const matched = (products ?? []).find((p) => p.name === item.name);
+    const basePrice = matched?.price ?? item.price;
+    const newItem: ManualOrderItem = { name: item.name, qty: 1, price: basePrice };
+    setFormItems((prev) => { const next = [...prev]; next.splice(idx + 1, 0, newItem); return next; });
+  };
   const setFormItem = (idx: number, field: keyof ManualOrderItem, val: string | number) =>
     setFormItems((p) => p.map((it, i) => i === idx ? { ...it, [field]: val } : it));
 
@@ -1617,6 +1624,11 @@ function OrdersTab() {
                                 </option>
                               ))}
                             </select>
+                            <button type="button" onClick={() => addVariantRow(idx)}
+                              className="shrink-0 text-[10px] font-bold text-primary border border-primary/30 bg-primary/5 hover:bg-primary/15 transition-colors px-2 py-1.5 rounded-xl whitespace-nowrap"
+                              title="Thêm biến thể khác cùng sản phẩm">
+                              + BT
+                            </button>
                           </div>
                           {(() => {
                             const selVariant = (variants as any[]).find((v) => v.name === item.variant);
