@@ -1580,120 +1580,156 @@ function OrdersTab() {
                 <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wide">
                   Sản phẩm <span className="font-normal normal-case text-muted-foreground/60">— gõ để tìm hoặc nhập tên mới</span>
                 </p>
-                {formItems.map((item, idx) => {
-                  const matchedProduct = (products ?? []).find((p) => p.name === item.name);
-                  const isFromDB = !!matchedProduct;
-                  const variants = matchedProduct?.variants ?? [];
-                  const hasVariants = variants.length > 0;
-                  return (
-                    <div key={idx} className="space-y-1">
-                      <div className="flex gap-1.5 items-center">
-                        <div className="flex-1 relative min-w-0">
-                          <input
-                            type="text" list="manual-product-list"
-                            placeholder="Tên sản phẩm" value={item.name}
-                            onChange={(e) => handleItemNameChange(idx, e.target.value)}
-                            className="w-full text-xs border border-border rounded-xl px-2.5 py-2 bg-background outline-none focus:ring-2 focus:ring-primary/30"
-                          />
-                          {isFromDB && (
-                            <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] font-bold text-primary/60 pointer-events-none">✓</span>
-                          )}
-                        </div>
-                        <input type="number" min="1" value={item.qty}
-                          onChange={(e) => setFormItem(idx, "qty", parseInt(e.target.value) || 1)}
-                          className="w-10 shrink-0 text-xs text-center border border-border rounded-xl px-1 py-2 bg-background outline-none focus:ring-2 focus:ring-primary/30" />
-                        <input type="number" min="0" placeholder="Giá" value={item.price || ""}
-                          onChange={(e) => setFormItem(idx, "price", parseFloat(e.target.value) || 0)}
-                          className="w-20 shrink-0 text-xs border border-border rounded-xl px-2 py-2 bg-background outline-none focus:ring-2 focus:ring-primary/30" />
-                        <button type="button" onClick={() => {
-                          if (formItems.length === 1) {
-                            setFormItems([{ name: "", qty: 1, price: 0 }]);
-                          } else {
-                            removeFormItem(idx);
-                          }
-                        }} className="text-muted-foreground hover:text-destructive transition-colors shrink-0" title="Xóa dòng">
-                          <X size={13} />
-                        </button>
-                      </div>
-                      {/* Discount price row */}
-                      {item.price > 0 && (
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-[10px] text-muted-foreground shrink-0 w-14">Giá giảm:</span>
-                          <input type="number" min="0" placeholder="Để trống nếu không giảm"
-                            value={item.discountedPrice ?? ""}
-                            onChange={(e) => {
-                              const v = parseFloat(e.target.value);
-                              setFormItem(idx, "discountedPrice", isNaN(v) ? 0 : v);
-                            }}
-                            className="flex-1 min-w-0 text-xs border border-rose-300/60 rounded-xl px-2 py-1.5 bg-rose-50/50 outline-none focus:ring-2 focus:ring-rose-300/50"
-                          />
-                          {item.discountedPrice != null && item.discountedPrice > 0 && item.discountedPrice < item.price && (
-                            <span className="text-[10px] font-black text-rose-600 bg-rose-100 border border-rose-200 px-1.5 py-0.5 rounded-full shrink-0">
-                              –{Math.round((1 - item.discountedPrice / item.price) * 100)}%
-                            </span>
-                          )}
-                          {item.discountedPrice != null && item.discountedPrice > 0 && (
-                            <button type="button" onClick={() => setFormItem(idx, "discountedPrice", 0)}
-                              className="text-muted-foreground hover:text-destructive shrink-0"><X size={11} /></button>
-                          )}
-                        </div>
-                      )}
-                      {hasVariants && (
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-[10px] text-muted-foreground shrink-0 w-10">Biến thể:</span>
-                            <select
-                              value={item.variant ?? ""}
-                              onChange={(e) => handleItemVariantChange(idx, e.target.value)}
-                              className="flex-1 min-w-0 text-xs border border-primary/30 rounded-xl px-2 py-1.5 bg-primary/5 text-foreground outline-none focus:ring-2 focus:ring-primary/30 font-medium"
-                            >
-                              {variants.map((v) => (
-                                <option key={v.name} value={v.name}>
-                                  {v.name}{(v as any).price ? ` — ${(v as any).price.toLocaleString("vi-VN")}₫` : ""}
-                                  {(v as any).soldOut ? " (hết)" : ""}
-                                </option>
-                              ))}
-                            </select>
-                            <button type="button" onClick={() => addVariantRow(idx)}
-                              className="shrink-0 text-[10px] font-bold text-primary border border-primary/30 bg-primary/5 hover:bg-primary/15 transition-colors px-2 py-1.5 rounded-xl whitespace-nowrap"
-                              title="Thêm biến thể khác cùng sản phẩm">
-                              + BT
-                            </button>
+                {(() => {
+                  // Group consecutive items with same product name
+                  const groups: { name: string; indices: number[] }[] = [];
+                  formItems.forEach((item, idx) => {
+                    const last = groups[groups.length - 1];
+                    if (last && last.name === item.name && item.name !== "") {
+                      last.indices.push(idx);
+                    } else {
+                      groups.push({ name: item.name, indices: [idx] });
+                    }
+                  });
+                  return groups.map((group, gIdx) => {
+                    const matchedProduct = (products ?? []).find((p) => p.name === group.name);
+                    const isFromDB = !!matchedProduct;
+                    const variants = (matchedProduct?.variants ?? []) as any[];
+                    const hasVariants = variants.length > 0;
+                    const isMulti = group.indices.length > 1;
+                    return (
+                      <div key={gIdx} className={`rounded-2xl border p-2 space-y-1.5 ${isMulti ? "border-primary/30 bg-primary/5" : "border-transparent"}`}>
+                        {/* Product name header */}
+                        <div className="flex gap-1.5 items-center">
+                          <div className="flex-1 relative min-w-0">
+                            <input type="text" list="manual-product-list" placeholder="Tên sản phẩm" value={group.name}
+                              onChange={(e) => {
+                                const newName = e.target.value;
+                                handleItemNameChange(group.indices[0], newName);
+                                if (group.indices.length > 1) {
+                                  setFormItems((prev) => prev.map((it, i) => group.indices.slice(1).includes(i) ? { ...it, name: newName } : it));
+                                }
+                              }}
+                              className="w-full text-xs border border-border rounded-xl px-2.5 py-2 bg-background outline-none focus:ring-2 focus:ring-primary/30" />
+                            {isFromDB && <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] font-bold text-primary/60 pointer-events-none">✓</span>}
                           </div>
-                          {(() => {
-                            const selVariant = (variants as any[]).find((v) => v.name === item.variant);
-                            const subVariants: any[] = selVariant?.subVariants ?? [];
-                            if (subVariants.length === 0) return null;
-                            return (
-                              <div className="flex items-center gap-1.5">
-                                <span className="text-[10px] text-muted-foreground shrink-0 w-10">Phụ:</span>
-                                <select
-                                  value={item.subVariant ?? ""}
-                                  onChange={(e) => handleItemSubVariantChange(idx, e.target.value)}
-                                  className="flex-1 min-w-0 text-xs border border-violet-300/60 rounded-xl px-2 py-1.5 bg-violet-50/60 text-foreground outline-none focus:ring-2 focus:ring-violet-300/50 font-medium"
-                                >
-                                  <option value="">— Chọn biến thể phụ —</option>
-                                  {subVariants.map((sv) => (
-                                    <option key={sv.name} value={sv.name}>
-                                      {sv.name}{sv.price ? ` — ${sv.price.toLocaleString("vi-VN")}₫` : ""}
-                                      {sv.soldOut ? " (hết)" : ""}
-                                    </option>
-                                  ))}
-                                </select>
-                                {item.subVariant && (
-                                  <button type="button" onClick={() => handleItemSubVariantChange(idx, "")}
-                                    className="text-muted-foreground hover:text-destructive transition-colors shrink-0" title="Bỏ chọn">
-                                    <X size={12} />
-                                  </button>
-                                )}
-                              </div>
-                            );
+                          {/* Single item without variants: qty + price + X in header row */}
+                          {!isMulti && !hasVariants && (() => {
+                            const item = formItems[group.indices[0]];
+                            const itemIdx = group.indices[0];
+                            return (<>
+                              <input type="number" min="1" value={item.qty}
+                                onChange={(e) => setFormItem(itemIdx, "qty", parseInt(e.target.value) || 1)}
+                                className="w-10 shrink-0 text-xs text-center border border-border rounded-xl px-1 py-2 bg-background outline-none focus:ring-2 focus:ring-primary/30" />
+                              <input type="number" min="0" placeholder="Giá" value={item.price || ""}
+                                onChange={(e) => setFormItem(itemIdx, "price", parseFloat(e.target.value) || 0)}
+                                className="w-20 shrink-0 text-xs border border-border rounded-xl px-2 py-2 bg-background outline-none focus:ring-2 focus:ring-primary/30" />
+                              <button type="button" onClick={() => { if (formItems.length === 1) setFormItems([{ name: "", qty: 1, price: 0 }]); else removeFormItem(itemIdx); }}
+                                className="text-muted-foreground hover:text-destructive transition-colors shrink-0"><X size={13} /></button>
+                            </>);
                           })()}
                         </div>
-                      )}
-                    </div>
-                  );
-                })}
+                        {/* Discount for single no-variant item */}
+                        {!isMulti && !hasVariants && (() => {
+                          const item = formItems[group.indices[0]];
+                          const itemIdx = group.indices[0];
+                          if (item.price <= 0) return null;
+                          return (
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-[10px] text-muted-foreground shrink-0 w-14">Giá giảm:</span>
+                              <input type="number" min="0" placeholder="Để trống nếu không giảm"
+                                value={item.discountedPrice ?? ""}
+                                onChange={(e) => { const v = parseFloat(e.target.value); setFormItem(itemIdx, "discountedPrice", isNaN(v) ? 0 : v); }}
+                                className="flex-1 min-w-0 text-xs border border-rose-300/60 rounded-xl px-2 py-1.5 bg-rose-50/50 outline-none focus:ring-2 focus:ring-rose-300/50" />
+                              {item.discountedPrice != null && item.discountedPrice > 0 && item.discountedPrice < item.price && (
+                                <span className="text-[10px] font-black text-rose-600 bg-rose-100 border border-rose-200 px-1.5 py-0.5 rounded-full shrink-0">
+                                  –{Math.round((1 - item.discountedPrice / item.price) * 100)}%
+                                </span>
+                              )}
+                              {item.discountedPrice != null && item.discountedPrice > 0 && (
+                                <button type="button" onClick={() => setFormItem(itemIdx, "discountedPrice", 0)}
+                                  className="text-muted-foreground hover:text-destructive shrink-0"><X size={11} /></button>
+                              )}
+                            </div>
+                          );
+                        })()}
+                        {/* Variant rows: shown for any item with variants OR multi-variant groups */}
+                        {(isMulti || hasVariants) && (
+                          <div className="space-y-1.5 pl-2 border-l-2 border-primary/20">
+                            {group.indices.map((itemIdx) => {
+                              const item = formItems[itemIdx];
+                              const selVariant = variants.find((v: any) => v.name === item.variant);
+                              const subVariants: any[] = selVariant?.subVariants ?? [];
+                              return (
+                                <div key={itemIdx} className="space-y-1">
+                                  <div className="flex items-center gap-1.5">
+                                    <input type="number" min="1" value={item.qty}
+                                      onChange={(e) => setFormItem(itemIdx, "qty", parseInt(e.target.value) || 1)}
+                                      className="w-10 shrink-0 text-xs text-center border border-border rounded-xl px-1 py-1.5 bg-background outline-none focus:ring-2 focus:ring-primary/30" />
+                                    <input type="number" min="0" placeholder="Giá" value={item.price || ""}
+                                      onChange={(e) => setFormItem(itemIdx, "price", parseFloat(e.target.value) || 0)}
+                                      className="w-20 shrink-0 text-xs border border-border rounded-xl px-2 py-1.5 bg-background outline-none focus:ring-2 focus:ring-primary/30" />
+                                    {hasVariants && (
+                                      <select value={item.variant ?? ""} onChange={(e) => handleItemVariantChange(itemIdx, e.target.value)}
+                                        className="flex-1 min-w-0 text-xs border border-primary/30 rounded-xl px-2 py-1.5 bg-primary/5 text-foreground outline-none focus:ring-2 focus:ring-primary/30 font-medium">
+                                        {variants.map((v: any) => (
+                                          <option key={v.name} value={v.name}>
+                                            {v.name}{v.price ? ` — ${v.price.toLocaleString("vi-VN")}₫` : ""}{v.soldOut ? " (hết)" : ""}
+                                          </option>
+                                        ))}
+                                      </select>
+                                    )}
+                                    {hasVariants && (
+                                      <button type="button" onClick={() => addVariantRow(itemIdx)}
+                                        className="shrink-0 text-[10px] font-bold text-primary border border-primary/30 bg-primary/5 hover:bg-primary/15 transition-colors px-2 py-1.5 rounded-xl whitespace-nowrap"
+                                        title="Thêm biến thể khác">+ BT</button>
+                                    )}
+                                    <button type="button" onClick={() => { if (formItems.length === 1) setFormItems([{ name: "", qty: 1, price: 0 }]); else removeFormItem(itemIdx); }}
+                                      className="text-muted-foreground hover:text-destructive transition-colors shrink-0"><X size={13} /></button>
+                                  </div>
+                                  {subVariants.length > 0 && (
+                                    <div className="flex items-center gap-1.5 pl-[3.5rem]">
+                                      <select value={item.subVariant ?? ""} onChange={(e) => handleItemSubVariantChange(itemIdx, e.target.value)}
+                                        className="flex-1 min-w-0 text-xs border border-violet-300/60 rounded-xl px-2 py-1.5 bg-violet-50/60 text-foreground outline-none focus:ring-2 focus:ring-violet-300/50 font-medium">
+                                        <option value="">— Chọn biến thể phụ —</option>
+                                        {subVariants.map((sv: any) => (
+                                          <option key={sv.name} value={sv.name}>
+                                            {sv.name}{sv.price ? ` — ${sv.price.toLocaleString("vi-VN")}₫` : ""}{sv.soldOut ? " (hết)" : ""}
+                                          </option>
+                                        ))}
+                                      </select>
+                                      {item.subVariant && (
+                                        <button type="button" onClick={() => handleItemSubVariantChange(itemIdx, "")}
+                                          className="text-muted-foreground hover:text-destructive transition-colors shrink-0"><X size={12} /></button>
+                                      )}
+                                    </div>
+                                  )}
+                                  {item.price > 0 && (
+                                    <div className="flex items-center gap-1.5 pl-[3.5rem]">
+                                      <input type="number" min="0" placeholder="Giá giảm (trống = không giảm)"
+                                        value={item.discountedPrice ?? ""}
+                                        onChange={(e) => { const v = parseFloat(e.target.value); setFormItem(itemIdx, "discountedPrice", isNaN(v) ? 0 : v); }}
+                                        className="flex-1 min-w-0 text-xs border border-rose-300/60 rounded-xl px-2 py-1.5 bg-rose-50/50 outline-none focus:ring-2 focus:ring-rose-300/50" />
+                                      {item.discountedPrice != null && item.discountedPrice > 0 && item.discountedPrice < item.price && (
+                                        <span className="text-[10px] font-black text-rose-600 bg-rose-100 border border-rose-200 px-1.5 py-0.5 rounded-full shrink-0">
+                                          –{Math.round((1 - item.discountedPrice / item.price) * 100)}%
+                                        </span>
+                                      )}
+                                      {item.discountedPrice != null && item.discountedPrice > 0 && (
+                                        <button type="button" onClick={() => setFormItem(itemIdx, "discountedPrice", 0)}
+                                          className="text-muted-foreground hover:text-destructive shrink-0"><X size={11} /></button>
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  });
+                })()}
                 <button type="button" onClick={addFormItem}
                   className="text-xs text-primary hover:text-primary/80 flex items-center gap-1 transition-colors">
                   <Plus size={12} /> Thêm sản phẩm
