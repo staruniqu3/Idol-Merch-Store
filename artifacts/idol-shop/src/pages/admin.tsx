@@ -112,6 +112,18 @@ function DashboardTab() {
   const { data: members } = useListMembers();
   const { data: products } = useListProducts(undefined, { query: { refetchInterval: 30_000 } });
 
+  const [reminderDismissed, setReminderDismissed] = useState<string>(() =>
+    localStorage.getItem("income_reminder_dismissed") ?? ""
+  );
+  const todayKey = new Date().toISOString().slice(0, 10);
+  const now = new Date();
+  const showReminder = reminderDismissed !== todayKey &&
+    (now.getHours() < 11 || (now.getHours() === 11 && now.getMinutes() < 30));
+  const dismissReminder = () => {
+    localStorage.setItem("income_reminder_dismissed", todayKey);
+    setReminderDismissed(todayKey);
+  };
+
   const stats = [
     { label: "Tổng đơn hàng", value: summary?.totalOrders ?? 0, icon: ShoppingBag, color: "text-blue-600", bg: "bg-blue-50" },
     { label: "Doanh thu", value: summary ? formatPrice(summary.totalRevenue) : "0đ", icon: TrendingUp, color: "text-emerald-600", bg: "bg-emerald-50" },
@@ -121,6 +133,16 @@ function DashboardTab() {
 
   return (
     <div className="space-y-4">
+      {showReminder && (
+        <div className="flex items-start gap-3 bg-amber-50 border border-amber-300 rounded-2xl px-4 py-3">
+          <span className="text-lg shrink-0">⏰</span>
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-black text-amber-800">Nhắc nhở hàng ngày</p>
+            <p className="text-xs text-amber-700 mt-0.5">Đừng quên nhập thu nhập hôm nay vào tab <span className="font-bold">Chi phí & Lợi nhuận</span> trước 11:30 nhé!</p>
+          </div>
+          <button type="button" onClick={dismissReminder} className="shrink-0 text-amber-500 hover:text-amber-700 transition-colors"><X size={14} /></button>
+        </div>
+      )}
       <div className="grid grid-cols-2 gap-3">
         {stats.map((s) => (
           <div key={s.label} className="bg-card border border-border rounded-2xl p-4">
@@ -4971,8 +4993,10 @@ const SHIPPER_STAFF_KEY   = "admin_shipper_staff";
 const REFUNDS_KEY         = "admin_refunds";
 const YEAR_PLANS_KEY      = "admin_year_plans";
 const INTL_SHIP_RATES_KEY = "admin_intl_ship_rates";
+const WALLETS_KEY         = "admin_wallets";
 
 type ProfitJar = { id: string; name: string; amount: number };
+type WalletEntry = { id: string; name: string; balance: number };
 
 function tierPct(amount: number, type: "le" | "si") {
   const base = amount < 500_000 ? 0.10 : amount <= 2_000_000 ? 0.08 : 0.05;
@@ -5190,6 +5214,33 @@ function CostTab() {
     if (!editingRefCustomer.trim() || !amt || amt <= 0) { setEditingRefId(null); return; }
     saveRefunds(refunds.map((e) => e.id === editingRefId ? { ...e, customer: editingRefCustomer.trim(), reason: editingRefReason.trim(), amount: amt } : e));
     setEditingRefId(null);
+  };
+
+  // ── Quản lý ví ──
+  const [wallets, setWallets] = useState<WalletEntry[]>(() => {
+    try { return JSON.parse(localStorage.getItem(WALLETS_KEY) || "[]"); } catch { return []; }
+  });
+  const [newWalletName,    setNewWalletName]    = useState("");
+  const [newWalletBalance, setNewWalletBalance] = useState("");
+  const [editingWalletId,  setEditingWalletId]  = useState<string | null>(null);
+  const [editingWalletName,    setEditingWalletName]    = useState("");
+  const [editingWalletBalance, setEditingWalletBalance] = useState("");
+  const saveWallets = (next: WalletEntry[]) => { setWallets(next); localStorage.setItem(WALLETS_KEY, JSON.stringify(next)); syncToServer(WALLETS_KEY, next); };
+  const addWallet = () => {
+    const name = newWalletName.trim();
+    if (!name) return;
+    const balance = parseFloat(newWalletBalance) || 0;
+    saveWallets([...wallets, { id: crypto.randomUUID(), name, balance }]);
+    setNewWalletName(""); setNewWalletBalance("");
+  };
+  const startEditWallet = (w: WalletEntry) => { setEditingWalletId(w.id); setEditingWalletName(w.name); setEditingWalletBalance(String(w.balance)); };
+  const commitEditWallet = () => {
+    if (!editingWalletId) return;
+    const name = editingWalletName.trim();
+    const balance = parseFloat(editingWalletBalance) || 0;
+    if (!name) { setEditingWalletId(null); return; }
+    saveWallets(wallets.map((w) => w.id === editingWalletId ? { ...w, name, balance } : w));
+    setEditingWalletId(null);
   };
 
   // ── Kế hoạch năm ──
@@ -6860,6 +6911,68 @@ function CostTab() {
                   Reset doanh thu tháng
                 </button>
               )}
+            </div>
+          );
+        })()}
+
+        {/* ── Quản lý ví ── */}
+        {(() => {
+          const vnd = (n: number) => new Intl.NumberFormat("vi-VN").format(Math.round(n));
+          const totalBalance = wallets.reduce((s, w) => s + w.balance, 0);
+          return (
+            <div className="bg-card border border-border rounded-2xl overflow-hidden">
+              <div className="flex items-center justify-between px-4 py-3">
+                <div>
+                  <h4 className="text-sm font-bold">💳 Quản lý ví</h4>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">Tiền đang cất trữ ở các ví/tài khoản</p>
+                </div>
+                {totalBalance > 0 && (
+                  <span className="text-xs font-black text-emerald-600">Tổng: {vnd(totalBalance)} ₫</span>
+                )}
+              </div>
+              <div className="border-t border-border px-4 pb-4 space-y-2 pt-3">
+                {wallets.length === 0 ? (
+                  <p className="text-xs text-muted-foreground text-center py-2 italic">Chưa có ví nào — thêm bên dưới</p>
+                ) : (
+                  <div className="grid grid-cols-2 gap-2">
+                    {wallets.map((w) => {
+                      if (editingWalletId === w.id) return (
+                        <div key={w.id} className="col-span-2 flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2">
+                          <input autoFocus value={editingWalletName} onChange={(e) => setEditingWalletName(e.target.value)}
+                            onKeyDown={(e) => { if (e.key === "Enter") commitEditWallet(); if (e.key === "Escape") setEditingWalletId(null); }}
+                            className="flex-1 text-xs border border-amber-300 rounded-lg px-2 py-1 bg-white outline-none min-w-0" placeholder="Tên ví" />
+                          <input type="number" value={editingWalletBalance} onChange={(e) => setEditingWalletBalance(e.target.value)}
+                            onKeyDown={(e) => { if (e.key === "Enter") commitEditWallet(); if (e.key === "Escape") setEditingWalletId(null); }}
+                            className="w-28 text-xs text-right border border-amber-300 rounded-lg px-2 py-1 bg-white outline-none shrink-0" placeholder="Số dư ₫" />
+                          <button type="button" onClick={commitEditWallet} className="text-emerald-600 hover:text-emerald-700 shrink-0"><Check size={14} /></button>
+                          <button type="button" onClick={() => setEditingWalletId(null)} className="text-muted-foreground hover:text-foreground shrink-0"><X size={14} /></button>
+                        </div>
+                      );
+                      return (
+                        <div key={w.id} className="bg-gradient-to-br from-slate-50 to-slate-100 border border-slate-200 rounded-2xl p-3 flex flex-col gap-1 group relative">
+                          <p className="text-[10px] font-bold text-muted-foreground truncate">{w.name}</p>
+                          <p className="text-sm font-black text-foreground">{vnd(w.balance)} ₫</p>
+                          <div className="absolute top-2 right-2 hidden group-hover:flex gap-1">
+                            <button type="button" onClick={() => startEditWallet(w)} className="w-5 h-5 rounded-full bg-white border border-border flex items-center justify-center text-muted-foreground hover:text-primary transition-colors"><Pencil size={10} /></button>
+                            <button type="button" onClick={() => saveWallets(wallets.filter((x) => x.id !== w.id))} className="w-5 h-5 rounded-full bg-white border border-border flex items-center justify-center text-muted-foreground hover:text-destructive transition-colors"><Trash2 size={10} /></button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+                <div className="flex gap-2 pt-1">
+                  <input type="text" placeholder="Tên ví (VD: Momo, Techcombank...)" value={newWalletName}
+                    onChange={(e) => setNewWalletName(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && addWallet()}
+                    className="flex-1 min-w-0 text-sm border border-border rounded-xl px-3 py-2 bg-background outline-none focus:ring-2 focus:ring-primary/30 transition-all" />
+                  <input type="number" min="0" placeholder="Số dư ₫" value={newWalletBalance}
+                    onChange={(e) => setNewWalletBalance(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && addWallet()}
+                    className="w-28 shrink-0 text-sm border border-border rounded-xl px-3 py-2 bg-background outline-none focus:ring-2 focus:ring-primary/30 transition-all" />
+                  <button type="button" onClick={addWallet} className="shrink-0 bg-primary text-white text-xs font-bold px-3 rounded-xl hover:bg-primary/90 transition-colors"><Plus size={14} /></button>
+                </div>
+              </div>
             </div>
           );
         })()}
