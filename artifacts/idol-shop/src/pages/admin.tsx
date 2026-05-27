@@ -12,7 +12,7 @@ import {
 } from "@workspace/api-client-react";
 import {
   Shield, Package, ShoppingBag, ShoppingCart, Truck, Users, Gift, LogOut, Plus, Pencil, Trash2, ChevronDown,
-  TrendingUp, Star, Calendar, X, Check, BarChart3, Sparkles, Bell, Pin, Ticket, Eye, EyeOff, Tag, AlertTriangle, Copy, History, Receipt, Upload, Search, CheckCircle,
+  TrendingUp, Star, Calendar, X, Check, BarChart3, Sparkles, Bell, Pin, Ticket, Eye, EyeOff, Tag, AlertTriangle, Copy, History, Receipt, Upload, Search, CheckCircle, Archive,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -1226,7 +1226,10 @@ function MemberCodeEditor({ orderId, currentCode }: { orderId: number; currentCo
 }
 
 // ── Manual orders ──
-const MANUAL_ORDERS_KEY = "admin_manual_orders"; // kept for localStorage→DB migration
+const MANUAL_ORDERS_KEY        = "admin_manual_orders"; // kept for localStorage→DB migration
+const SLOT_BATCH_HISTORY_KEY   = "admin_slot_batch_history";
+
+type SlotBatch = { id: string; archivedAt: string; label: string; bookings: any[] };
 const manualStatusLabels: Record<string, string> = {
   pending: "Chờ xác nhận", confirmed: "Đã xác nhận",
   shipped: "Đang giao", delivered: "Đã giao", cancelled: "Đã huỷ",
@@ -1248,6 +1251,42 @@ function OrdersTab() {
   const [slotBookingsLoading, setSlotBookingsLoading] = useState(false);
   const [slotCodeInputs, setSlotCodeInputs] = useState<Record<string, string>>({});
   const [slotStatusEditOpen, setSlotStatusEditOpen] = useState<Record<string, boolean>>({});
+
+  // ── Slot batch history ──
+  const [slotBatchHistory, setSlotBatchHistory] = useState<SlotBatch[]>(() => {
+    try { return JSON.parse(localStorage.getItem(SLOT_BATCH_HISTORY_KEY) || "[]"); } catch { return []; }
+  });
+  const [showSlotHistory, setShowSlotHistory] = useState(false);
+  const [expandedBatchId, setExpandedBatchId] = useState<string | null>(null);
+  const [archiving, setArchiving] = useState(false);
+
+  const saveBatchHistory = (next: SlotBatch[]) => {
+    setSlotBatchHistory(next);
+    localStorage.setItem(SLOT_BATCH_HISTORY_KEY, JSON.stringify(next));
+    fetch(`${base}/api/settings/${SLOT_BATCH_HISTORY_KEY}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(next) }).catch(() => {});
+  };
+
+  const archiveBatch = async () => {
+    if (slotBookings.length === 0) { toast({ title: "Không có slot nào để lưu trữ" }); return; }
+    const label = prompt("Tên đợt này (VD: LOL26 - Doll Keychain tháng 5)?", `Đợt ${new Date().toLocaleDateString("vi-VN")}`);
+    if (label === null) return;
+    if (!confirm(`Lưu trữ ${slotBookings.length} slot và xoá khỏi danh sách hiện tại?`)) return;
+    setArchiving(true);
+    try {
+      const batch: SlotBatch = { id: crypto.randomUUID(), archivedAt: new Date().toISOString(), label: label.trim() || `Đợt ${new Date().toLocaleDateString("vi-VN")}`, bookings: slotBookings };
+      saveBatchHistory([batch, ...slotBatchHistory]);
+      await Promise.all(slotBookings.map((b) => fetch(`${base}/api/slot-bookings/${b.id}`, { method: "DELETE" })));
+      setSlotBookings([]);
+      toast({ title: `✅ Đã lưu trữ đợt "${batch.label}"`, description: `${slotBookings.length} slot đã được lưu vào lịch sử` });
+    } finally { setArchiving(false); }
+  };
+
+  // ── Manual orders month state ──
+  const [expandedMonths, setExpandedMonths] = useState<Set<string>>(() => {
+    const thisMonth = new Date().toISOString().slice(0, 7);
+    return new Set([thisMonth]);
+  });
+  const toggleMonth = (m: string) => setExpandedMonths((prev) => { const next = new Set(prev); if (next.has(m)) next.delete(m); else next.add(m); return next; });
   const [sovereignSheetId, setSovereignSheetId] = useState("");
   const [sheetIdSaving, setSheetIdSaving] = useState(false);
   const [mbsPhones, setMbsPhones] = useState<string[]>([]);
@@ -1824,10 +1863,38 @@ function OrdersTab() {
               <p className="text-xs mt-1">Bấm "Thêm đơn" để nhập đơn ngoài app</p>
             </div>
           ) : (
-            <div className="space-y-2">
-              {manualOrders.map((order) => {
-                const isExpanded = expandedManualId === order.id;
-                const total = order.items.reduce((s, i) => s + i.qty * (i.discountedPrice ?? i.price), 0);
+            <div className="space-y-3">
+              {(() => {
+                // Group by month YYYY-MM descending
+                const monthMap: Record<string, typeof manualOrders> = {};
+                manualOrders.forEach((o) => {
+                  const key = (o.date ?? "").slice(0, 7) || "unknown";
+                  if (!monthMap[key]) monthMap[key] = [];
+                  monthMap[key].push(o);
+                });
+                const months = Object.keys(monthMap).sort((a, b) => b.localeCompare(a));
+                return months.map((monthKey) => {
+                  const orders = monthMap[monthKey];
+                  const isOpen = expandedMonths.has(monthKey);
+                  const [yr, mo] = monthKey.split("-");
+                  const label = yr && mo ? `Tháng ${parseInt(mo)}/${yr}` : "Không rõ tháng";
+                  const monthTotal = orders.reduce((s, o) => s + o.items.reduce((ss, i) => ss + i.qty * (i.discountedPrice ?? i.price), 0), 0);
+                  return (
+                    <div key={monthKey} className="bg-card border border-border rounded-2xl overflow-hidden">
+                      <button type="button" onClick={() => toggleMonth(monthKey)}
+                        className="w-full flex items-center justify-between px-3 py-2.5 hover:bg-muted/40 transition-colors">
+                        <div className="flex items-center gap-2">
+                          <ChevronDown size={13} className={`text-muted-foreground transition-transform ${isOpen ? "rotate-180" : ""}`} />
+                          <span className="text-xs font-black text-foreground">{label}</span>
+                          <span className="text-[10px] text-muted-foreground font-normal">({orders.length} đơn)</span>
+                        </div>
+                        <span className="text-xs font-black text-primary">{formatPrice(monthTotal)}</span>
+                      </button>
+                      {isOpen && (
+                        <div className="border-t border-border space-y-0 divide-y divide-border/50">
+                          {orders.map((order) => {
+                            const isExpanded = expandedManualId === order.id;
+                            const total = order.items.reduce((s, i) => s + i.qty * (i.discountedPrice ?? i.price), 0);
                 const statusColor = order.status === "delivered" ? "bg-emerald-100 text-emerald-700 border-emerald-200"
                   : order.status === "cancelled" ? "bg-red-100 text-red-600 border-red-200"
                   : order.status === "shipped" ? "bg-blue-100 text-blue-700 border-blue-200"
@@ -2047,6 +2114,12 @@ function OrdersTab() {
                   </div>
                 );
               })}
+                        </div>
+                      )}
+                    </div>
+                  );
+                });
+              })()}
             </div>
           )}
         </div>
@@ -2238,7 +2311,18 @@ function OrdersTab() {
                 Tự đồng bộ mỗi 30 giây
               </p>
             </div>
-            <button onClick={loadSlotBookings} className="shrink-0 text-xs text-muted-foreground hover:text-foreground border border-border rounded-xl px-2 py-1">↻ Tải lại ngay</button>
+            <div className="flex items-center gap-1.5 shrink-0">
+              <button onClick={loadSlotBookings} className="text-xs text-muted-foreground hover:text-foreground border border-border rounded-xl px-2 py-1">↻ Tải lại</button>
+              {slotBookings.length > 0 && (
+                <button
+                  onClick={archiveBatch}
+                  disabled={archiving}
+                  className="text-xs font-bold bg-fuchsia-600 hover:bg-fuchsia-700 disabled:opacity-50 text-white px-3 py-1 rounded-xl transition-colors flex items-center gap-1"
+                >
+                  <Archive size={12} /> Xong đợt
+                </button>
+              )}
+            </div>
           </div>
 
           {/* Cross-ref alert: phone in order Google Sheet */}
@@ -2284,6 +2368,88 @@ function OrdersTab() {
             <div className="text-center py-10 text-muted-foreground">
               <Ticket size={28} strokeWidth={1.2} className="mx-auto mb-2" />
               <p className="text-sm">Chưa có đặt slot nào</p>
+            </div>
+          )}
+
+          {/* ── Lịch sử đợt ── */}
+          {slotBatchHistory.length > 0 && (
+            <div className="bg-fuchsia-50 border border-fuchsia-200 rounded-2xl overflow-hidden">
+              <button
+                type="button"
+                onClick={() => setShowSlotHistory((v) => !v)}
+                className="w-full flex items-center justify-between px-4 py-3"
+              >
+                <div className="flex items-center gap-2">
+                  <Archive size={14} className="text-fuchsia-600" />
+                  <span className="text-sm font-bold text-fuchsia-800">Lịch sử đợt ({slotBatchHistory.length})</span>
+                </div>
+                <ChevronDown size={14} className={`text-fuchsia-500 transition-transform ${showSlotHistory ? "rotate-180" : ""}`} />
+              </button>
+              {showSlotHistory && (
+                <div className="border-t border-fuchsia-200 divide-y divide-fuchsia-100">
+                  {slotBatchHistory.map((batch) => {
+                    const isOpen = expandedBatchId === batch.id;
+                    // group by event code (first _ segment of queueCode)
+                    const byEvent: Record<string, any[]> = {};
+                    batch.bookings.forEach((b) => {
+                      const code = (b.queueCode ?? "").split("_")[0] || "Khác";
+                      if (!byEvent[code]) byEvent[code] = [];
+                      byEvent[code].push(b);
+                    });
+                    const eventCodes = Object.keys(byEvent);
+                    return (
+                      <div key={batch.id}>
+                        <button
+                          type="button"
+                          onClick={() => setExpandedBatchId(isOpen ? null : batch.id)}
+                          className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-fuchsia-100/60 transition-colors"
+                        >
+                          <div className="text-left min-w-0">
+                            <p className="text-xs font-black text-fuchsia-800 truncate">{batch.label}</p>
+                            <p className="text-[10px] text-fuchsia-500">{new Date(batch.archivedAt).toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })} · {batch.bookings.length} slot · {eventCodes.length} mã event</p>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0 ml-2">
+                            <button
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); if (confirm(`Xoá vĩnh viễn đợt "${batch.label}"?`)) saveBatchHistory(slotBatchHistory.filter((b) => b.id !== batch.id)); }}
+                              className="text-[10px] text-fuchsia-300 hover:text-red-500 transition-colors"
+                            ><Trash2 size={11} /></button>
+                            <ChevronDown size={12} className={`text-fuchsia-400 transition-transform ${isOpen ? "rotate-180" : ""}`} />
+                          </div>
+                        </button>
+                        {isOpen && (
+                          <div className="bg-white/60 px-4 pb-3 space-y-3">
+                            {eventCodes.map((evCode) => (
+                              <div key={evCode}>
+                                <p className="text-[10px] font-black text-fuchsia-700 uppercase tracking-widest mb-1.5 pt-2">🎫 {evCode} ({byEvent[evCode].length} slot)</p>
+                                <div className="space-y-1.5">
+                                  {byEvent[evCode].map((b: any) => (
+                                    <div key={b.id} className="flex items-start justify-between gap-2 text-[11px] bg-fuchsia-50/80 border border-fuchsia-100 rounded-xl px-2.5 py-1.5">
+                                      <div className="min-w-0">
+                                        <span className="font-black text-fuchsia-700 font-mono">{b.queueCode}</span>
+                                        <span className="text-muted-foreground"> · {b.phone}</span>
+                                        {b.socialHandle && <span className="text-muted-foreground"> · {b.socialHandle}</span>}
+                                        <p className="text-[10px] text-muted-foreground/70 mt-0.5">{b.productName}{b.variant ? ` · ${b.variant}` : ""}{b.subVariant ? ` · ${b.subVariant}` : ""} ×{b.quantity ?? 1}</p>
+                                      </div>
+                                      <span className={`shrink-0 font-bold px-1.5 py-0.5 rounded-full text-[9px] ${
+                                        b.status === "confirmed" ? "bg-emerald-100 text-emerald-700" :
+                                        b.status === "cancelled" ? "bg-red-100 text-red-600" :
+                                        b.status === "form_required" ? "bg-violet-100 text-violet-700" :
+                                        "bg-amber-100 text-amber-700"}`}>
+                                        {b.status === "confirmed" ? "✅" : b.status === "cancelled" ? "❌" : b.status === "form_required" ? "📋" : "⏳"}
+                                      </span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           )}
 

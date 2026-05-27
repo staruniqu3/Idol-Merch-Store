@@ -17,6 +17,7 @@ const ALLOWED_KEYS = new Set([
   "admin_year_plans",
   "admin_intl_ship_rates",
   "admin_wallets",
+  "admin_slot_batch_history",
   // Deal hunt
   "admin_deal_requests",
   // Stats tab state
