@@ -7233,13 +7233,13 @@ function CostTab() {
                         </div>
                       );
                       return (
-                        <div key={w.id} className="bg-gradient-to-br from-slate-50 to-slate-100 border border-slate-200 rounded-2xl p-3 flex flex-col gap-1 group relative">
-                          <p className="text-[10px] font-bold text-muted-foreground truncate">{w.name}</p>
-                          <p className="text-sm font-black text-foreground">{vnd(w.balance)} ₫</p>
-                          <div className="absolute top-2 right-2 hidden group-hover:flex gap-1">
-                            <button type="button" onClick={() => startEditWallet(w)} className="w-5 h-5 rounded-full bg-white border border-border flex items-center justify-center text-muted-foreground hover:text-primary transition-colors"><Pencil size={10} /></button>
-                            <button type="button" onClick={() => saveWallets(wallets.filter((x) => x.id !== w.id))} className="w-5 h-5 rounded-full bg-white border border-border flex items-center justify-center text-muted-foreground hover:text-destructive transition-colors"><Trash2 size={10} /></button>
+                        <div key={w.id} className="bg-gradient-to-br from-slate-50 to-slate-100 border border-slate-200 rounded-2xl p-3 flex flex-col gap-1 relative">
+                          <div className="absolute top-2 right-2 flex gap-1">
+                            <button type="button" onClick={() => startEditWallet(w)} className="w-6 h-6 rounded-full bg-white border border-border flex items-center justify-center text-muted-foreground hover:text-primary active:text-primary transition-colors"><Pencil size={11} /></button>
+                            <button type="button" onClick={() => saveWallets(wallets.filter((x) => x.id !== w.id))} className="w-6 h-6 rounded-full bg-white border border-border flex items-center justify-center text-muted-foreground hover:text-destructive active:text-destructive transition-colors"><Trash2 size={11} /></button>
                           </div>
+                          <p className="text-[10px] font-bold text-muted-foreground truncate pr-14">{w.name}</p>
+                          <p className="text-sm font-black text-foreground">{vnd(w.balance)} ₫</p>
                         </div>
                       );
                     })}
