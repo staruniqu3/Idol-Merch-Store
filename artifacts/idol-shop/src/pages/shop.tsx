@@ -58,6 +58,7 @@ const MATMAT_URL = "https://matmat.up.railway.app/";
 export default function ShopPage() {
   const { data: products, isLoading } = useListProducts();
   const [selectedCategory, setSelectedCategory] = useState("Tất cả");
+  const [showAllCats, setShowAllCats] = useState(false);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [cartOpen, setCartOpen] = useState(false);
   const [step, setStep] = useState<"cart" | "checkout" | "payment">("cart");
@@ -530,21 +531,57 @@ export default function ShopPage() {
           </Sheet>
         </div>
 
-        <div className="flex gap-2 mt-4 overflow-x-auto pb-1 -mx-1 px-1">
-          {categories.map((cat) => (
-            <button
-              key={cat}
-              onClick={() => setSelectedCategory(cat)}
-              className={`shrink-0 px-4 py-1.5 rounded-full text-xs font-bold transition-all ${
-                selectedCategory === cat
-                  ? "bg-white text-foreground shadow-sm"
-                  : "bg-white/15 text-white/80 hover:bg-white/25"
-              }`}
-              data-testid={`filter-${cat}`}
-            >
-              {cat}
-            </button>
-          ))}
+        <div className="mt-4 -mx-1 px-1">
+          {showAllCats ? (
+            <div className="flex flex-wrap gap-2 pb-1">
+              {categories.map((cat) => (
+                <button
+                  key={cat}
+                  onClick={() => { setSelectedCategory(cat); setShowAllCats(false); }}
+                  className={`shrink-0 px-4 py-1.5 rounded-full text-xs font-bold transition-all ${
+                    selectedCategory === cat
+                      ? "bg-white text-foreground shadow-sm"
+                      : "bg-white/15 text-white/80 hover:bg-white/25"
+                  }`}
+                  data-testid={`filter-${cat}`}
+                >
+                  {cat}
+                </button>
+              ))}
+              <button
+                onClick={() => setShowAllCats(false)}
+                className="shrink-0 px-3 py-1.5 rounded-full text-xs font-bold bg-white/10 text-white/70 hover:bg-white/20 transition-all border border-white/20"
+              >
+                ▲ Thu gọn
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2">
+              <div className="flex gap-2 overflow-x-auto pb-1 flex-1 min-w-0">
+                {categories.map((cat) => (
+                  <button
+                    key={cat}
+                    onClick={() => setSelectedCategory(cat)}
+                    className={`shrink-0 px-4 py-1.5 rounded-full text-xs font-bold transition-all ${
+                      selectedCategory === cat
+                        ? "bg-white text-foreground shadow-sm"
+                        : "bg-white/15 text-white/80 hover:bg-white/25"
+                    }`}
+                    data-testid={`filter-${cat}`}
+                  >
+                    {cat}
+                  </button>
+                ))}
+              </div>
+              <button
+                onClick={() => setShowAllCats(true)}
+                className="shrink-0 px-3 py-1.5 rounded-full text-xs font-bold bg-white/10 text-white/70 hover:bg-white/20 transition-all border border-white/20 mb-1"
+                title="Xem tất cả danh mục"
+              >
+                ▾
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
