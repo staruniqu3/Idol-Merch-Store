@@ -2981,7 +2981,7 @@ type BatchRecord = {
   completedAt: string;
   orderCount: number;
   totalQty: number;
-  items: Array<{ name: string; qty: number; revenue: number }>;
+  items: Array<{ name: string; qty: number; revenue: number; variantBreakdown?: Record<string, number> }>;
   buyers?: BatchBuyer[];
 };
 
@@ -3088,28 +3088,35 @@ function StatsTab() {
   );
 
   type StatOrderEntry = { orderId: number | string; customerName: string; phone?: string; qty: number; price: number; source: "app" | "manual"; variant?: string };
-  const itemMap: Record<string, { qty: number; revenue: number; sources: Array<"app" | "manual"> }> = {};
+  const itemMap: Record<string, { qty: number; revenue: number; sources: Array<"app" | "manual">; variantBreakdown: Record<string, number> }> = {};
   const itemOrdersMap: Record<string, StatOrderEntry[]> = {};
   activeOrders.forEach((order) => {
     try {
-      const items: Array<{ name: string; quantity: number; price: number }> = JSON.parse(order.items);
+      const items: Array<{ name: string; quantity: number; price: number; variant?: string }> = JSON.parse(order.items);
       items.forEach((it) => {
-        if (!itemMap[it.name]) itemMap[it.name] = { qty: 0, revenue: 0, sources: [] };
+        if (!itemMap[it.name]) itemMap[it.name] = { qty: 0, revenue: 0, sources: [], variantBreakdown: {} };
         itemMap[it.name].qty += it.quantity;
         itemMap[it.name].revenue += it.price * it.quantity;
         if (!itemMap[it.name].sources.includes("app")) itemMap[it.name].sources.push("app");
+        if (it.variant) {
+          itemMap[it.name].variantBreakdown[it.variant] = (itemMap[it.name].variantBreakdown[it.variant] ?? 0) + it.quantity;
+        }
         if (!itemOrdersMap[it.name]) itemOrdersMap[it.name] = [];
-        itemOrdersMap[it.name].push({ orderId: order.id, customerName: order.memberName, phone: order.memberPhone, qty: it.quantity, price: it.price, source: "app" });
+        itemOrdersMap[it.name].push({ orderId: order.id, customerName: order.memberName, phone: order.memberPhone, qty: it.quantity, price: it.price, source: "app", variant: it.variant });
       });
     } catch {}
   });
   activeManualOrders.forEach((order) => {
     order.items.forEach((it) => {
       if (!it.name.trim()) return;
-      if (!itemMap[it.name]) itemMap[it.name] = { qty: 0, revenue: 0, sources: [] };
+      if (!itemMap[it.name]) itemMap[it.name] = { qty: 0, revenue: 0, sources: [], variantBreakdown: {} };
       itemMap[it.name].qty += it.qty;
       itemMap[it.name].revenue += it.price * it.qty;
       if (!itemMap[it.name].sources.includes("manual")) itemMap[it.name].sources.push("manual");
+      const vKey = [it.variant, it.subVariant].filter(Boolean).join(" · ") || null;
+      if (vKey) {
+        itemMap[it.name].variantBreakdown[vKey] = (itemMap[it.name].variantBreakdown[vKey] ?? 0) + it.qty;
+      }
       if (!itemOrdersMap[it.name]) itemOrdersMap[it.name] = [];
       itemOrdersMap[it.name].push({ orderId: order.id, customerName: order.customerName, phone: order.phone, qty: it.qty, price: it.price, source: "manual", variant: it.variant });
     });
@@ -3129,7 +3136,10 @@ function StatsTab() {
   const handleComplete = () => {
     const snapshot = Object.entries(itemMap)
       .sort((a, b) => b[1].qty - a[1].qty)
-      .map(([name, { qty, revenue }]) => ({ name, qty, revenue }));
+      .map(([name, { qty, revenue, variantBreakdown }]) => ({
+        name, qty, revenue,
+        ...(Object.keys(variantBreakdown).length > 0 ? { variantBreakdown } : {}),
+      }));
     // Snapshot unique buyers from app orders + manual orders
     const buyerMap = new Map<string, BatchBuyer>();
     activeOrders.forEach((o) => {
@@ -3290,29 +3300,46 @@ function StatsTab() {
                     {isOpen && (
                       <div className="border-t border-border bg-muted/20 p-3 space-y-2">
                         {batch.items.map((item) => {
-                          const key      = receivedItemKey(batch.completedAt, item.name);
-                          const checked  = receivedItems.has(key);
+                          const key     = receivedItemKey(batch.completedAt, item.name);
+                          const checked = receivedItems.has(key);
+                          const variants = item.variantBreakdown ? Object.entries(item.variantBreakdown).sort((a, b) => b[1] - a[1]) : [];
                           return (
-                            <button key={item.name} type="button" onClick={() => toggleReceivedItem(key)}
-                              className={`w-full flex items-center gap-2.5 p-2 rounded-xl transition-all text-left ${
-                                checked ? "bg-emerald-50 border border-emerald-200/60" : "bg-card border border-border hover:border-emerald-300/50"
-                              }`}
-                            >
-                              <div className={`w-4 h-4 rounded-full border-2 shrink-0 flex items-center justify-center transition-all ${
-                                checked ? "bg-emerald-500 border-emerald-500" : "border-muted-foreground/30"
-                              }`}>
-                                {checked && <Check size={9} strokeWidth={3} className="text-white" />}
-                              </div>
-                              <span className={`flex-1 text-sm font-medium truncate ${checked ? "line-through text-muted-foreground" : ""}`}>
-                                {item.name}
-                              </span>
-                              <div className="flex items-center gap-2 shrink-0">
-                                <Badge variant="secondary" className={`text-[10px] font-black ${checked ? "bg-emerald-100 text-emerald-700 border-emerald-200" : "bg-primary/10 text-primary border-primary/20"}`}>
-                                  ×{item.qty}
-                                </Badge>
-                                <span className="text-xs text-muted-foreground">{formatPrice(item.revenue)}</span>
-                              </div>
-                            </button>
+                            <div key={item.name} className={`rounded-xl border overflow-hidden transition-all ${checked ? "border-emerald-200/60" : "border-border"}`}>
+                              {/* Main product row — tap to toggle */}
+                              <button type="button" onClick={() => toggleReceivedItem(key)}
+                                className={`w-full flex items-center gap-2.5 p-2 transition-all text-left ${
+                                  checked ? "bg-emerald-50" : "bg-card hover:border-emerald-300/50"
+                                }`}
+                              >
+                                <div className={`w-4 h-4 rounded-full border-2 shrink-0 flex items-center justify-center transition-all ${
+                                  checked ? "bg-emerald-500 border-emerald-500" : "border-muted-foreground/30"
+                                }`}>
+                                  {checked && <Check size={9} strokeWidth={3} className="text-white" />}
+                                </div>
+                                <span className={`flex-1 text-sm font-medium truncate ${checked ? "line-through text-muted-foreground" : ""}`}>
+                                  {item.name}
+                                </span>
+                                <div className="flex items-center gap-2 shrink-0">
+                                  <Badge variant="secondary" className={`text-[10px] font-black ${checked ? "bg-emerald-100 text-emerald-700 border-emerald-200" : "bg-primary/10 text-primary border-primary/20"}`}>
+                                    ×{item.qty}
+                                  </Badge>
+                                  <span className="text-xs text-muted-foreground">{formatPrice(item.revenue)}</span>
+                                </div>
+                              </button>
+                              {/* Variant breakdown rows — read-only reference */}
+                              {variants.length > 0 && (
+                                <div className={`border-t divide-y text-[11px] ${checked ? "border-emerald-100 divide-emerald-100 bg-emerald-50/60" : "border-border/60 divide-border/40 bg-muted/30"}`}>
+                                  {variants.map(([vName, vQty]) => (
+                                    <div key={vName} className="flex items-center justify-between px-3 py-1 gap-2">
+                                      <span className={`truncate ${checked ? "text-emerald-600/70 line-through" : "text-muted-foreground"}`}>
+                                        ↳ {vName}
+                                      </span>
+                                      <span className={`font-black shrink-0 ${checked ? "text-emerald-500" : "text-foreground"}`}>×{vQty}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
                           );
                         })}
 
