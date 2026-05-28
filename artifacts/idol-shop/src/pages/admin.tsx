@@ -5610,6 +5610,7 @@ function CostTab() {
   const [expandedMonths, setExpandedMonths] = useState<Set<string>>(() => new Set([currentMonth]));
   const toggleMonth = (m: string) => setExpandedMonths((prev) => { const s = new Set(prev); s.has(m) ? s.delete(m) : s.add(m); return s; });
   const [selectedSummaryMonth, setSelectedSummaryMonth] = useState(currentMonth);
+  const [showDailyProfit, setShowDailyProfit] = useState(false);
   const [expandedVarMonths, setExpandedVarMonths] = useState<Set<string>>(() => new Set([currentMonth]));
   const toggleVarMonth = (m: string) => setExpandedVarMonths((prev) => { const s = new Set(prev); s.has(m) ? s.delete(m) : s.add(m); return s; });
   const [expandedColMonths, setExpandedColMonths] = useState<Set<string>>(() => new Set([currentMonth]));
@@ -7081,6 +7082,53 @@ function CostTab() {
                     Chi phí vượt lợi nhuận {vnd2(Math.abs(netProfit))} ₫ — cần tăng doanh thu hoặc giảm chi phí.
                   </p>
                 )}
+
+                {/* ── Lợi nhuận theo ngày ── */}
+                {monthEntries.length > 0 && (() => {
+                  const byDay = monthEntries.reduce((acc, e) => {
+                    const day = e.date.slice(0, 10);
+                    if (!acc[day]) acc[day] = { revenue: 0, profit: 0, count: 0 };
+                    acc[day].revenue += e.amount;
+                    acc[day].profit  += e.profitAmount;
+                    acc[day].count   += 1;
+                    return acc;
+                  }, {} as Record<string, { revenue: number; profit: number; count: number }>);
+                  const days = Object.keys(byDay).sort((a, b) => b.localeCompare(a));
+                  return (
+                    <div className="pt-1 border-t border-border/60 space-y-1.5">
+                      <button
+                        type="button"
+                        onClick={() => setShowDailyProfit((v) => !v)}
+                        className="flex items-center gap-1.5 w-full text-left"
+                      >
+                        <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide flex-1">
+                          Lợi nhuận theo ngày
+                        </span>
+                        <ChevronDown size={12} className={`text-muted-foreground transition-transform ${showDailyProfit ? "rotate-180" : ""}`} />
+                      </button>
+                      {showDailyProfit && (
+                        <div className="space-y-1">
+                          {days.map((day) => {
+                            const d = byDay[day];
+                            const [dyy, dmm, ddd] = day.split("-");
+                            return (
+                              <div key={day} className="flex items-center justify-between bg-muted/30 rounded-lg px-2.5 py-1.5">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-[11px] font-bold text-foreground">{parseInt(ddd)}/{parseInt(dmm)}/{dyy}</span>
+                                  <span className="text-[10px] text-muted-foreground">{d.count} đơn</span>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                  <span className="text-[10px] text-muted-foreground">{vnd2(d.revenue)} ₫</span>
+                                  <span className="text-xs font-black text-emerald-700">+{vnd2(d.profit)} ₫</span>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
 
                 {/* ── Phân bổ hũ ── */}
                 {netProfit > 0 && (
