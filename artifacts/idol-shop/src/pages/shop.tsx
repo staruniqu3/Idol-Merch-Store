@@ -85,7 +85,8 @@ export default function ShopPage() {
   ) ?? [];
 
   const [variantPickerProduct, setVariantPickerProduct] = useState<typeof filtered[0] | null>(null);
-  const [pickedVariant, setPickedVariant] = useState<{ name: string; price?: number; stock?: number; soldOut?: boolean; subVariants?: Array<{ name: string; price?: number; stock?: number; soldOut?: boolean }> } | null>(null);
+  const [pickedVariant, setPickedVariant] = useState<{ name: string; price?: number; stock?: number; soldOut?: boolean; subVariants?: Array<{ name: string; price?: number; stock?: number; soldOut?: boolean; subSubVariants?: Array<{ name: string; price?: number; stock?: number; soldOut?: boolean }> }> } | null>(null);
+  const [pickedSubVariant, setPickedSubVariant] = useState<{ name: string; price?: number; stock?: number; soldOut?: boolean; subSubVariants?: Array<{ name: string; price?: number; stock?: number; soldOut?: boolean }> } | null>(null);
 
   const cartCount = cart.reduce((s, i) => s + i.quantity, 0);
   const cartTotal = cart.reduce((s, i) => s + i.price * i.quantity, 0);
@@ -696,11 +697,17 @@ export default function ShopPage() {
       </div>
 
       {/* Variant picker dialog */}
-      <Dialog open={!!variantPickerProduct} onOpenChange={(open) => { if (!open) { setVariantPickerProduct(null); setPickedVariant(null); setMemberGateVariant(null); setMemberGatePhone(""); } }}>
+      <Dialog open={!!variantPickerProduct} onOpenChange={(open) => { if (!open) { setVariantPickerProduct(null); setPickedVariant(null); setPickedSubVariant(null); setMemberGateVariant(null); setMemberGatePhone(""); } }}>
         <DialogContent className="max-w-xs rounded-2xl">
           <DialogHeader>
             <DialogTitle className="text-base font-black">
-              {pickedVariant ? (
+              {pickedSubVariant ? (
+                <button className="flex items-center gap-1 text-sm font-black" onClick={() => setPickedSubVariant(null)}>
+                  <span className="text-muted-foreground">←</span>
+                  <span>{pickedSubVariant.name}</span>
+                  <span className="text-muted-foreground font-normal text-[11px] ml-1">· chọn size</span>
+                </button>
+              ) : pickedVariant ? (
                 <button className="flex items-center gap-1 text-sm font-black" onClick={() => setPickedVariant(null)}>
                   <span className="text-muted-foreground">←</span>
                   <span>{pickedVariant.name}</span>
@@ -810,7 +817,7 @@ export default function ShopPage() {
               </button>
             </div>
           )}
-          {variantPickerProduct && pickedVariant && (
+          {variantPickerProduct && pickedVariant && !pickedSubVariant && (
             <div className="space-y-3">
               <p className="text-sm font-bold line-clamp-2">{variantPickerProduct.name}</p>
               <div className="flex flex-wrap gap-2">
@@ -821,15 +828,20 @@ export default function ShopPage() {
                   const trackStock = variantPickerProduct.orderType !== "preorder" && variantPickerProduct.orderType !== "slot";
                   const soldOut = (trackStock && sv.stock != null && sv.stock === 0) || !!sv.soldOut;
                   const lowStock = trackStock && sv.stock != null && sv.stock > 0 && sv.stock <= 5;
+                  const hasSizes = (svAny.subSubVariants ?? []).length > 0;
                   return (
                     <button
                       key={sv.name}
                       disabled={soldOut}
                       onClick={() => {
                         if (soldOut) return;
-                        doAddToCart(variantPickerProduct, pickedVariant.name, finalPrice, sv.name);
-                        setVariantPickerProduct(null);
-                        setPickedVariant(null);
+                        if (hasSizes) {
+                          setPickedSubVariant(svAny);
+                        } else {
+                          doAddToCart(variantPickerProduct, pickedVariant.name, finalPrice, sv.name);
+                          setVariantPickerProduct(null);
+                          setPickedVariant(null);
+                        }
                       }}
                       className={`flex flex-col items-center px-4 py-2.5 rounded-xl border-2 transition-all ${soldOut ? "border-border bg-muted/40 text-muted-foreground opacity-50 cursor-not-allowed" : "border-violet-300 bg-violet-50 text-violet-700 hover:bg-violet-100 hover:border-violet-400 active:scale-95"}`}
                     >
@@ -840,6 +852,45 @@ export default function ShopPage() {
                         <span className="text-[10px] font-semibold opacity-80">{formatPrice(finalPrice)}</span>
                       )}
                       {lowStock && <span className="text-[9px] font-black text-orange-500 mt-0.5">còn {sv.stock}</span>}
+                      {hasSizes && !soldOut && <span className="text-[9px] font-black text-fuchsia-500 mt-0.5">▸ chọn size</span>}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {variantPickerProduct && pickedVariant && pickedSubVariant && (
+            <div className="space-y-3">
+              <p className="text-sm font-bold line-clamp-2">{variantPickerProduct.name}</p>
+              <div className="flex flex-wrap gap-2">
+                {(pickedSubVariant.subSubVariants ?? []).map((ssv) => {
+                  const ssvAny = ssv as any;
+                  const svBasePrice = pickedSubVariant.price != null ? pickedSubVariant.price : (pickedVariant as any).price != null ? (pickedVariant as any).price : Number(variantPickerProduct.price);
+                  const finalPrice = ssvAny.price != null ? ssvAny.price : svBasePrice;
+                  const trackStock = variantPickerProduct.orderType !== "preorder" && variantPickerProduct.orderType !== "slot";
+                  const soldOut = (trackStock && ssv.stock != null && ssv.stock === 0) || !!ssv.soldOut;
+                  const lowStock = trackStock && ssv.stock != null && ssv.stock > 0 && ssv.stock <= 5;
+                  return (
+                    <button
+                      key={ssv.name}
+                      disabled={soldOut}
+                      onClick={() => {
+                        if (soldOut) return;
+                        doAddToCart(variantPickerProduct, pickedVariant.name, finalPrice, `${pickedSubVariant.name} · ${ssv.name}`);
+                        setVariantPickerProduct(null);
+                        setPickedVariant(null);
+                        setPickedSubVariant(null);
+                      }}
+                      className={`flex flex-col items-center px-4 py-2.5 rounded-xl border-2 transition-all ${soldOut ? "border-border bg-muted/40 text-muted-foreground opacity-50 cursor-not-allowed" : "border-fuchsia-300 bg-fuchsia-50 text-fuchsia-700 hover:bg-fuchsia-100 hover:border-fuchsia-400 active:scale-95"}`}
+                    >
+                      <span className={`text-sm font-bold ${soldOut ? "line-through" : ""}`}>{ssv.name}</span>
+                      {soldOut ? (
+                        <span className="text-[10px] font-semibold text-red-400">Hết hàng</span>
+                      ) : (
+                        <span className="text-[10px] font-semibold opacity-80">{formatPrice(finalPrice)}</span>
+                      )}
+                      {lowStock && <span className="text-[9px] font-black text-orange-500 mt-0.5">còn {ssv.stock}</span>}
                     </button>
                   );
                 })}
