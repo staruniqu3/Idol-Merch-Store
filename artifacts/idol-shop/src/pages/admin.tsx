@@ -68,6 +68,47 @@ const tierColors: Record<string, string> = {
   bronze: "text-orange-600", silver: "text-slate-500", gold: "text-amber-500", platinum: "text-violet-600",
 };
 
+// ── Formatted price input (shows 640.000 when blurred, raw digits when focused) ──
+function PriceInput({ value, onChange, placeholder, className, style, title, "data-testid": dataTestId }: {
+  value: number | string | undefined;
+  onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  placeholder?: string;
+  className?: string;
+  style?: React.CSSProperties;
+  title?: string;
+  "data-testid"?: string;
+}) {
+  const toNum = (v: number | string | undefined) => {
+    if (v == null || v === "") return NaN;
+    const n = typeof v === "number" ? v : parseFloat(String(v).replace(/\./g, "").replace(/,/g, ""));
+    return isNaN(n) ? NaN : n;
+  };
+  const fmt = (v: number | string | undefined) => {
+    const n = toNum(v);
+    return isNaN(n) ? "" : n.toLocaleString("vi-VN");
+  };
+  const [focused, setFocused] = useState(false);
+  const raw = (() => { const n = toNum(value); return isNaN(n) ? "" : String(n); })();
+  return (
+    <input
+      type="text"
+      inputMode="numeric"
+      value={focused ? raw : fmt(value)}
+      data-testid={dataTestId}
+      placeholder={placeholder}
+      className={className}
+      style={style}
+      title={title}
+      onFocus={() => setFocused(true)}
+      onBlur={() => setFocused(false)}
+      onChange={(e) => {
+        const digits = e.target.value.replace(/[^\d]/g, "");
+        onChange({ ...e, target: { ...e.target, value: digits } } as React.ChangeEvent<HTMLInputElement>);
+      }}
+    />
+  );
+}
+
 // ===================== Login =====================
 function AdminLogin({ onLogin }: { onLogin: () => void }) {
   const [pw, setPw] = useState("");
@@ -416,9 +457,8 @@ function ProductsTab() {
                               style={{ width: `${Math.max(v.name.length, 4)}ch` }}
                               title="Bấm để sửa tên"
                             />
-                            <input
-                              type="number"
-                              value={v.price != null ? String(v.price) : ""}
+                            <PriceInput
+                              value={v.price != null ? v.price : ""}
                               onChange={(e) => setForm((f) => ({ ...f, variants: f.variants.map((vv, i) => i === idx ? { ...vv, price: e.target.value === "" ? undefined : parseFloat(e.target.value) } : vv) }))}
                               placeholder="Giá"
                               className={`text-[10px] font-bold bg-transparent border-0 outline-none border-b border-transparent focus:border-primary/40 focus:bg-primary/5 rounded px-0.5 w-24 transition-colors ${v.soldOut ? "text-red-400 line-through" : "text-primary"}`}
@@ -528,9 +568,8 @@ function ProductsTab() {
                                       className={`text-[10px] font-bold bg-transparent border-0 outline-none border-b border-transparent focus:border-violet-400 focus:bg-violet-50 rounded px-0.5 flex-1 min-w-0 transition-colors ${sv.soldOut ? "text-red-400 line-through" : "text-foreground"}`}
                                       title="Bấm để sửa tên"
                                     />
-                                    <input
-                                      type="number"
-                                      value={sv.price != null ? String(sv.price) : ""}
+                                    <PriceInput
+                                      value={sv.price != null ? sv.price : ""}
                                       onChange={(e) => setForm((f) => ({ ...f, variants: f.variants.map((vv, vi) => vi === idx ? { ...vv, subVariants: (vv.subVariants ?? []).map((s, si) => si === svIdx ? { ...s, price: e.target.value === "" ? undefined : parseFloat(e.target.value) } : s) } : vv) }))}
                                       placeholder="Giá"
                                       className="text-[10px] font-bold bg-transparent border-0 outline-none border-b border-transparent focus:border-violet-400 focus:bg-violet-50 rounded px-0.5 w-20 text-primary transition-colors"
@@ -608,12 +647,11 @@ function ProductsTab() {
                                           placeholder="Tên size (S, M, L...)"
                                           className="rounded h-6 text-[9px] flex-1 bg-white px-1.5"
                                         />
-                                        <Input
+                                        <PriceInput
                                           value={ssvInput.price}
                                           onChange={(e) => setSubSubVariantInputs((s) => ({ ...s, [ssvKey]: { ...ssvInput, price: e.target.value } }))}
                                           placeholder="Giá"
-                                          type="number"
-                                          className="rounded h-6 text-[9px] w-16 bg-white px-1.5"
+                                          className="rounded h-6 text-[9px] w-20 bg-white px-1.5 border border-input outline-none focus:border-primary/60"
                                         />
                                         {form.orderType !== "preorder" && (
                                           <Input
@@ -648,12 +686,11 @@ function ProductsTab() {
                                 placeholder="Tên biến thể phụ..."
                                 className="rounded-lg h-7 text-[10px] flex-1 bg-white"
                               />
-                              <Input
+                              <PriceInput
                                 value={subInput.price}
                                 onChange={(e) => setSubVariantInputs((s) => ({ ...s, [idx]: { ...subInput, price: e.target.value } }))}
                                 placeholder="Giá"
-                                type="number"
-                                className="rounded-lg h-7 text-[10px] w-20 bg-white"
+                                className="rounded-lg h-7 text-[10px] w-24 bg-white border border-input px-2 outline-none focus:border-primary/60"
                               />
                               {form.orderType !== "preorder" && (
                                 <Input
@@ -700,12 +737,11 @@ function ProductsTab() {
                   placeholder="Tên biến thể..."
                   className="rounded-xl h-8 text-xs flex-1 bg-background"
                 />
-                <Input
+                <PriceInput
                   value={customVariantInput.price}
                   onChange={(e) => setCustomVariantInput((s) => ({ ...s, price: e.target.value }))}
                   placeholder="Giá (VND)"
-                  type="number"
-                  className="rounded-xl h-8 text-xs w-28 bg-background"
+                  className="rounded-xl h-8 text-xs w-28 bg-background border border-input px-2 outline-none focus:border-primary/60"
                 />
                 {form.orderType !== "preorder" && (
                   <Input
@@ -754,7 +790,7 @@ function ProductsTab() {
                       </div>
                     </div>
                   ) : (
-                    <div><Label>{form.orderType === "slot" ? "Giá (VND)" : "Giá (VND) *"}</Label><Input type="number" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} className="rounded-xl mt-1" placeholder={form.orderType === "slot" ? "Không bắt buộc" : ""} data-testid="input-product-price" /></div>
+                    <div><Label>{form.orderType === "slot" ? "Giá (VND)" : "Giá (VND) *"}</Label><PriceInput value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} className="rounded-xl mt-1 h-9 w-full border border-input bg-background px-3 text-sm outline-none focus:border-primary/60" placeholder={form.orderType === "slot" ? "Không bắt buộc" : ""} data-testid="input-product-price" /></div>
                   )}
                   {isPreorder ? (
                     <div>
@@ -1688,9 +1724,9 @@ function OrdersTab() {
                               <input type="number" min="1" value={item.qty}
                                 onChange={(e) => setFormItem(itemIdx, "qty", parseInt(e.target.value) || 1)}
                                 className="w-10 shrink-0 text-xs text-center border border-border rounded-xl px-1 py-2 bg-background outline-none focus:ring-2 focus:ring-primary/30" />
-                              <input type="number" min="0" placeholder="Giá" value={item.price || ""}
+                              <PriceInput value={item.price || ""} placeholder="Giá"
                                 onChange={(e) => setFormItem(itemIdx, "price", parseFloat(e.target.value) || 0)}
-                                className="w-20 shrink-0 text-xs border border-border rounded-xl px-2 py-2 bg-background outline-none focus:ring-2 focus:ring-primary/30" />
+                                className="w-24 shrink-0 text-xs border border-border rounded-xl px-2 py-2 bg-background outline-none focus:ring-2 focus:ring-primary/30" />
                               <button type="button" onClick={() => { if (formItems.length === 1) setFormItems([{ name: "", qty: 1, price: 0 }]); else removeFormItem(itemIdx); }}
                                 className="text-muted-foreground hover:text-destructive transition-colors shrink-0"><X size={13} /></button>
                             </>);
@@ -1704,8 +1740,7 @@ function OrdersTab() {
                           return (
                             <div className="flex items-center gap-1.5">
                               <span className="text-[10px] text-muted-foreground shrink-0 w-14">Giá giảm:</span>
-                              <input type="number" min="0" placeholder="Để trống nếu không giảm"
-                                value={item.discountedPrice ?? ""}
+                              <PriceInput value={item.discountedPrice ?? ""} placeholder="Để trống nếu không giảm"
                                 onChange={(e) => { const v = parseFloat(e.target.value); setFormItem(itemIdx, "discountedPrice", isNaN(v) ? 0 : v); }}
                                 className="flex-1 min-w-0 text-xs border border-rose-300/60 rounded-xl px-2 py-1.5 bg-rose-50/50 outline-none focus:ring-2 focus:ring-rose-300/50" />
                               {item.discountedPrice != null && item.discountedPrice > 0 && item.discountedPrice < item.price && (
@@ -1759,9 +1794,9 @@ function OrdersTab() {
                                     <input type="number" min="1" value={item.qty}
                                       onChange={(e) => setFormItem(itemIdx, "qty", parseInt(e.target.value) || 1)}
                                       className="w-10 shrink-0 text-xs text-center border border-border rounded-xl px-1 py-1.5 bg-background outline-none focus:ring-2 focus:ring-primary/30" />
-                                    <input type="number" min="0" placeholder="Giá" value={item.price || ""}
+                                    <PriceInput value={item.price || ""} placeholder="Giá"
                                       onChange={(e) => setFormItem(itemIdx, "price", parseFloat(e.target.value) || 0)}
-                                      className="w-20 shrink-0 text-xs border border-border rounded-xl px-2 py-1.5 bg-background outline-none focus:ring-2 focus:ring-primary/30" />
+                                      className="w-24 shrink-0 text-xs border border-border rounded-xl px-2 py-1.5 bg-background outline-none focus:ring-2 focus:ring-primary/30" />
                                     {hasVariants && (
                                       <select value={item.variant ?? ""} onChange={(e) => handleItemVariantChange(itemIdx, e.target.value)}
                                         className="flex-1 min-w-0 text-xs border border-primary/30 rounded-xl px-2 py-1.5 bg-primary/5 text-foreground outline-none focus:ring-2 focus:ring-primary/30 font-medium">
@@ -1799,8 +1834,7 @@ function OrdersTab() {
                                   )}
                                   {item.price > 0 && (
                                     <div className="flex items-center gap-1.5 pl-[3.5rem]">
-                                      <input type="number" min="0" placeholder="Giá giảm (trống = không giảm)"
-                                        value={item.discountedPrice ?? ""}
+                                      <PriceInput value={item.discountedPrice ?? ""} placeholder="Giá giảm (trống = không giảm)"
                                         onChange={(e) => { const v = parseFloat(e.target.value); setFormItem(itemIdx, "discountedPrice", isNaN(v) ? 0 : v); }}
                                         className="flex-1 min-w-0 text-xs border border-rose-300/60 rounded-xl px-2 py-1.5 bg-rose-50/50 outline-none focus:ring-2 focus:ring-rose-300/50" />
                                       {item.discountedPrice != null && item.discountedPrice > 0 && item.discountedPrice < item.price && (
@@ -2032,8 +2066,8 @@ function OrdersTab() {
                                     )}
                                     <Input type="number" min="1" value={it.qty} onChange={(e) => setEditItem(idx, "qty", parseInt(e.target.value) || 1)}
                                       className="rounded-xl h-7 text-xs w-12 text-center" />
-                                    <Input type="number" min="0" value={it.price} onChange={(e) => setEditItem(idx, "price", parseFloat(e.target.value) || 0)}
-                                      placeholder="Giá" className="rounded-xl h-7 text-xs w-24" />
+                                    <PriceInput value={it.price} onChange={(e) => setEditItem(idx, "price", parseFloat(e.target.value) || 0)}
+                                      placeholder="Giá" className="rounded-xl h-7 text-xs w-24 border border-input px-2 bg-background outline-none focus:border-primary/60" />
                                     <button type="button" onClick={() => removeEditItem(idx)}
                                       className="w-6 h-6 rounded-full flex items-center justify-center hover:bg-red-100 text-muted-foreground hover:text-red-600 shrink-0 text-base leading-none">×</button>
                                   </div>
