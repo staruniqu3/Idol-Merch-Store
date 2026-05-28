@@ -5686,6 +5686,7 @@ function CostTab() {
       loadFromServer<FlexEntry[]>(COLLECTIONS_KEY, setCollections, COLLECTIONS_KEY, []),
       loadFromServer<FlexEntry[]>(SHIPPER_STAFF_KEY, setShipperPayments, SHIPPER_STAFF_KEY, []),
       loadFromServer<RefundEntry[]>(REFUNDS_KEY, setRefunds, REFUNDS_KEY, []),
+      loadFromServer<WalletEntry[]>(WALLETS_KEY, setWallets, WALLETS_KEY, []),
       loadFromServer<YearPlan[]>(YEAR_PLANS_KEY, setYearPlans, YEAR_PLANS_KEY, []),
       loadFromServer<IntlShipRate[]>(INTL_SHIP_RATES_KEY, setIntlShipRates, INTL_SHIP_RATES_KEY, []),
     ]).finally(() => setLoading(false));
