@@ -324,7 +324,15 @@ function ProductsTab() {
           }))
         } : {}),
       }));
-      const vPrices = cleanVariants.map((v) => (v as any).price).filter((p: any) => p != null && !isNaN(p)) as number[];
+      const allVariantPrices = (vs: typeof cleanVariants): number[] =>
+        vs.flatMap((v: any) => [
+          ...(v.price != null && !isNaN(v.price) ? [v.price as number] : []),
+          ...((v.subVariants ?? []) as any[]).flatMap((sv: any) => [
+            ...(sv.price != null && !isNaN(sv.price) ? [sv.price as number] : []),
+            ...((sv.subSubVariants ?? []) as any[]).flatMap((ssv: any) => ssv.price != null && !isNaN(ssv.price) ? [ssv.price as number] : []),
+          ]),
+        ]);
+      const vPrices = allVariantPrices(cleanVariants);
       const autoMinPrice = vPrices.length >= 1 ? Math.min(...vPrices) : null;
       const effectivePriceStr = autoMinPrice != null ? String(autoMinPrice) : form.price;
       const isSlotType = form.orderType === "slot";
@@ -776,8 +784,16 @@ function ProductsTab() {
               const isPreorder = form.orderType === "preorder";
               const hasVariantStock = !isPreorder && form.variants.length > 0 && form.variants.every((v) => v.stock != null && !isNaN(v.stock as number));
               const autoStock = hasVariantStock ? form.variants.reduce((s, v) => s + (v.stock ?? 0), 0) : null;
-              const vPrices = form.variants.map((v) => v.price).filter((p) => p != null && !isNaN(p as number)) as number[];
-              const hasPriceRange = vPrices.length >= 2 && Math.min(...vPrices) !== Math.max(...vPrices);
+              const collectPrices = (vs: typeof form.variants): number[] =>
+                vs.flatMap((v) => [
+                  ...(v.price != null && !isNaN(v.price as number) ? [v.price as number] : []),
+                  ...((v.subVariants ?? []) as any[]).flatMap((sv: any) => [
+                    ...(sv.price != null && !isNaN(sv.price) ? [sv.price as number] : []),
+                    ...((sv.subSubVariants ?? []) as any[]).flatMap((ssv: any) => ssv.price != null && !isNaN(ssv.price) ? [ssv.price as number] : []),
+                  ]),
+                ]);
+              const vPrices = collectPrices(form.variants);
+              const hasPriceRange = vPrices.length >= 1 && Math.min(...vPrices) !== Math.max(...vPrices);
               const fmtK = (n: number) => n >= 1000 ? `${Math.round(n / 1000)}k` : String(n);
               return (
                 <div className="grid grid-cols-2 gap-2">
@@ -1026,10 +1042,17 @@ function ProductsTab() {
               <p className="font-bold text-sm truncate">{p.name}</p>
               <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                 {(() => {
-                  const vPrices = (p.variants ?? []).map((v) => (v as any).price).filter((x: any) => x != null) as number[];
+                  const allPrices = (p.variants ?? []).flatMap((v: any) => [
+                    ...(v.price != null ? [v.price as number] : []),
+                    ...((v.subVariants ?? []) as any[]).flatMap((sv: any) => [
+                      ...(sv.price != null ? [sv.price as number] : []),
+                      ...((sv.subSubVariants ?? []) as any[]).flatMap((ssv: any) => ssv.price != null ? [ssv.price as number] : []),
+                    ]),
+                  ]) as number[];
+                  const vPrices = allPrices.length > 0 ? allPrices : [];
                   if (vPrices.length >= 2) {
                     const mn = Math.min(...vPrices), mx = Math.max(...vPrices);
-                    return <span className="text-xs text-primary font-bold">{formatPrice(mn)} – {formatPrice(mx)}</span>;
+                    if (mn !== mx) return <span className="text-xs text-primary font-bold">{formatPrice(mn)} – {formatPrice(mx)}</span>;
                   }
                   return <span className="text-xs text-primary font-bold">{formatPrice(vPrices[0] ?? p.price)}</span>;
                 })()}
