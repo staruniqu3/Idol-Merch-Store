@@ -3079,6 +3079,32 @@ function StatsTab() {
 
   // Load manual orders from API
   const { data: allManualOrders = [] } = useListManualOrders();
+
+  // Build orderId → compact items label for buyer list display
+  const orderItemsLabel = useMemo(() => {
+    const map = new Map<string | number, string>();
+    (orders ?? []).forEach((o) => {
+      try {
+        const items: Array<{ name: string; quantity: number; variant?: string }> = JSON.parse(o.items);
+        const label = items.map((it) => {
+          const parts = [it.name, it.variant].filter(Boolean).join(" · ");
+          return `${parts} ×${it.quantity}`;
+        }).join(", ");
+        map.set(o.id, label);
+      } catch {}
+    });
+    allManualOrders.forEach((o) => {
+      const label = o.items
+        .filter((it) => it.name.trim())
+        .map((it) => {
+          const parts = [it.name, it.variant, it.subVariant].filter(Boolean).join(" · ");
+          return `${parts} ×${it.qty}`;
+        }).join(", ");
+      map.set(o.id, label);
+    });
+    return map;
+  }, [orders, allManualOrders]);
+
   const activeManualOrders = allManualOrders.filter(
     (o) => (o.status === "confirmed" || o.status === "pending") && !accountedManualIds.has(o.id)
   );
@@ -3412,25 +3438,32 @@ function StatsTab() {
                                   {allBuyers.length === 0 ? (
                                     <p className="text-[11px] text-muted-foreground text-center py-2">Chưa có khách nào — thêm bên dưới</p>
                                   ) : (
-                                    allBuyers.map((b) => (
-                                      <div key={b.phone} className="flex items-center gap-2 px-2 py-1.5 rounded-lg bg-card border border-border">
-                                        <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${b.source === "app" ? "bg-blue-400" : "bg-amber-400"}`} />
-                                        <span className="text-xs font-bold tracking-wide flex-1">{b.phone}</span>
-                                        {b.name && <span className="text-[11px] text-muted-foreground truncate max-w-[90px]">{b.name}</span>}
-                                        <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-full shrink-0 ${b.source === "app" ? "bg-blue-100 text-blue-600" : "bg-amber-100 text-amber-600"}`}>
-                                          {b.source === "app" ? "App" : "Tay"}
-                                        </span>
-                                        <button type="button" onClick={() => navigator.clipboard.writeText(b.phone).catch(() => {})} className="text-muted-foreground hover:text-primary shrink-0 transition-colors" title="Copy SĐT">
-                                          <Copy size={11} />
-                                        </button>
-                                        {/* Only allow deleting manually-added entries */}
-                                        {(extraBuyers.some((e) => e.phone === b.phone)) && (
-                                          <button type="button" onClick={() => removeBuyer(b.phone)} className="text-muted-foreground hover:text-destructive ml-0.5 shrink-0">
-                                            <X size={11} />
-                                          </button>
-                                        )}
-                                      </div>
-                                    ))
+                                    allBuyers.map((b) => {
+                                      const itemsLabel = b.orderId != null ? (orderItemsLabel.get(b.orderId) ?? "") : "";
+                                      return (
+                                        <div key={b.phone} className="px-2 py-1.5 rounded-lg bg-card border border-border space-y-0.5">
+                                          <div className="flex items-center gap-2">
+                                            <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${b.source === "app" ? "bg-blue-400" : "bg-amber-400"}`} />
+                                            <span className="text-xs font-bold tracking-wide flex-1">{b.phone}</span>
+                                            {b.name && <span className="text-[11px] text-muted-foreground truncate max-w-[90px]">{b.name}</span>}
+                                            <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-full shrink-0 ${b.source === "app" ? "bg-blue-100 text-blue-600" : "bg-amber-100 text-amber-600"}`}>
+                                              {b.source === "app" ? "App" : "Tay"}
+                                            </span>
+                                            <button type="button" onClick={() => navigator.clipboard.writeText(b.phone).catch(() => {})} className="text-muted-foreground hover:text-primary shrink-0 transition-colors" title="Copy SĐT">
+                                              <Copy size={11} />
+                                            </button>
+                                            {(extraBuyers.some((e) => e.phone === b.phone)) && (
+                                              <button type="button" onClick={() => removeBuyer(b.phone)} className="text-muted-foreground hover:text-destructive ml-0.5 shrink-0">
+                                                <X size={11} />
+                                              </button>
+                                            )}
+                                          </div>
+                                          {itemsLabel && (
+                                            <p className="text-[10px] text-muted-foreground pl-3.5 leading-snug">{itemsLabel}</p>
+                                          )}
+                                        </div>
+                                      );
+                                    })
                                   )}
 
                                   {/* Add phone manually */}
