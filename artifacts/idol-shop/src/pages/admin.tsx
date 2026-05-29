@@ -3741,7 +3741,7 @@ function StatsTab() {
             return (
               <div
                 key={name}
-                className={`bg-card border rounded-2xl overflow-hidden transition-all ${
+                className={`bg-card border rounded-2xl transition-all ${
                   isDone ? "border-border/40 opacity-45 grayscale" : "border-border hover:border-primary/30"
                 }`}
               >
