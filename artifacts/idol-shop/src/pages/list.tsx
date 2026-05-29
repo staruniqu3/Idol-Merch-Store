@@ -61,6 +61,46 @@ export default function StaffListPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [staff?.id]);
 
+  const AUTO_LOGOUT_MS = 15 * 60 * 1000;
+
+  const doLogout = () => {
+    setStaff(null);
+    setAssignments([]);
+    setToken("");
+    sessionStorage.removeItem("staff_session");
+    sessionStorage.removeItem("staff_hidden_at");
+  };
+
+  // Auto sign-out: save timestamp when page hidden, check on return
+  useEffect(() => {
+    if (!staff) return;
+
+    // On mount: check if previously hidden too long
+    const hiddenAt = sessionStorage.getItem("staff_hidden_at");
+    if (hiddenAt && Date.now() - Number(hiddenAt) > AUTO_LOGOUT_MS) {
+      doLogout();
+      return;
+    }
+    sessionStorage.removeItem("staff_hidden_at");
+
+    const handleVisibility = () => {
+      if (document.hidden) {
+        sessionStorage.setItem("staff_hidden_at", String(Date.now()));
+      } else {
+        const t = sessionStorage.getItem("staff_hidden_at");
+        if (t && Date.now() - Number(t) > AUTO_LOGOUT_MS) {
+          doLogout();
+        } else {
+          sessionStorage.removeItem("staff_hidden_at");
+        }
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () => document.removeEventListener("visibilitychange", handleVisibility);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [staff?.id]);
+
   const grouped = assignments.reduce((acc, a) => {
     if (!acc[a.productName]) acc[a.productName] = [];
     acc[a.productName].push(a);
