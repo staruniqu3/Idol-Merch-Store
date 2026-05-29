@@ -3792,82 +3792,88 @@ function StatsTab() {
                     {orderEntries.map((entry, ei) => {
                       const entryKey = `${entry.orderId}::${name}::${ei}`;
                       const isEntryDone = orderedEntryKeys.has(entryKey);
+                      const assigned     = staffAssignments.find((a) => a.entryKey === entryKey);
+                      const assignedCard = assigned ? staffCards.find((c) => c.id === assigned.staffId) : null;
                       return (
                         <div
                           key={ei}
-                          onClick={() => toggleOrderedEntry(entryKey)}
-                          className={`flex items-center gap-2 text-xs rounded-xl px-2.5 py-1.5 border cursor-pointer select-none transition-all ${
+                          className={`rounded-xl border select-none transition-all ${
                             isEntryDone
-                              ? "bg-muted/50 border-border/40 opacity-50 line-through"
-                              : "bg-background border-border hover:border-primary/30 hover:bg-primary/5"
+                              ? "bg-muted/50 border-border/40 opacity-50"
+                              : "bg-background border-border"
                           }`}
                         >
-                          <div className={`w-3.5 h-3.5 rounded-full border-2 shrink-0 flex items-center justify-center transition-all ${
-                            isEntryDone ? "bg-muted-foreground/40 border-muted-foreground/40" : "border-primary/40"
-                          }`}>
-                            {isEntryDone && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
-                          </div>
-                          <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full shrink-0 ${
-                            entry.source === "manual"
-                              ? "bg-amber-100 text-amber-700 border border-amber-200"
-                              : "bg-primary/10 text-primary border border-primary/20"
-                          }`}>
-                            {entry.source === "manual" ? "Tay" : "App"}
-                          </span>
-                          <span className={`font-semibold truncate flex-1 ${isEntryDone ? "line-through" : ""}`}>{entry.customerName}</span>
-                          {entry.phone && <span className="text-muted-foreground text-[10px] shrink-0">{entry.phone}</span>}
-                          {entry.variant && (
-                            <span className="text-[9px] bg-violet-100 text-violet-700 border border-violet-200 font-bold px-1.5 py-0.5 rounded-full shrink-0">{entry.variant}</span>
-                          )}
-                          <span className={`font-black shrink-0 ${isEntryDone ? "text-muted-foreground" : "text-primary"}`}>×{entry.qty}</span>
-                          <span className="text-muted-foreground shrink-0">{formatPrice(entry.price * entry.qty)}</span>
-                          {/* Staff assignment */}
-                          <div className="relative shrink-0" onClick={(e) => e.stopPropagation()}>
-                            {(() => {
-                              const assigned = staffAssignments.find((a) => a.entryKey === entryKey);
-                              const assignedCard = assigned ? staffCards.find((c) => c.id === assigned.staffId) : null;
-                              return (
-                                <>
-                                  <button
-                                    type="button"
-                                    onClick={() => setStaffDropdown(staffDropdown === entryKey ? null : entryKey)}
-                                    className={`text-[9px] font-bold px-2 py-0.5 rounded-full border transition-colors ${
-                                      assignedCard
-                                        ? "bg-blue-100 text-blue-700 border-blue-200"
-                                        : "text-muted-foreground/50 border-dashed border-border hover:text-muted-foreground"
-                                    }`}
-                                  >
-                                    {assignedCard ? assignedCard.name : "+staff"}
-                                  </button>
-                                  {staffDropdown === entryKey && (
-                                    <div className="absolute bottom-full right-0 mb-1 z-50 bg-background border border-border rounded-xl shadow-lg py-1 min-w-[130px]">
-                                      {staffCards.length === 0 && (
-                                        <p className="text-[10px] text-muted-foreground px-3 py-1.5 italic">Chưa có thẻ staff</p>
-                                      )}
-                                      {staffCards.map((sc) => (
-                                        <button
-                                          key={sc.id}
-                                          type="button"
-                                          onClick={() => { assignStaff(entryKey, sc.id, entry, name); setStaffDropdown(null); }}
-                                          className={`w-full text-left text-xs px-3 py-1.5 hover:bg-muted transition-colors font-medium ${assigned?.staffId === sc.id ? "text-blue-700 font-bold" : ""}`}
-                                        >
-                                          {sc.name}
-                                        </button>
-                                      ))}
-                                      {assigned && (
-                                        <button
-                                          type="button"
-                                          onClick={() => { assignStaff(entryKey, null, entry, name); setStaffDropdown(null); }}
-                                          className="w-full text-left text-xs px-3 py-1.5 hover:bg-destructive/10 text-destructive transition-colors border-t border-border mt-0.5"
-                                        >
-                                          Xóa gán
-                                        </button>
-                                      )}
-                                    </div>
+                          {/* Row 1: checkbox · source · name · staff btn */}
+                          <div
+                            onClick={() => toggleOrderedEntry(entryKey)}
+                            className="flex items-center gap-2 px-2.5 pt-2 pb-1 cursor-pointer"
+                          >
+                            <div className={`w-3.5 h-3.5 rounded-full border-2 shrink-0 flex items-center justify-center transition-all ${
+                              isEntryDone ? "bg-muted-foreground/40 border-muted-foreground/40" : "border-primary/40"
+                            }`}>
+                              {isEntryDone && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                            </div>
+                            <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full shrink-0 ${
+                              entry.source === "manual"
+                                ? "bg-amber-100 text-amber-700 border border-amber-200"
+                                : "bg-primary/10 text-primary border border-primary/20"
+                            }`}>
+                              {entry.source === "manual" ? "Tay" : "App"}
+                            </span>
+                            <span className={`text-xs font-semibold flex-1 min-w-0 truncate ${isEntryDone ? "line-through text-muted-foreground" : ""}`}>
+                              {entry.customerName || "—"}
+                            </span>
+                            {/* Staff assignment button — stop propagation so tap doesn't toggle checkbox */}
+                            <div className="relative shrink-0" onClick={(e) => e.stopPropagation()}>
+                              <button
+                                type="button"
+                                onClick={() => setStaffDropdown(staffDropdown === entryKey ? null : entryKey)}
+                                className={`text-[10px] font-bold px-2.5 py-1 rounded-full border transition-colors min-w-[48px] text-center ${
+                                  assignedCard
+                                    ? "bg-blue-100 text-blue-700 border-blue-200 active:bg-blue-200"
+                                    : "text-muted-foreground/60 border-dashed border-border active:bg-muted"
+                                }`}
+                              >
+                                {assignedCard ? assignedCard.name : "+ Staff"}
+                              </button>
+                              {staffDropdown === entryKey && (
+                                <div className="absolute top-full right-0 mt-1 z-50 bg-background border border-border rounded-xl shadow-lg py-1 min-w-[150px]">
+                                  {staffCards.length === 0 && (
+                                    <p className="text-[10px] text-muted-foreground px-3 py-2 italic">Chưa có thẻ staff nào</p>
                                   )}
-                                </>
-                              );
-                            })()}
+                                  {staffCards.map((sc) => (
+                                    <button
+                                      key={sc.id}
+                                      type="button"
+                                      onClick={() => { assignStaff(entryKey, sc.id, entry, name); setStaffDropdown(null); }}
+                                      className={`w-full text-left text-sm px-4 py-2.5 hover:bg-muted active:bg-muted transition-colors font-medium ${assigned?.staffId === sc.id ? "text-blue-700 font-bold" : ""}`}
+                                    >
+                                      {sc.name}
+                                    </button>
+                                  ))}
+                                  {assigned && (
+                                    <button
+                                      type="button"
+                                      onClick={() => { assignStaff(entryKey, null, entry, name); setStaffDropdown(null); }}
+                                      className="w-full text-left text-sm px-4 py-2.5 hover:bg-destructive/10 active:bg-destructive/10 text-destructive transition-colors border-t border-border"
+                                    >
+                                      Xóa gán
+                                    </button>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                          {/* Row 2: phone · variant · qty · price */}
+                          <div className="flex items-center gap-2 px-2.5 pb-2 pl-8">
+                            {entry.phone && (
+                              <span className="text-[10px] text-muted-foreground font-mono flex-1 min-w-0 truncate">{entry.phone}</span>
+                            )}
+                            {entry.variant && (
+                              <span className="text-[9px] bg-violet-100 text-violet-700 border border-violet-200 font-bold px-1.5 py-0.5 rounded-full shrink-0">{entry.variant}</span>
+                            )}
+                            <span className={`text-xs font-black shrink-0 ml-auto ${isEntryDone ? "text-muted-foreground" : "text-primary"}`}>×{entry.qty}</span>
+                            <span className="text-[11px] text-muted-foreground shrink-0">{formatPrice(entry.price * entry.qty)}</span>
                           </div>
                         </div>
                       );
