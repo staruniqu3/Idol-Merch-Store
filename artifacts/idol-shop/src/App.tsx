@@ -86,9 +86,11 @@ function BottomNav() {
 }
 
 function Router() {
+  const [location] = useLocation();
+  const isStaffPortal = location.startsWith("/list");
   return (
     <>
-      <div className="pb-[60px] overflow-x-hidden">
+      <div className={isStaffPortal ? "overflow-x-hidden" : "pb-[60px] overflow-x-hidden"}>
         <Switch>
           <Route path="/" component={ShopPage} />
           <Route path="/preorder" component={PreorderPage} />
@@ -99,7 +101,7 @@ function Router() {
           <Route component={NotFound} />
         </Switch>
       </div>
-      <BottomNav />
+      {!isStaffPortal && <BottomNav />}
     </>
   );
 }

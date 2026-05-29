@@ -150,29 +150,35 @@ export default function StaffListPage() {
             <p className="text-xs text-muted-foreground/60 mt-1">Tự động cập nhật mỗi 30 giây</p>
           </div>
         ) : (
-          <div className="space-y-3">
+          <div className="space-y-2.5">
             {Object.entries(grouped).map(([productName, items]) => {
               const groupQty = items.reduce((s, a) => s + a.qty, 0);
+              // Group by variant within this product
+              const byVariant = items.reduce((acc, a) => {
+                const key = a.variant || "";
+                if (!acc[key]) acc[key] = 0;
+                acc[key] += a.qty;
+                return acc;
+              }, {} as Record<string, number>);
+              const variants = Object.entries(byVariant).filter(([k]) => k !== "");
               return (
-                <div key={productName} className="bg-card border border-border rounded-2xl overflow-hidden">
-                  <div className="px-3 py-2.5 border-b border-border bg-muted/20">
+                <div key={productName} className="bg-card border border-border rounded-2xl px-4 py-3 flex items-center gap-3">
+                  <div className="flex-1 min-w-0">
                     <p className="font-bold text-sm leading-snug">{productName}</p>
-                    <p className="text-[10px] text-muted-foreground">{items.length} đơn · {groupQty} sản phẩm</p>
-                  </div>
-                  <div className="divide-y divide-border/60">
-                    {items.map((a, i) => (
-                      <div key={a.entryKey} className="px-3 py-2.5 flex items-center gap-2">
-                        <span className="text-[10px] text-muted-foreground/40 w-4 shrink-0 font-mono text-right">{i + 1}</span>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-semibold truncate">{a.customerName || "—"}</p>
-                          {a.phone && <p className="text-[11px] text-muted-foreground">{a.phone}</p>}
-                        </div>
-                        {a.variant && (
-                          <span className="text-[9px] bg-violet-100 text-violet-700 border border-violet-200 px-1.5 py-0.5 rounded-full font-bold shrink-0">{a.variant}</span>
-                        )}
-                        <span className="text-xs font-black text-primary shrink-0">×{a.qty}</span>
+                    {variants.length > 0 && (
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {variants.map(([v, q]) => (
+                          <span key={v} className="text-[9px] bg-violet-100 text-violet-700 border border-violet-200 px-1.5 py-0.5 rounded-full font-bold">
+                            {v} ×{q}
+                          </span>
+                        ))}
                       </div>
-                    ))}
+                    )}
+                    <p className="text-[10px] text-muted-foreground mt-0.5">{items.length} đơn</p>
+                  </div>
+                  <div className="shrink-0 text-right">
+                    <p className="text-2xl font-black text-primary leading-none">{groupQty}</p>
+                    <p className="text-[10px] text-muted-foreground">sản phẩm</p>
                   </div>
                 </div>
               );
