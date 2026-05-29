@@ -29,6 +29,9 @@ const ALLOWED_KEYS = new Set([
   "stats_ordered_entry_keys",
   "stats_batch_manual_buyers",
   "sovereign_club_sheet_id",
+  // Staff system
+  "admin_staff_cards",
+  "admin_staff_assignments",
 ]);
 
 router.get("/settings/:key", async (req, res): Promise<void> => {

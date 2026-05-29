@@ -8,6 +8,7 @@ import ShippingPage from "@/pages/shipping";
 import MembershipPage from "@/pages/membership";
 import AdminPage from "@/pages/admin";
 import PreorderPage from "@/pages/preorder";
+import StaffListPage from "@/pages/list";
 import NotFound from "@/pages/not-found";
 import { useListShippingUpdates } from "@workspace/api-client-react";
 import { useEffect, useState } from "react";
@@ -94,6 +95,7 @@ function Router() {
           <Route path="/shipping" component={ShippingPage} />
           <Route path="/membership" component={MembershipPage} />
           <Route path="/admin" component={AdminPage} />
+          <Route path="/list" component={StaffListPage} />
           <Route component={NotFound} />
         </Switch>
       </div>

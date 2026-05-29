@@ -3031,9 +3031,13 @@ const STATS_ACCOUNTED_MANUAL_KEY  = "stats_accounted_manual_ids";
 const STATS_ORDERED_ITEMS_KEY     = "stats_ordered_items";
 const STATS_BATCH_HISTORY_KEY      = "stats_batch_history";
 const STATS_RECEIVED_ITEMS_KEY     = "stats_received_batch_items";
-const STATS_BATCH_MANUAL_BUYERS_KEY = "stats_batch_manual_buyers";
+const STATS_BATCH_MANUAL_BUYERS_KEY  = "stats_batch_manual_buyers";
+const STATS_STAFF_CARDS_KEY          = "admin_staff_cards";
+const STATS_STAFF_ASSIGNMENTS_KEY    = "admin_staff_assignments";
 
-type BatchBuyer = { phone: string; name: string; orderId?: number | string; source: "app" | "manual" };
+type BatchBuyer       = { phone: string; name: string; orderId?: number | string; source: "app" | "manual" };
+type StaffCard        = { id: string; name: string; token: string };
+type StaffAssignment  = { entryKey: string; productName: string; customerName: string; phone?: string; variant?: string; qty: number; staffId: string; assignedAt: string };
 type BatchRecord = {
   completedAt: string;
   orderCount: number;
@@ -3120,6 +3124,46 @@ function StatsTab() {
     });
   };
 
+  // ── Staff state ──
+  const [staffCards, setStaffCards] = useState<StaffCard[]>(() => {
+    try { return JSON.parse(localStorage.getItem(STATS_STAFF_CARDS_KEY) || "[]"); } catch { return []; }
+  });
+  const [staffAssignments, setStaffAssignments] = useState<StaffAssignment[]>(() => {
+    try { return JSON.parse(localStorage.getItem(STATS_STAFF_ASSIGNMENTS_KEY) || "[]"); } catch { return []; }
+  });
+  const [newStaffName, setNewStaffName]   = useState("");
+  const [newStaffToken, setNewStaffToken] = useState("");
+  const [showStaffMgmt, setShowStaffMgmt] = useState(false);
+  const [staffDropdown, setStaffDropdown] = useState<string | null>(null);
+
+  const saveStaffCards = (next: StaffCard[]) => {
+    setStaffCards(next);
+    localStorage.setItem(STATS_STAFF_CARDS_KEY, JSON.stringify(next));
+    putToServer(STATS_STAFF_CARDS_KEY, next);
+  };
+  const saveStaffAssignments = (next: StaffAssignment[]) => {
+    setStaffAssignments(next);
+    localStorage.setItem(STATS_STAFF_ASSIGNMENTS_KEY, JSON.stringify(next));
+    putToServer(STATS_STAFF_ASSIGNMENTS_KEY, next);
+  };
+  const addStaffCard = () => {
+    const name = newStaffName.trim(); const token = newStaffToken.trim();
+    if (!name || !token) return;
+    saveStaffCards([...staffCards, { id: crypto.randomUUID(), name, token }]);
+    setNewStaffName(""); setNewStaffToken("");
+  };
+  const assignStaff = (
+    entryKey: string, staffId: string | null,
+    entry: { customerName: string; phone?: string; variant?: string; qty: number },
+    productName: string,
+  ) => {
+    const next = staffAssignments.filter((a) => a.entryKey !== entryKey);
+    if (staffId) {
+      next.push({ entryKey, productName, customerName: entry.customerName, phone: entry.phone, variant: entry.variant, qty: entry.qty, staffId, assignedAt: new Date().toISOString() });
+    }
+    saveStaffAssignments(next);
+  };
+
   // ── Load all stats state from server on mount ──
   useEffect(() => {
     Promise.all([
@@ -3130,6 +3174,8 @@ function StatsTab() {
       loadFromServer<string[]>(STATS_RECEIVED_ITEMS_KEY, (d) => setReceivedItems(new Set(d)), STATS_RECEIVED_ITEMS_KEY, []),
       loadFromServer<string[]>("stats_ordered_entry_keys", (d) => setOrderedEntryKeys(new Set(d)), "stats_ordered_entry_keys", []),
       loadFromServer<Record<string, Array<{ phone: string; name: string }>>>(STATS_BATCH_MANUAL_BUYERS_KEY, (d) => { setManualBatchBuyers(d); localStorage.setItem(STATS_BATCH_MANUAL_BUYERS_KEY, JSON.stringify(d)); }, STATS_BATCH_MANUAL_BUYERS_KEY, {}),
+      loadFromServer<StaffCard[]>(STATS_STAFF_CARDS_KEY, (d) => { setStaffCards(d); localStorage.setItem(STATS_STAFF_CARDS_KEY, JSON.stringify(d)); }, STATS_STAFF_CARDS_KEY, []),
+      loadFromServer<StaffAssignment[]>(STATS_STAFF_ASSIGNMENTS_KEY, (d) => { setStaffAssignments(d); localStorage.setItem(STATS_STAFF_ASSIGNMENTS_KEY, JSON.stringify(d)); }, STATS_STAFF_ASSIGNMENTS_KEY, []),
     ]);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -3304,6 +3350,67 @@ function StatsTab() {
             <span className="bg-emerald-500 text-white text-[9px] font-black px-1 rounded-full">{totalReceivedBatches}</span>
           )}
         </button>
+      </div>
+
+      {/* ── Staff management ── */}
+      <div className="bg-card border border-border rounded-2xl overflow-hidden">
+        <button
+          type="button"
+          onClick={() => setShowStaffMgmt((v) => !v)}
+          className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-muted/40 transition-colors"
+        >
+          <div className="flex items-center gap-2">
+            <Users size={14} className="text-muted-foreground" />
+            <span className="text-sm font-bold">Quản lý Staff</span>
+            {staffCards.length > 0 && (
+              <span className="text-[10px] bg-blue-100 text-blue-700 border border-blue-200 px-1.5 py-0.5 rounded-full font-bold">{staffCards.length} thẻ</span>
+            )}
+          </div>
+          <ChevronDown size={13} className={`text-muted-foreground transition-transform ${showStaffMgmt ? "rotate-180" : ""}`} />
+        </button>
+        {showStaffMgmt && (
+          <div className="border-t border-border px-4 pb-4 pt-3 space-y-3">
+            {staffCards.length === 0 ? (
+              <p className="text-xs text-muted-foreground italic text-center py-1">Chưa có thẻ staff nào</p>
+            ) : (
+              <div className="space-y-1.5">
+                {staffCards.map((sc) => (
+                  <div key={sc.id} className="flex items-center gap-2 bg-muted/30 rounded-xl px-3 py-2">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-bold">{sc.name}</p>
+                      <p className="text-[10px] text-muted-foreground font-mono">{sc.token}</p>
+                    </div>
+                    <span className="text-[10px] text-muted-foreground shrink-0">
+                      {staffAssignments.filter((a) => a.staffId === sc.id).length} đơn
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => saveStaffCards(staffCards.filter((x) => x.id !== sc.id))}
+                      className="text-muted-foreground hover:text-destructive transition-colors shrink-0"
+                    >
+                      <Trash2 size={12} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+            <div className="flex gap-2">
+              <input type="text" placeholder="Tên staff..." value={newStaffName}
+                onChange={(e) => setNewStaffName(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && addStaffCard()}
+                className="flex-1 min-w-0 text-xs border border-border rounded-xl px-3 py-2 bg-background outline-none focus:ring-2 focus:ring-primary/30" />
+              <input type="text" placeholder="Tên thẻ (token)..." value={newStaffToken}
+                onChange={(e) => setNewStaffToken(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && addStaffCard()}
+                className="w-28 shrink-0 text-xs border border-border rounded-xl px-3 py-2 bg-background outline-none focus:ring-2 focus:ring-primary/30" />
+              <button type="button" onClick={addStaffCard}
+                className="shrink-0 bg-primary text-white px-3 rounded-xl hover:bg-primary/90 transition-colors">
+                <Plus size={13} />
+              </button>
+            </div>
+            <p className="text-[10px] text-muted-foreground/70">Staff dùng tên thẻ để đăng nhập tại <span className="font-mono">/list</span></p>
+          </div>
+        )}
       </div>
 
       {/* ── Receiving mode: batch cards ── */}
@@ -3714,6 +3821,54 @@ function StatsTab() {
                           )}
                           <span className={`font-black shrink-0 ${isEntryDone ? "text-muted-foreground" : "text-primary"}`}>×{entry.qty}</span>
                           <span className="text-muted-foreground shrink-0">{formatPrice(entry.price * entry.qty)}</span>
+                          {/* Staff assignment */}
+                          <div className="relative shrink-0" onClick={(e) => e.stopPropagation()}>
+                            {(() => {
+                              const assigned = staffAssignments.find((a) => a.entryKey === entryKey);
+                              const assignedCard = assigned ? staffCards.find((c) => c.id === assigned.staffId) : null;
+                              return (
+                                <>
+                                  <button
+                                    type="button"
+                                    onClick={() => setStaffDropdown(staffDropdown === entryKey ? null : entryKey)}
+                                    className={`text-[9px] font-bold px-2 py-0.5 rounded-full border transition-colors ${
+                                      assignedCard
+                                        ? "bg-blue-100 text-blue-700 border-blue-200"
+                                        : "text-muted-foreground/50 border-dashed border-border hover:text-muted-foreground"
+                                    }`}
+                                  >
+                                    {assignedCard ? assignedCard.name : "+staff"}
+                                  </button>
+                                  {staffDropdown === entryKey && (
+                                    <div className="absolute bottom-full right-0 mb-1 z-50 bg-background border border-border rounded-xl shadow-lg py-1 min-w-[130px]">
+                                      {staffCards.length === 0 && (
+                                        <p className="text-[10px] text-muted-foreground px-3 py-1.5 italic">Chưa có thẻ staff</p>
+                                      )}
+                                      {staffCards.map((sc) => (
+                                        <button
+                                          key={sc.id}
+                                          type="button"
+                                          onClick={() => { assignStaff(entryKey, sc.id, entry, name); setStaffDropdown(null); }}
+                                          className={`w-full text-left text-xs px-3 py-1.5 hover:bg-muted transition-colors font-medium ${assigned?.staffId === sc.id ? "text-blue-700 font-bold" : ""}`}
+                                        >
+                                          {sc.name}
+                                        </button>
+                                      ))}
+                                      {assigned && (
+                                        <button
+                                          type="button"
+                                          onClick={() => { assignStaff(entryKey, null, entry, name); setStaffDropdown(null); }}
+                                          className="w-full text-left text-xs px-3 py-1.5 hover:bg-destructive/10 text-destructive transition-colors border-t border-border mt-0.5"
+                                        >
+                                          Xóa gán
+                                        </button>
+                                      )}
+                                    </div>
+                                  )}
+                                </>
+                              );
+                            })()}
+                          </div>
                         </div>
                       );
                     })}
