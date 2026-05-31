@@ -7834,6 +7834,9 @@ function CashFlowTab() {
     unitPrice: 0,
     note: "",
   });
+  const [productSearch, setProductSearch] = useState("");
+  const [showProductPicker, setShowProductPicker] = useState(false);
+  const { data: productList } = useListProducts();
 
   const fetchEntries = async () => {
     try {
@@ -8050,9 +8053,58 @@ function CashFlowTab() {
               <Label className="text-xs">Tên staff</Label>
               <Input placeholder="Tên staff..." value={form.staffName} onChange={(e) => setForm((f) => ({ ...f, staffName: e.target.value }))} className="mt-1" />
             </div>
-            <div>
+            <div className="relative">
               <Label className="text-xs">Tên sản phẩm / món hàng</Label>
-              <Input placeholder="Ví dụ: Photocard Aespa, Album IVE..." value={form.productName} onChange={(e) => setForm((f) => ({ ...f, productName: e.target.value }))} className="mt-1" />
+              <div className="flex gap-1.5 mt-1">
+                <Input
+                  placeholder="Nhập tên hoặc chọn từ danh mục..."
+                  value={form.productName}
+                  onChange={(e) => setForm((f) => ({ ...f, productName: e.target.value }))}
+                  className="flex-1"
+                />
+                <button
+                  type="button"
+                  onClick={() => { setProductSearch(""); setShowProductPicker((v) => !v); }}
+                  className="px-2.5 rounded-xl border border-border bg-muted/40 hover:bg-muted transition-colors shrink-0"
+                  title="Chọn từ danh sách sản phẩm"
+                >
+                  <Package size={14} className="text-muted-foreground" />
+                </button>
+              </div>
+              {showProductPicker && (
+                <div className="absolute left-0 right-0 top-full mt-1 z-50 bg-background border border-border rounded-xl shadow-lg overflow-hidden">
+                  <div className="p-2 border-b border-border">
+                    <Input
+                      autoFocus
+                      placeholder="Tìm sản phẩm..."
+                      value={productSearch}
+                      onChange={(e) => setProductSearch(e.target.value)}
+                      className="h-8 text-xs"
+                    />
+                  </div>
+                  <div className="max-h-52 overflow-y-auto">
+                    {(productList ?? [])
+                      .filter((p) => p.name.toLowerCase().includes(productSearch.toLowerCase()))
+                      .map((p) => (
+                        <button
+                          key={p.id}
+                          type="button"
+                          onClick={() => {
+                            setForm((f) => ({ ...f, productName: p.name, unitPrice: p.price }));
+                            setShowProductPicker(false);
+                          }}
+                          className="w-full text-left px-3 py-2 hover:bg-muted active:bg-muted transition-colors flex items-center justify-between gap-2"
+                        >
+                          <span className="text-xs font-medium truncate">{p.name}</span>
+                          <span className="text-[11px] text-muted-foreground shrink-0">{formatPrice(p.price)}</span>
+                        </button>
+                      ))}
+                    {(productList ?? []).filter((p) => p.name.toLowerCase().includes(productSearch.toLowerCase())).length === 0 && (
+                      <p className="text-xs text-muted-foreground italic px-3 py-3">Không tìm thấy sản phẩm</p>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
             <div className="grid grid-cols-2 gap-2">
               <div>
