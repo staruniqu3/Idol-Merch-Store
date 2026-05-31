@@ -7835,15 +7835,23 @@ function CashFlowTab() {
     note: "",
   });
 
+  const fetchEntries = async () => {
+    try {
+      const r = await fetch(`${base}/api/settings/${CASH_FLOW_KEY}`, { cache: "no-store" });
+      const data = await r.json();
+      if (Array.isArray(data)) setEntries(data as CashFlowEntry[]);
+    } catch {}
+    setLoading(false);
+  };
+
   useEffect(() => {
-    (async () => {
-      try {
-        const r = await fetch(`${base}/api/settings/${CASH_FLOW_KEY}`, { cache: "no-store" });
-        const data = await r.json();
-        if (Array.isArray(data)) setEntries(data as CashFlowEntry[]);
-      } catch {}
-      setLoading(false);
-    })();
+    fetchEntries();
+    // Auto-sync every 30s
+    const id = setInterval(fetchEntries, 30_000);
+    // Sync when user returns to this tab/window
+    const onVisible = () => { if (!document.hidden) fetchEntries(); };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => { clearInterval(id); document.removeEventListener("visibilitychange", onVisible); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
