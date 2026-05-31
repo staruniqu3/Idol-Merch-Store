@@ -13,6 +13,7 @@ import {
 import {
   Shield, Package, ShoppingBag, ShoppingCart, Truck, Users, Gift, LogOut, Plus, Pencil, Trash2, ChevronDown,
   TrendingUp, Star, Calendar, X, Check, BarChart3, Sparkles, Bell, Pin, Ticket, Eye, EyeOff, Tag, AlertTriangle, Copy, History, Receipt, Upload, Search, CheckCircle, Archive,
+  ArrowUp, ArrowDown, Wallet,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7803,6 +7804,279 @@ function DealHuntTab() {
   );
 }
 
+// ─── Cash Flow Tab ───────────────────────────────────────────────────────────
+type CashFlowEntry = {
+  id: string;
+  date: string;
+  type: "give" | "refund";
+  staffName: string;
+  productName: string;
+  qty: number;
+  unitPrice: number;
+  note?: string;
+  createdAt: string;
+};
+const CASH_FLOW_KEY = "admin_cash_flow";
+
+function CashFlowTab() {
+  const base = getBaseUrl();
+  const { toast } = useToast();
+  const [entries, setEntries] = useState<CashFlowEntry[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [filterStaff, setFilterStaff] = useState("all");
+  const [showForm, setShowForm] = useState(false);
+  const [form, setForm] = useState({
+    date: new Date().toISOString().slice(0, 10),
+    type: "give" as "give" | "refund",
+    staffName: "",
+    productName: "",
+    qty: 1,
+    unitPrice: 0,
+    note: "",
+  });
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const r = await fetch(`${base}/api/settings/${CASH_FLOW_KEY}`, { cache: "no-store" });
+        const data = await r.json();
+        if (Array.isArray(data)) setEntries(data as CashFlowEntry[]);
+      } catch {}
+      setLoading(false);
+    })();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const persist = async (updated: CashFlowEntry[]) => {
+    await fetch(`${base}/api/settings/${CASH_FLOW_KEY}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(updated),
+    });
+  };
+
+  const addEntry = async () => {
+    if (!form.staffName.trim() || !form.productName.trim() || form.unitPrice <= 0) {
+      toast({ title: "Thiếu thông tin", description: "Điền đủ staff, sản phẩm và đơn giá", variant: "destructive" });
+      return;
+    }
+    const entry: CashFlowEntry = {
+      id: Date.now().toString(),
+      date: form.date,
+      type: form.type,
+      staffName: form.staffName.trim(),
+      productName: form.productName.trim(),
+      qty: form.qty,
+      unitPrice: form.unitPrice,
+      note: form.note.trim() || undefined,
+      createdAt: new Date().toISOString(),
+    };
+    const updated = [entry, ...entries];
+    setEntries(updated);
+    await persist(updated);
+    setShowForm(false);
+    setForm({ date: new Date().toISOString().slice(0, 10), type: "give", staffName: "", productName: "", qty: 1, unitPrice: 0, note: "" });
+    toast({ title: "Đã lưu", description: `${form.type === "give" ? "Đưa tiền" : "Hoàn tiền"} — ${entry.productName}` });
+  };
+
+  const deleteEntry = async (id: string) => {
+    const updated = entries.filter((e) => e.id !== id);
+    setEntries(updated);
+    await persist(updated);
+  };
+
+  const staffNames = useMemo(() => Array.from(new Set(entries.map((e) => e.staffName))), [entries]);
+  const filtered = filterStaff === "all" ? entries : entries.filter((e) => e.staffName === filterStaff);
+  const totalGiven    = filtered.filter((e) => e.type === "give").reduce((s, e) => s + e.qty * e.unitPrice, 0);
+  const totalRefunded = filtered.filter((e) => e.type === "refund").reduce((s, e) => s + e.qty * e.unitPrice, 0);
+  const netFlow = totalGiven - totalRefunded;
+
+  const grouped = filtered.reduce((acc, e) => {
+    if (!acc[e.date]) acc[e.date] = [];
+    acc[e.date].push(e);
+    return acc;
+  }, {} as Record<string, CashFlowEntry[]>);
+  const sortedDates = Object.keys(grouped).sort((a, b) => b.localeCompare(a));
+
+  if (loading) return <div className="text-center py-16 text-muted-foreground text-sm">Đang tải...</div>;
+
+  return (
+    <div className="space-y-4 pb-10">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="font-black text-base">Dòng Tiền Nội Bộ</h2>
+          <p className="text-xs text-muted-foreground">Kiểm soát tiền đưa & hoàn từ staff</p>
+        </div>
+        <Button size="sm" onClick={() => setShowForm(true)} className="gap-1.5">
+          <Plus size={13} /> Thêm
+        </Button>
+      </div>
+
+      {/* Staff filter chips */}
+      {staffNames.length > 0 && (
+        <div className="flex gap-2 overflow-x-auto hide-scrollbar pb-1">
+          {["all", ...staffNames].map((s) => (
+            <button
+              key={s}
+              onClick={() => setFilterStaff(s)}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap border transition-all ${
+                filterStaff === s ? "bg-primary text-white border-primary" : "border-border text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {s === "all" ? "Tất cả" : s}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Summary cards */}
+      <div className="grid grid-cols-3 gap-2">
+        <div className="bg-rose-50 border border-rose-200 rounded-2xl p-3 text-center">
+          <p className="text-[10px] font-bold text-rose-500 uppercase tracking-wider mb-1">Đã đưa</p>
+          <p className="text-xs font-black text-rose-700">{formatPrice(totalGiven)}</p>
+        </div>
+        <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-3 text-center">
+          <p className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider mb-1">Hoàn về</p>
+          <p className="text-xs font-black text-emerald-700">{formatPrice(totalRefunded)}</p>
+        </div>
+        <div className={`rounded-2xl p-3 text-center border ${netFlow > 0 ? "bg-amber-50 border-amber-200" : "bg-muted border-border"}`}>
+          <p className={`text-[10px] font-bold uppercase tracking-wider mb-1 ${netFlow > 0 ? "text-amber-600" : "text-muted-foreground"}`}>Đang ngoài</p>
+          <p className={`text-xs font-black ${netFlow > 0 ? "text-amber-700" : "text-foreground"}`}>{formatPrice(netFlow)}</p>
+        </div>
+      </div>
+
+      {/* Entry list */}
+      {filtered.length === 0 ? (
+        <div className="text-center py-14 text-muted-foreground text-sm italic">Chưa có bản ghi nào</div>
+      ) : (
+        <div className="space-y-4">
+          {sortedDates.map((date) => {
+            const dayEntries = grouped[date];
+            const [y, m, d] = date.split("-");
+            return (
+              <div key={date}>
+                <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-2">{d}/{m}/{y}</p>
+                <div className="space-y-2">
+                  {dayEntries.map((e) => {
+                    const isGive = e.type === "give";
+                    const total  = e.qty * e.unitPrice;
+                    return (
+                      <div
+                        key={e.id}
+                        className={`rounded-xl border px-3 py-2.5 flex items-center gap-2.5 ${
+                          isGive ? "bg-rose-50/70 border-rose-200/70" : "bg-emerald-50/70 border-emerald-200/70"
+                        }`}
+                      >
+                        <div className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 ${isGive ? "bg-rose-100" : "bg-emerald-100"}`}>
+                          {isGive
+                            ? <ArrowUp size={13} className="text-rose-600" />
+                            : <ArrowDown size={13} className="text-emerald-600" />}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="font-bold text-xs">{e.productName}</span>
+                            {e.qty > 1 && <span className="text-[10px] text-muted-foreground">×{e.qty}</span>}
+                            <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${isGive ? "bg-rose-100 text-rose-700" : "bg-emerald-100 text-emerald-700"}`}>
+                              {isGive ? "Đưa tiền" : "Hoàn tiền"}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-muted-foreground mt-0.5 truncate">
+                            {e.staffName}{e.note ? ` · ${e.note}` : ""}
+                          </p>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <p className={`text-sm font-black ${isGive ? "text-rose-700" : "text-emerald-700"}`}>{formatPrice(total)}</p>
+                          {e.qty > 1 && <p className="text-[10px] text-muted-foreground">{formatPrice(e.unitPrice)}/sp</p>}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => deleteEntry(e.id)}
+                          className="shrink-0 w-7 h-7 flex items-center justify-center rounded-lg hover:bg-destructive/10 active:bg-destructive/20 text-muted-foreground/40 hover:text-destructive transition-colors"
+                        >
+                          <Trash2 size={12} />
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Add entry dialog */}
+      <Dialog open={showForm} onOpenChange={setShowForm}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Thêm bản ghi dòng tiền</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 pt-1">
+            {/* Type toggle */}
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setForm((f) => ({ ...f, type: "give" }))}
+                className={`py-2.5 rounded-xl text-sm font-bold border transition-all flex items-center justify-center gap-1.5 ${
+                  form.type === "give" ? "bg-rose-500 text-white border-rose-500" : "border-border text-muted-foreground"
+                }`}
+              >
+                <ArrowUp size={14} /> Đưa tiền
+              </button>
+              <button
+                type="button"
+                onClick={() => setForm((f) => ({ ...f, type: "refund" }))}
+                className={`py-2.5 rounded-xl text-sm font-bold border transition-all flex items-center justify-center gap-1.5 ${
+                  form.type === "refund" ? "bg-emerald-500 text-white border-emerald-500" : "border-border text-muted-foreground"
+                }`}
+              >
+                <ArrowDown size={14} /> Hoàn tiền
+              </button>
+            </div>
+            <div>
+              <Label className="text-xs">Ngày</Label>
+              <Input type="date" value={form.date} onChange={(e) => setForm((f) => ({ ...f, date: e.target.value }))} className="mt-1" />
+            </div>
+            <div>
+              <Label className="text-xs">Tên staff</Label>
+              <Input placeholder="Tên staff..." value={form.staffName} onChange={(e) => setForm((f) => ({ ...f, staffName: e.target.value }))} className="mt-1" />
+            </div>
+            <div>
+              <Label className="text-xs">Tên sản phẩm / món hàng</Label>
+              <Input placeholder="Ví dụ: Photocard Aespa, Album IVE..." value={form.productName} onChange={(e) => setForm((f) => ({ ...f, productName: e.target.value }))} className="mt-1" />
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <Label className="text-xs">Số lượng</Label>
+                <Input type="number" min={1} value={form.qty} onChange={(e) => setForm((f) => ({ ...f, qty: Math.max(1, Number(e.target.value)) }))} className="mt-1" />
+              </div>
+              <div>
+                <Label className="text-xs">Đơn giá (VND)</Label>
+                <Input type="number" min={0} step={1000} value={form.unitPrice} onChange={(e) => setForm((f) => ({ ...f, unitPrice: Number(e.target.value) }))} className="mt-1" />
+              </div>
+            </div>
+            <div>
+              <Label className="text-xs">Ghi chú</Label>
+              <Input placeholder="Lý do, đợt ship, batch..." value={form.note} onChange={(e) => setForm((f) => ({ ...f, note: e.target.value }))} className="mt-1" />
+            </div>
+            {form.qty > 0 && form.unitPrice > 0 && (
+              <div className={`rounded-xl px-3 py-2 text-sm font-bold flex items-center justify-between ${form.type === "give" ? "bg-rose-50 text-rose-700" : "bg-emerald-50 text-emerald-700"}`}>
+                <span>{form.type === "give" ? "Tổng đưa ra" : "Tổng hoàn về"}</span>
+                <span>{formatPrice(form.qty * form.unitPrice)}</span>
+              </div>
+            )}
+            <div className="flex gap-2 pt-1">
+              <Button variant="outline" onClick={() => setShowForm(false)} className="flex-1">Hủy</Button>
+              <Button onClick={addEntry} className="flex-1">Lưu bản ghi</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
 const tabs = [
   { id: "dashboard", label: "Tổng quan", icon: BarChart3 },
   { id: "products", label: "Sản phẩm", icon: Package },
@@ -7817,6 +8091,7 @@ const tabs = [
   { id: "coupon", label: "Coupon", icon: Tag },
   { id: "cost", label: "Chi phí Order", icon: Receipt },
   { id: "deal", label: "Tìm Deal", icon: Search },
+  { id: "cashflow", label: "Dòng tiền", icon: Wallet },
 ];
 
 export default function AdminPage() {
@@ -7891,6 +8166,7 @@ export default function AdminPage() {
         {activeTab === "coupon" && <CouponTab />}
         {activeTab === "cost" && <CostTab />}
         {activeTab === "deal" && <DealHuntTab />}
+        {activeTab === "cashflow" && <CashFlowTab />}
       </div>
     </div>
   );

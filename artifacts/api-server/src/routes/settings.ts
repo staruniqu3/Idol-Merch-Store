@@ -32,6 +32,8 @@ const ALLOWED_KEYS = new Set([
   // Staff system
   "admin_staff_cards",
   "admin_staff_assignments",
+  // Internal cash flow
+  "admin_cash_flow",
 ]);
 
 router.get("/settings/:key", async (req, res): Promise<void> => {
