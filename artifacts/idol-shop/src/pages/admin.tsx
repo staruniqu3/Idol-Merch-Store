@@ -1448,6 +1448,8 @@ function OrdersTab() {
   const [formNote,   setFormNote]   = useState("");
   const [formStatus, setFormStatus] = useState("pending");
   const [formItems,  setFormItems]  = useState<ManualOrderItem[]>([{ name: "", qty: 1, price: 0 }]);
+  const [addPickerGroup, setAddPickerGroup] = useState<number | null>(null);
+  const [addPickerSearch, setAddPickerSearch] = useState("");
   const [formGroupDiscounts, setFormGroupDiscounts] = useState<Record<string, number>>({});
 
   const formTotal = formItems.reduce((s, i) => s + i.qty * (i.discountedPrice ?? i.price), 0)
@@ -1479,6 +1481,8 @@ function OrdersTab() {
   const [editNote,   setEditNote]   = useState("");
   const [editStatus, setEditStatus] = useState("pending");
   const [editItems,  setEditItems]  = useState<ManualOrderItem[]>([]);
+  const [editPickerIdx, setEditPickerIdx] = useState<number | null>(null);
+  const [editPickerSearch, setEditPickerSearch] = useState("");
 
   const editTotal = editItems.reduce((s, i) => s + i.qty * (i.discountedPrice ?? i.price), 0);
 
@@ -1739,7 +1743,45 @@ function OrdersTab() {
                               }}
                               className="w-full text-xs border border-border rounded-xl px-2.5 py-2 bg-background outline-none focus:ring-2 focus:ring-primary/30" />
                             {isFromDB && <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] font-bold text-primary/60 pointer-events-none">✓</span>}
+                            {/* Product picker dropdown */}
+                            {addPickerGroup === gIdx && (
+                              <div className="absolute left-0 right-0 top-full mt-1 z-50 bg-background border border-border rounded-xl shadow-lg overflow-hidden">
+                                <div className="p-1.5 border-b border-border">
+                                  <input
+                                    autoFocus
+                                    placeholder="Tìm sản phẩm..."
+                                    value={addPickerSearch}
+                                    onChange={(e) => setAddPickerSearch(e.target.value)}
+                                    className="w-full text-xs border border-border rounded-lg px-2 py-1.5 bg-background outline-none focus:ring-2 focus:ring-primary/30"
+                                  />
+                                </div>
+                                <div className="max-h-48 overflow-y-auto">
+                                  {(products ?? []).filter((p) => p.name.toLowerCase().includes(addPickerSearch.toLowerCase())).map((p) => (
+                                    <button key={p.id} type="button"
+                                      onClick={() => {
+                                        handleItemNameChange(group.indices[0], p.name);
+                                        if (group.indices.length > 1) setFormItems((prev) => prev.map((it, i) => group.indices.slice(1).includes(i) ? { ...it, name: p.name } : it));
+                                        setAddPickerGroup(null);
+                                      }}
+                                      className="w-full text-left px-3 py-2 hover:bg-muted active:bg-muted transition-colors flex items-center justify-between gap-2">
+                                      <span className="text-xs font-medium truncate">{p.name}</span>
+                                      <span className="text-[11px] text-muted-foreground shrink-0">{formatPrice(p.price)}</span>
+                                    </button>
+                                  ))}
+                                  {(products ?? []).filter((p) => p.name.toLowerCase().includes(addPickerSearch.toLowerCase())).length === 0 && (
+                                    <p className="text-xs text-muted-foreground italic px-3 py-3">Không tìm thấy</p>
+                                  )}
+                                </div>
+                              </div>
+                            )}
                           </div>
+                          {/* Picker toggle button */}
+                          <button type="button"
+                            onClick={() => { setAddPickerSearch(""); setAddPickerGroup(addPickerGroup === gIdx ? null : gIdx); }}
+                            className="w-7 h-7 shrink-0 flex items-center justify-center rounded-xl border border-border bg-muted/40 hover:bg-muted transition-colors"
+                            title="Chọn từ danh sách">
+                            <Package size={13} className="text-muted-foreground" />
+                          </button>
                           {/* Single item without variants: qty + price + X in header row */}
                           {!isMulti && !hasVariants && (() => {
                             const item = formItems[group.indices[0]];
@@ -2082,8 +2124,38 @@ function OrdersTab() {
                               return (
                                 <div key={idx} className="space-y-1">
                                   <div className="flex gap-1.5 items-center">
-                                    <Input value={it.name} onChange={(e) => setEditItem(idx, "name", e.target.value)}
-                                      list="edit-product-list" placeholder="Tên sản phẩm" className="rounded-xl h-7 text-xs flex-1" />
+                                    <div className="flex-1 relative min-w-0">
+                                      <Input value={it.name} onChange={(e) => setEditItem(idx, "name", e.target.value)}
+                                        list="edit-product-list" placeholder="Tên sản phẩm" className="rounded-xl h-7 text-xs w-full" />
+                                      {editPickerIdx === idx && (
+                                        <div className="absolute left-0 right-0 top-full mt-1 z-50 bg-background border border-border rounded-xl shadow-lg overflow-hidden">
+                                          <div className="p-1.5 border-b border-border">
+                                            <input autoFocus placeholder="Tìm sản phẩm..." value={editPickerSearch}
+                                              onChange={(e) => setEditPickerSearch(e.target.value)}
+                                              className="w-full text-xs border border-border rounded-lg px-2 py-1.5 bg-background outline-none focus:ring-2 focus:ring-primary/30" />
+                                          </div>
+                                          <div className="max-h-48 overflow-y-auto">
+                                            {(products ?? []).filter((p) => p.name.toLowerCase().includes(editPickerSearch.toLowerCase())).map((p) => (
+                                              <button key={p.id} type="button"
+                                                onClick={() => { setEditItem(idx, "name", p.name); setEditPickerIdx(null); }}
+                                                className="w-full text-left px-3 py-2 hover:bg-muted active:bg-muted transition-colors flex items-center justify-between gap-2">
+                                                <span className="text-xs font-medium truncate">{p.name}</span>
+                                                <span className="text-[11px] text-muted-foreground shrink-0">{formatPrice(p.price)}</span>
+                                              </button>
+                                            ))}
+                                            {(products ?? []).filter((p) => p.name.toLowerCase().includes(editPickerSearch.toLowerCase())).length === 0 && (
+                                              <p className="text-xs text-muted-foreground italic px-3 py-3">Không tìm thấy</p>
+                                            )}
+                                          </div>
+                                        </div>
+                                      )}
+                                    </div>
+                                    <button type="button"
+                                      onClick={() => { setEditPickerSearch(""); setEditPickerIdx(editPickerIdx === idx ? null : idx); }}
+                                      className="w-7 h-7 shrink-0 flex items-center justify-center rounded-xl border border-border bg-muted/40 hover:bg-muted transition-colors"
+                                      title="Chọn từ danh sách">
+                                      <Package size={13} className="text-muted-foreground" />
+                                    </button>
                                     {!hasEditVariants && (
                                       <Input value={it.variant ?? ""} onChange={(e) => setEditItem(idx, "variant", e.target.value)}
                                         placeholder="Biến thể" className="rounded-xl h-7 text-xs w-20" />
