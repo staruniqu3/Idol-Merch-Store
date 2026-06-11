@@ -34,6 +34,8 @@ const ALLOWED_KEYS = new Set([
   "admin_staff_assignments",
   // Internal cash flow
   "admin_cash_flow",
+  // Shop payment QR
+  "shop_payment_bank_info",
 ]);
 
 router.get("/settings/:key", async (req, res): Promise<void> => {

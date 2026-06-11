@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   useListProducts,
@@ -6,7 +6,7 @@ import {
   useCreateOrder,
   getListOrdersQueryKey,
 } from "@workspace/api-client-react";
-import { ShoppingCart, Plus, Minus, X, Package, ShoppingBag, Sparkles, ExternalLink, CreditCard, CheckCircle2 } from "lucide-react";
+import { ShoppingCart, Plus, Minus, X, Package, ShoppingBag, Sparkles, ExternalLink, CreditCard, CheckCircle2, ArrowUp, QrCode } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
@@ -88,6 +88,27 @@ export default function ShopPage() {
   const [variantPickerProduct, setVariantPickerProduct] = useState<typeof filtered[0] | null>(null);
   const [pickedVariant, setPickedVariant] = useState<{ name: string; price?: number; stock?: number; soldOut?: boolean; subVariants?: Array<{ name: string; price?: number; stock?: number; soldOut?: boolean; subSubVariants?: Array<{ name: string; price?: number; stock?: number; soldOut?: boolean }> }> } | null>(null);
   const [pickedSubVariant, setPickedSubVariant] = useState<{ name: string; price?: number; stock?: number; soldOut?: boolean; subSubVariants?: Array<{ name: string; price?: number; stock?: number; soldOut?: boolean }> } | null>(null);
+
+  const [showScrollTop, setShowScrollTop] = useState(false);
+  const [bankInfo, setBankInfo] = useState<{ bankId: string; accountNo: string; accountName: string } | null>(null);
+  const [createdOrderId, setCreatedOrderId] = useState<number | null>(null);
+  const [paymentConfirmed, setPaymentConfirmed] = useState(false);
+
+  const base0 = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
+
+  useEffect(() => {
+    fetch(`${base0}/api/settings/shop_payment_bank_info`, { cache: "no-store" })
+      .then((r) => r.json())
+      .then((d) => { if (d && typeof d === "object" && d.accountNo) setBankInfo(d); })
+      .catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    const onScroll = () => setShowScrollTop(window.scrollY > 350);
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
 
   const cartCount = cart.reduce((s, i) => s + i.quantity, 0);
   const cartTotal = cart.reduce((s, i) => s + i.price * i.quantity, 0);
@@ -183,10 +204,11 @@ export default function ShopPage() {
         },
       },
       {
-        onSuccess: () => {
+        onSuccess: (data) => {
           queryClient.invalidateQueries({ queryKey: getListOrdersQueryKey() });
           queryClient.invalidateQueries({ queryKey: getListProductsQueryKey() });
           autoAddPoints(phone.trim(), cartTotal);
+          if (data && typeof (data as any).id === "number") setCreatedOrderId((data as any).id);
           setStep("payment");
         },
         onError: () => toast({ title: "Có lỗi xảy ra", variant: "destructive" }),
@@ -245,6 +267,8 @@ export default function ShopPage() {
     setCart([]);
     setSlotResults([]);
     setSlotErrors({});
+    setCreatedOrderId(null);
+    setPaymentConfirmed(false);
   };
 
   return (
@@ -317,42 +341,98 @@ export default function ShopPage() {
               )}
 
               {step === "payment" && slotResults.length === 0 && (
-                <div className="flex-1 flex flex-col items-center justify-center px-5 gap-5 text-center">
-                  <div className="w-16 h-16 rounded-full bg-emerald-100 flex items-center justify-center">
-                    <CheckCircle2 size={32} className="text-emerald-500" />
-                  </div>
-                  <div>
+                <div className="flex-1 overflow-y-auto px-5 py-5 space-y-4">
+                  {/* Header */}
+                  <div className="flex flex-col items-center text-center gap-2">
+                    <div className="w-14 h-14 rounded-full bg-emerald-100 flex items-center justify-center">
+                      <CheckCircle2 size={28} className="text-emerald-500" />
+                    </div>
                     <p className="text-lg font-black">Đặt hàng thành công! 🎉</p>
-                    <p className="text-sm text-muted-foreground mt-1">
-                      Shop đã nhận đơn của bạn.<br />Vui lòng chuyển khoản và điền form xác nhận.
-                    </p>
-                    <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2 mt-2">
-                      ⚠️ Nếu bạn không chuyển khoản và điền form, đơn hàng sẽ không được đặt thành công.
-                    </p>
+                    {createdOrderId && (
+                      <span className="text-xs bg-muted border border-border px-3 py-1 rounded-full font-mono font-bold text-muted-foreground">
+                        Mã đơn: TCD{String(createdOrderId).padStart(7, "0")}
+                      </span>
+                    )}
                   </div>
 
-                  <a
-                    href={MATMAT_URL}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="w-full"
-                  >
-                    <div className="w-full bg-gradient-to-br from-primary to-pink-400 rounded-2xl p-5 text-white shadow-lg hover:shadow-xl transition-shadow cursor-pointer">
-                      <div className="flex items-center gap-3 mb-3">
-                        <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
-                          <CreditCard size={20} />
-                        </div>
-                        <div className="text-left">
-                          <p className="font-black text-base leading-tight">Chuyển khoản & Điền form</p>
-                          <p className="text-[11px] opacity-75 font-medium">Mát Mát Payment</p>
-                        </div>
-                        <ExternalLink size={16} className="ml-auto opacity-70" />
+                  {/* QR Code block */}
+                  {!paymentConfirmed && bankInfo && createdOrderId && (
+                    <div className="bg-card border border-border rounded-2xl p-4 space-y-3">
+                      <div className="flex items-center gap-2">
+                        <QrCode size={15} className="text-primary shrink-0" />
+                        <p className="text-sm font-black">Quét mã chuyển khoản</p>
                       </div>
-                      <div className="bg-white/15 rounded-xl px-3 py-2 text-sm font-bold">
-                        {formatPrice(cartTotal)}
+                      {/* VietQR image */}
+                      <div className="flex justify-center">
+                        <img
+                          src={`https://img.vietqr.io/image/${encodeURIComponent(bankInfo.bankId)}-${encodeURIComponent(bankInfo.accountNo)}-compact2.jpg?amount=${Math.round(cartTotal)}&addInfo=${encodeURIComponent(`TCD${String(createdOrderId).padStart(7, "0")}`)}&accountName=${encodeURIComponent(bankInfo.accountName)}`}
+                          alt="QR chuyển khoản"
+                          className="w-52 h-52 rounded-xl border border-border object-contain bg-white"
+                        />
                       </div>
+                      {/* Transfer info */}
+                      <div className="bg-muted/60 rounded-xl px-3 py-2.5 space-y-1.5 text-xs">
+                        {[
+                          { label: "Ngân hàng", value: bankInfo.bankId.toUpperCase() },
+                          { label: "Số tài khoản", value: bankInfo.accountNo, mono: true },
+                          { label: "Tên tài khoản", value: bankInfo.accountName },
+                          { label: "Số tiền", value: formatPrice(cartTotal), highlight: true },
+                          { label: "Nội dung CK", value: `TCD${String(createdOrderId).padStart(7, "0")}`, mono: true, highlight: true },
+                        ].map(({ label, value, mono, highlight }) => (
+                          <div key={label} className="flex items-center justify-between gap-2">
+                            <span className="text-muted-foreground shrink-0">{label}</span>
+                            <span className={`font-bold text-right truncate ${mono ? "font-mono" : ""} ${highlight ? "text-primary" : ""}`}>{value}</span>
+                          </div>
+                        ))}
+                      </div>
+                      <p className="text-[10px] text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-2.5 py-2 leading-relaxed">
+                        ⚠️ Nhập đúng nội dung chuyển khoản để shop xác nhận đơn nhanh nhất.
+                      </p>
+                      <Button
+                        className="w-full rounded-xl bg-emerald-600 hover:bg-emerald-700 font-bold"
+                        onClick={() => setPaymentConfirmed(true)}
+                      >
+                        ✓ Tôi đã chuyển khoản xong
+                      </Button>
                     </div>
-                  </a>
+                  )}
+
+                  {/* No QR configured */}
+                  {!paymentConfirmed && !bankInfo && (
+                    <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2 text-center">
+                      ⚠️ Vui lòng chuyển khoản và điền form xác nhận để đơn được xử lý.
+                    </p>
+                  )}
+
+                  {/* After payment confirmed OR no QR → show form link */}
+                  {(paymentConfirmed || !bankInfo) && (
+                    <>
+                      {paymentConfirmed && (
+                        <div className="flex flex-col items-center gap-1 text-center">
+                          <CheckCircle2 size={28} className="text-emerald-500" />
+                          <p className="font-black text-sm">Đã nhận xác nhận!</p>
+                          <p className="text-xs text-muted-foreground">Bước tiếp theo: điền form để hoàn tất</p>
+                        </div>
+                      )}
+                      <a href={MATMAT_URL} target="_blank" rel="noopener noreferrer" className="block w-full">
+                        <div className="w-full bg-gradient-to-br from-primary to-pink-400 rounded-2xl p-5 text-white shadow-lg hover:shadow-xl transition-shadow cursor-pointer">
+                          <div className="flex items-center gap-3 mb-3">
+                            <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
+                              <CreditCard size={20} />
+                            </div>
+                            <div className="text-left">
+                              <p className="font-black text-base leading-tight">Điền form xác nhận đơn</p>
+                              <p className="text-[11px] opacity-75 font-medium">Mát Mát Payment</p>
+                            </div>
+                            <ExternalLink size={16} className="ml-auto opacity-70" />
+                          </div>
+                          <div className="bg-white/15 rounded-xl px-3 py-2 text-sm font-bold">
+                            {formatPrice(cartTotal)}
+                          </div>
+                        </div>
+                      </a>
+                    </>
+                  )}
 
                   <Button variant="ghost" className="w-full rounded-xl" onClick={handleClose}>
                     Đóng
@@ -936,6 +1016,26 @@ export default function ShopPage() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Floating scroll-to-top / cart button */}
+      {showScrollTop && (
+        <button
+          type="button"
+          onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+          className="fixed bottom-20 right-4 z-40 flex items-center gap-1.5 bg-primary text-white shadow-lg rounded-2xl px-3 py-2.5 hover:bg-primary/90 active:scale-95 transition-all"
+          aria-label="Lên đầu trang"
+        >
+          <ArrowUp size={14} />
+          {cartCount > 0 ? (
+            <>
+              <ShoppingCart size={14} />
+              <span className="text-xs font-black">{cartCount}</span>
+            </>
+          ) : (
+            <span className="text-xs font-bold">Lên đầu</span>
+          )}
+        </button>
+      )}
     </div>
   );
 }

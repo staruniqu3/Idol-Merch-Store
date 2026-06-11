@@ -210,6 +210,69 @@ function DashboardTab() {
           ))}
         </div>
       )}
+
+      {/* ── Bank payment QR settings ── */}
+      {(() => {
+        const base0 = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
+        const [showBankSettings, setShowBankSettings] = React.useState(false);
+        const [bankForm, setBankForm] = React.useState({ bankId: "", accountNo: "", accountName: "" });
+        const [bankSaved, setBankSaved] = React.useState(false);
+        React.useEffect(() => {
+          fetch(`${base0}/api/settings/shop_payment_bank_info`, { cache: "no-store" })
+            .then((r) => r.json())
+            .then((d) => { if (d && typeof d === "object") setBankForm({ bankId: d.bankId ?? "", accountNo: d.accountNo ?? "", accountName: d.accountName ?? "" }); })
+            .catch(() => {});
+        }, []);
+        const saveBankInfo = () => {
+          fetch(`${base0}/api/settings/shop_payment_bank_info`, {
+            method: "PUT", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(bankForm),
+          }).then(() => { setBankSaved(true); setTimeout(() => setBankSaved(false), 2000); }).catch(() => {});
+        };
+        return (
+          <div className="bg-card border border-border rounded-2xl overflow-hidden">
+            <button type="button" onClick={() => setShowBankSettings((v) => !v)}
+              className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-muted/40 transition-colors">
+              <div className="flex items-center gap-2">
+                <CreditCard size={14} className="text-muted-foreground" />
+                <span className="text-sm font-bold">Cài đặt QR Thanh toán</span>
+                {bankForm.accountNo && <span className="text-[10px] bg-emerald-100 text-emerald-700 border border-emerald-200 px-1.5 py-0.5 rounded-full font-bold">✓ Đã cài</span>}
+              </div>
+              <ChevronDown size={13} className={`text-muted-foreground transition-transform ${showBankSettings ? "rotate-180" : ""}`} />
+            </button>
+            {showBankSettings && (
+              <div className="border-t border-border px-4 pb-4 pt-3 space-y-3">
+                <p className="text-[10px] text-muted-foreground">Thông tin hiển thị trong QR chuyển khoản khi khách đặt hàng trên shop.</p>
+                <div className="space-y-2">
+                  <div>
+                    <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide">Mã ngân hàng (VietQR)</label>
+                    <input value={bankForm.bankId} onChange={(e) => setBankForm((f) => ({ ...f, bankId: e.target.value }))}
+                      placeholder="MB, VCB, TCB, ACB, TPB..."
+                      className="mt-1 w-full text-xs border border-border rounded-xl px-3 py-2 bg-background outline-none focus:ring-2 focus:ring-primary/30" />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide">Số tài khoản</label>
+                    <input value={bankForm.accountNo} onChange={(e) => setBankForm((f) => ({ ...f, accountNo: e.target.value }))}
+                      placeholder="0123456789"
+                      className="mt-1 w-full text-xs border border-border rounded-xl px-3 py-2 bg-background outline-none focus:ring-2 focus:ring-primary/30" />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide">Tên tài khoản</label>
+                    <input value={bankForm.accountName} onChange={(e) => setBankForm((f) => ({ ...f, accountName: e.target.value }))}
+                      placeholder="NGUYEN VAN A"
+                      className="mt-1 w-full text-xs border border-border rounded-xl px-3 py-2 bg-background outline-none focus:ring-2 focus:ring-primary/30" />
+                  </div>
+                </div>
+                <button type="button" onClick={saveBankInfo}
+                  className={`w-full text-xs font-bold py-2 rounded-xl transition-colors ${bankSaved ? "bg-emerald-100 text-emerald-700 border border-emerald-200" : "bg-primary text-white hover:bg-primary/90"}`}>
+                  {bankSaved ? "✓ Đã lưu!" : "Lưu cài đặt"}
+                </button>
+                <p className="text-[9px] text-muted-foreground/60">Kiểm tra mã ngân hàng tại vietqr.io/danh-sach-ngan-hang</p>
+              </div>
+            )}
+          </div>
+        );
+      })()}
     </div>
   );
 }
