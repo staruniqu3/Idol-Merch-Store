@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { RefreshCw, LogOut, User } from "lucide-react";
+import { RefreshCw, LogOut, User, Calendar } from "lucide-react";
 
 type StaffCard = { id: string; name: string; token: string };
 type StaffAssignment = {
@@ -101,11 +101,36 @@ export default function StaffListPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [staff?.id]);
 
-  const grouped = assignments.reduce((acc, a) => {
-    if (!acc[a.productName]) acc[a.productName] = [];
-    acc[a.productName].push(a);
+  // Group by date (yyyy-mm-dd from assignedAt), then by productName within each date
+  const formatDateLabel = (iso: string) => {
+    try {
+      const d = new Date(iso);
+      const today = new Date();
+      const yesterday = new Date(today);
+      yesterday.setDate(today.getDate() - 1);
+      const isToday = d.toDateString() === today.toDateString();
+      const isYesterday = d.toDateString() === yesterday.toDateString();
+      if (isToday) return "Hôm nay";
+      if (isYesterday) return "Hôm qua";
+      return d.toLocaleDateString("vi-VN", { weekday: "long", day: "2-digit", month: "2-digit" });
+    } catch { return iso.slice(0, 10); }
+  };
+
+  const dateKey = (iso: string) => {
+    try { return new Date(iso).toISOString().slice(0, 10); } catch { return iso.slice(0, 10); }
+  };
+
+  // Build date → product → assignments structure
+  const byDate = assignments.reduce((acc, a) => {
+    const dk = dateKey(a.assignedAt);
+    if (!acc[dk]) acc[dk] = {};
+    if (!acc[dk][a.productName]) acc[dk][a.productName] = [];
+    acc[dk][a.productName].push(a);
     return acc;
-  }, {} as Record<string, StaffAssignment[]>);
+  }, {} as Record<string, Record<string, StaffAssignment[]>>);
+
+  // Sort dates descending (newest first)
+  const sortedDates = Object.keys(byDate).sort((a, b) => b.localeCompare(a));
 
   if (!staff) {
     return (
@@ -190,36 +215,57 @@ export default function StaffListPage() {
             <p className="text-xs text-muted-foreground/60 mt-1">Tự động cập nhật mỗi 30 giây</p>
           </div>
         ) : (
-          <div className="space-y-2.5">
-            {Object.entries(grouped).map(([productName, items]) => {
-              const groupQty = items.reduce((s, a) => s + a.qty, 0);
-              // Group by variant within this product
-              const byVariant = items.reduce((acc, a) => {
-                const key = a.variant || "";
-                if (!acc[key]) acc[key] = 0;
-                acc[key] += a.qty;
-                return acc;
-              }, {} as Record<string, number>);
-              const variants = Object.entries(byVariant).filter(([k]) => k !== "");
+          <div className="space-y-5">
+            {sortedDates.map((dk) => {
+              const productMap = byDate[dk];
+              const dateLabel = formatDateLabel(dk + "T00:00:00");
+              const dateAssignments = Object.values(productMap).flat();
+              const dateTotalQty = dateAssignments.reduce((s, a) => s + a.qty, 0);
+
               return (
-                <div key={productName} className="bg-card border border-border rounded-2xl px-4 py-3 flex items-center gap-3">
-                  <div className="flex-1 min-w-0">
-                    <p className="font-bold text-sm leading-snug">{productName}</p>
-                    {variants.length > 0 && (
-                      <div className="flex flex-wrap gap-1 mt-1">
-                        {variants.map(([v, q]) => (
-                          <span key={v} className="text-[9px] bg-violet-100 text-violet-700 border border-violet-200 px-1.5 py-0.5 rounded-full font-bold">
-                            {v} ×{q}
-                          </span>
-                        ))}
+                <div key={dk} className="space-y-2">
+                  {/* Date divider */}
+                  <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1.5 bg-primary/8 border border-primary/20 rounded-xl px-2.5 py-1">
+                      <Calendar size={11} className="text-primary shrink-0" />
+                      <span className="text-[11px] font-black text-primary">{dateLabel}</span>
+                    </div>
+                    <div className="flex-1 h-px bg-border" />
+                    <span className="text-[10px] text-muted-foreground shrink-0">{dateAssignments.length} đơn · {dateTotalQty} sp</span>
+                  </div>
+
+                  {/* Product cards for this date */}
+                  {Object.entries(productMap).map(([productName, items]) => {
+                    const groupQty = items.reduce((s, a) => s + a.qty, 0);
+                    const byVariant = items.reduce((acc, a) => {
+                      const key = a.variant || "";
+                      if (!acc[key]) acc[key] = 0;
+                      acc[key] += a.qty;
+                      return acc;
+                    }, {} as Record<string, number>);
+                    const variants = Object.entries(byVariant).filter(([k]) => k !== "");
+                    return (
+                      <div key={productName} className="bg-card border border-border rounded-2xl px-4 py-3 flex items-center gap-3">
+                        <div className="flex-1 min-w-0">
+                          <p className="font-bold text-sm leading-snug">{productName}</p>
+                          {variants.length > 0 && (
+                            <div className="flex flex-wrap gap-1 mt-1">
+                              {variants.map(([v, q]) => (
+                                <span key={v} className="text-[9px] bg-violet-100 text-violet-700 border border-violet-200 px-1.5 py-0.5 rounded-full font-bold">
+                                  {v} ×{q}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                          <p className="text-[10px] text-muted-foreground mt-0.5">{items.length} đơn</p>
+                        </div>
+                        <div className="shrink-0 text-right">
+                          <p className="text-2xl font-black text-primary leading-none">{groupQty}</p>
+                          <p className="text-[10px] text-muted-foreground">sản phẩm</p>
+                        </div>
                       </div>
-                    )}
-                    <p className="text-[10px] text-muted-foreground mt-0.5">{items.length} đơn</p>
-                  </div>
-                  <div className="shrink-0 text-right">
-                    <p className="text-2xl font-black text-primary leading-none">{groupQty}</p>
-                    <p className="text-[10px] text-muted-foreground">sản phẩm</p>
-                  </div>
+                    );
+                  })}
                 </div>
               );
             })}

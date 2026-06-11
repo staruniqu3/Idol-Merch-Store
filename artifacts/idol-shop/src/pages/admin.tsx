@@ -231,6 +231,7 @@ function ProductsTab() {
   const [subVariantInputs, setSubVariantInputs] = useState<Record<number, { name: string; price: string; stock: string }>>({});
   const [subSubVariantInputs, setSubSubVariantInputs] = useState<Record<string, { name: string; price: string; stock: string }>>({});
   const [copiedSubVariants, setCopiedSubVariants] = useState<SubVariantDraft[] | null>(null);
+  const [copiedSubSubVariants, setCopiedSubSubVariants] = useState<SubSubVariantDraft[] | null>(null);
   const [customTagInput, setCustomTagInput] = useState("");
   const [customVariantInput, setCustomVariantInput] = useState({ name: "", price: "", stock: "" });
   const [customCategoryInput, setCustomCategoryInput] = useState("");
@@ -282,7 +283,7 @@ function ProductsTab() {
     "Weverse Album", "Limited Edition", "Merch Bundle",
   ];
 
-  const resetForm = () => { setForm({ name: "", description: "", price: "", category: "Kpop", stock: "0", isAvailable: true, isSoldOut: false, orderType: "preorder", orderLabel: "", orderName: "", imageUrl: "", tags: [], variants: [], slotPrefix: "", slotConfig: {} }); setCustomTagInput(""); setCustomVariantInput({ name: "", price: "", stock: "" }); setSubVariantInputs({}); setSubSubVariantInputs({}); setCopiedSubVariants(null); };
+  const resetForm = () => { setForm({ name: "", description: "", price: "", category: "Kpop", stock: "0", isAvailable: true, isSoldOut: false, orderType: "preorder", orderLabel: "", orderName: "", imageUrl: "", tags: [], variants: [], slotPrefix: "", slotConfig: {} }); setCustomTagInput(""); setCustomVariantInput({ name: "", price: "", stock: "" }); setSubVariantInputs({}); setSubSubVariantInputs({}); setCopiedSubVariants(null); setCopiedSubSubVariants(null); };
 
   const addCustomTag = () => {
     const tag = customTagInput.trim();
@@ -615,7 +616,31 @@ function ProductsTab() {
                                   {/* Sub-sub-variants (e.g. sizes) */}
                                   {sv._showSubSubs && (
                                     <div className="px-2 pb-1.5 pt-1 border-t border-fuchsia-100 bg-fuchsia-50/60 space-y-1">
-                                      <p className="text-[8px] font-black text-fuchsia-500 uppercase tracking-widest">Size / Phụ phụ</p>
+                                      <div className="flex items-center justify-between">
+                                        <p className="text-[8px] font-black text-fuchsia-500 uppercase tracking-widest">Size / Phụ phụ</p>
+                                        <div className="flex gap-1">
+                                          {(sv.subSubVariants ?? []).length > 0 && (
+                                            <button
+                                              type="button"
+                                              onClick={() => setCopiedSubSubVariants((sv.subSubVariants ?? []).map((s) => ({ ...s })))}
+                                              className="text-[8px] font-bold px-1.5 py-0.5 rounded bg-fuchsia-100 text-fuchsia-700 hover:bg-fuchsia-200 transition-colors border border-fuchsia-200"
+                                              title="Copy sub-sub-variants"
+                                            >
+                                              📋 Copy
+                                            </button>
+                                          )}
+                                          {copiedSubSubVariants && (
+                                            <button
+                                              type="button"
+                                              onClick={() => setForm((f) => ({ ...f, variants: f.variants.map((vv, vi) => vi === idx ? { ...vv, subVariants: (vv.subVariants ?? []).map((s, si) => si === svIdx ? { ...s, subSubVariants: copiedSubSubVariants.map((ss) => ({ ...ss })) } : s) } : vv) }))}
+                                              className="text-[8px] font-bold px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 hover:bg-emerald-200 transition-colors border border-emerald-200"
+                                              title={`Dán ${copiedSubSubVariants.length} size`}
+                                            >
+                                              ✦ Dán ({copiedSubSubVariants.length})
+                                            </button>
+                                          )}
+                                        </div>
+                                      </div>
                                       {(sv.subSubVariants ?? []).map((ssv, ssvIdx) => (
                                         <div key={ssvIdx} className={`flex items-center gap-1 rounded px-1.5 py-0.5 border text-[9px] ${ssv.soldOut ? "bg-red-50 border-red-200" : "bg-white border-fuchsia-200"}`}>
                                           <input
@@ -3208,6 +3233,7 @@ function StatsTab() {
   const [newStaffToken, setNewStaffToken] = useState("");
   const [showStaffMgmt, setShowStaffMgmt] = useState(false);
   const [staffDropdown, setStaffDropdown] = useState<string | null>(null);
+  const [pushedDownItems, setPushedDownItems] = useState<Set<string>>(new Set());
 
   const saveStaffCards = (next: StaffCard[]) => {
     setStaffCards(next);
@@ -3366,13 +3392,27 @@ function StatsTab() {
     localStorage.setItem(STATS_BATCH_HISTORY_KEY, JSON.stringify(newHistory));
     putToServer(STATS_BATCH_HISTORY_KEY, newHistory);
 
-    const newAccounted = new Set([...accountedIds, ...activeOrders.map((o) => o.id)]);
+    // Exclude orders that contain any pushed-down product — they carry forward to next batch
+    const orderHasPushedDown = (itemsJson: string) => {
+      try { return (JSON.parse(itemsJson) as Array<{ name: string }>).some((it) => pushedDownItems.has(it.name)); }
+      catch { return false; }
+    };
+    const manualHasPushedDown = (order: typeof activeManualOrders[number]) =>
+      order.items.some((it) => pushedDownItems.has(it.name));
+
+    const newAccounted = new Set([
+      ...accountedIds,
+      ...activeOrders.filter((o) => !orderHasPushedDown(o.items)).map((o) => o.id),
+    ]);
     setAccountedIds(newAccounted);
     const accArr = [...newAccounted];
     localStorage.setItem(STATS_ACCOUNTED_KEY, JSON.stringify(accArr));
     putToServer(STATS_ACCOUNTED_KEY, accArr);
 
-    const newAccountedManual = new Set([...accountedManualIds, ...activeManualOrders.map((o) => o.id)]);
+    const newAccountedManual = new Set([
+      ...accountedManualIds,
+      ...activeManualOrders.filter((o) => !manualHasPushedDown(o)).map((o) => o.id),
+    ]);
     setAccountedManualIds(newAccountedManual);
     const accManualArr = [...newAccountedManual];
     localStorage.setItem(STATS_ACCOUNTED_MANUAL_KEY, JSON.stringify(accManualArr));
@@ -3384,6 +3424,7 @@ function StatsTab() {
     setOrderedEntryKeys(new Set());
     localStorage.removeItem("stats_ordered_entry_keys");
     putToServer("stats_ordered_entry_keys", []);
+    setPushedDownItems(new Set());
   };
 
   const allEntries = Object.entries(itemMap).sort((a, b) => b[1].qty - a[1].qty);
@@ -3452,6 +3493,15 @@ function StatsTab() {
                     <div className="flex-1 min-w-0">
                       <p className="text-xs font-bold">{sc.name}</p>
                       <p className="text-[10px] text-muted-foreground font-mono">{sc.token}</p>
+                      {(() => {
+                        const staffA = staffAssignments.filter((a) => a.staffId === sc.id);
+                        if (staffA.length === 0) return null;
+                        const latest = staffA.reduce((max, a) => a.assignedAt > max.assignedAt ? a : max, staffA[0]);
+                        const dt = new Date(latest.assignedAt);
+                        const label = dt.toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit" })
+                          + " " + dt.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" });
+                        return <p className="text-[9px] text-muted-foreground/70">Gán gần nhất: {label}</p>;
+                      })()}
                     </div>
                     <span className="text-[10px] text-muted-foreground shrink-0">
                       {staffAssignments.filter((a) => a.staffId === sc.id).length} đơn
@@ -3837,12 +3887,30 @@ function StatsTab() {
                         )}
                       </div>
                     </div>
-                    {/* Right: qty + revenue + expand */}
+                    {/* Right: qty + revenue + push-down + expand */}
                     <div className="flex items-center gap-2 shrink-0">
                       <Badge variant="secondary" className={`text-xs font-black ${isDone ? "bg-muted text-muted-foreground border-muted" : "bg-primary/10 text-primary border-primary/20"}`}>
                         ×{qty}
                       </Badge>
                       <span className="text-xs text-muted-foreground">{formatPrice(revenue)}</span>
+                      {!isDone && (
+                        <button
+                          type="button"
+                          title={pushedDownItems.has(name) ? "Bỏ đẩy xuống" : "Đẩy xuống đợt sau"}
+                          onClick={() => setPushedDownItems((prev) => {
+                            const next = new Set(prev);
+                            if (next.has(name)) next.delete(name); else next.add(name);
+                            return next;
+                          })}
+                          className={`w-6 h-6 rounded-lg flex items-center justify-center transition-colors shrink-0 border ${
+                            pushedDownItems.has(name)
+                              ? "bg-amber-100 border-amber-300 text-amber-600"
+                              : "hover:bg-amber-50 border-border text-muted-foreground hover:text-amber-500 hover:border-amber-200"
+                          }`}
+                        >
+                          <span className="text-[11px] font-black leading-none">↓</span>
+                        </button>
+                      )}
                       <button
                         type="button"
                         onClick={() => setExpandedStatItem(isStatOpen ? null : name)}
