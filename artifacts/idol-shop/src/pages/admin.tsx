@@ -3300,6 +3300,7 @@ function StatsTab() {
   const [showStaffMgmt, setShowStaffMgmt] = useState(false);
   const [staffDropdown, setStaffDropdown] = useState<string | null>(null);
   const [pushedDownItems, setPushedDownItems] = useState<Set<string>>(new Set());
+  const [pushedDownOrderIds, setPushedDownOrderIds] = useState<Set<number | string>>(new Set());
 
   const saveStaffCards = (next: StaffCard[]) => {
     setStaffCards(next);
@@ -3391,8 +3392,8 @@ function StatsTab() {
     try {
       const items: Array<{ name: string; quantity: number; price: number; variant?: string }> = JSON.parse(order.items);
       items.forEach((it) => {
-        if (pushedDownItems.has(it.name)) {
-          // Route to pushed-down map instead
+        const isPushed = pushedDownItems.has(it.name) || pushedDownOrderIds.has(order.id);
+        if (isPushed) {
           if (!pushedDownMap[it.name]) pushedDownMap[it.name] = { qty: 0, revenue: 0, sources: [] };
           pushedDownMap[it.name].qty += it.quantity;
           pushedDownMap[it.name].revenue += it.price * it.quantity;
@@ -3416,7 +3417,8 @@ function StatsTab() {
   activeManualOrders.forEach((order) => {
     order.items.forEach((it) => {
       if (!it.name.trim()) return;
-      if (pushedDownItems.has(it.name)) {
+      const isPushed = pushedDownItems.has(it.name) || pushedDownOrderIds.has(order.id);
+      if (isPushed) {
         if (!pushedDownMap[it.name]) pushedDownMap[it.name] = { qty: 0, revenue: 0, sources: [] };
         pushedDownMap[it.name].qty += it.qty;
         pushedDownMap[it.name].revenue += it.price * it.qty;
@@ -3525,6 +3527,7 @@ function StatsTab() {
     localStorage.removeItem("stats_ordered_entry_keys");
     putToServer("stats_ordered_entry_keys", []);
     setPushedDownItems(new Set());
+    setPushedDownOrderIds(new Set());
   };
 
   const allEntries = Object.entries(itemMap).sort((a, b) => b[1].qty - a[1].qty);
@@ -4105,7 +4108,7 @@ function StatsTab() {
                               )}
                             </div>
                           </div>
-                          {/* Row 2: phone · variant · qty · price */}
+                          {/* Row 2: phone · variant · qty · price · actions */}
                           <div className="flex items-center gap-2 px-2.5 pb-2 pl-8">
                             {entry.phone && (
                               <span className="text-[10px] text-muted-foreground font-mono flex-1 min-w-0 truncate">{entry.phone}</span>
@@ -4115,6 +4118,40 @@ function StatsTab() {
                             )}
                             <span className={`text-xs font-black shrink-0 ml-auto ${isEntryDone ? "text-muted-foreground" : "text-primary"}`}>×{entry.qty}</span>
                             <span className="text-[11px] text-muted-foreground shrink-0">{formatPrice(entry.price * entry.qty)}</span>
+                            {/* Push to next batch */}
+                            <button
+                              type="button"
+                              title="Đẩy đơn này sang lô tiếp theo"
+                              onClick={(e) => { e.stopPropagation(); setPushedDownOrderIds((prev) => { const n = new Set(prev); n.add(entry.orderId); return n; }); }}
+                              className="w-5 h-5 rounded-md flex items-center justify-center border border-amber-300 bg-amber-50 text-amber-600 hover:bg-amber-100 transition-colors shrink-0"
+                            >
+                              <span className="text-[10px] font-black leading-none">↓</span>
+                            </button>
+                            {/* Loại bỏ khỏi stats */}
+                            <button
+                              type="button"
+                              title="Loại bỏ đơn này khỏi thống kê"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (!window.confirm("Loại bỏ đơn này khỏi thống kê hiện tại?")) return;
+                                if (entry.source === "app" && typeof entry.orderId === "number") {
+                                  const n = new Set([...accountedIds, entry.orderId]);
+                                  setAccountedIds(n);
+                                  const arr = [...n];
+                                  localStorage.setItem(STATS_ACCOUNTED_KEY, JSON.stringify(arr));
+                                  putToServer(STATS_ACCOUNTED_KEY, arr);
+                                } else if (entry.source === "manual") {
+                                  const n = new Set([...accountedManualIds, entry.orderId]);
+                                  setAccountedManualIds(n);
+                                  const arr = [...n];
+                                  localStorage.setItem(STATS_ACCOUNTED_MANUAL_KEY, JSON.stringify(arr));
+                                  putToServer(STATS_ACCOUNTED_MANUAL_KEY, arr);
+                                }
+                              }}
+                              className="w-5 h-5 rounded-md flex items-center justify-center border border-red-200 bg-red-50 text-red-400 hover:bg-red-100 transition-colors shrink-0"
+                            >
+                              <X size={9} />
+                            </button>
                           </div>
                         </div>
                       );
