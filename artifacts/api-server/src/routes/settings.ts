@@ -36,6 +36,8 @@ const ALLOWED_KEYS = new Set([
   "admin_cash_flow",
   // Shop payment QR
   "shop_payment_bank_info",
+  // Product categories (custom ones added by admin)
+  "custom_categories",
 ]);
 
 router.get("/settings/:key", async (req, res): Promise<void> => {

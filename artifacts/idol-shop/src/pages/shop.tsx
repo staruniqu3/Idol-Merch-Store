@@ -60,6 +60,7 @@ export default function ShopPage() {
   const [selectedCategory, setSelectedCategory] = useState("Tất cả");
   const [showAllCats, setShowAllCats] = useState(false);
   const [selectedTag, setSelectedTag] = useState("Tất cả");
+  const [customCategories, setCustomCategories] = useState<string[]>([]);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [cartOpen, setCartOpen] = useState(false);
   const [step, setStep] = useState<"cart" | "checkout" | "payment">("cart");
@@ -77,9 +78,14 @@ export default function ShopPage() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  const categories = ["Tất cả", ...PRESET_CATEGORIES, ...(products ?? [])
-    .map((p) => p.category)
-    .filter((c, i, arr) => !PRESET_CATEGORIES.includes(c) && arr.indexOf(c) === i)
+  const allAdminCategories = [...PRESET_CATEGORIES, ...customCategories];
+  const categories = [
+    "Tất cả",
+    ...allAdminCategories,
+    // also include any product category not already covered (defensive)
+    ...(products ?? [])
+      .map((p) => p.category)
+      .filter((c, i, arr) => !allAdminCategories.includes(c) && arr.indexOf(c) === i),
   ];
 
   const allTags = ["Tất cả", ...Array.from(new Set(
@@ -109,6 +115,10 @@ export default function ShopPage() {
     fetch(`${base0}/api/settings/shop_payment_bank_info`, { cache: "no-store" })
       .then((r) => r.json())
       .then((d) => { if (d && typeof d === "object" && d.accountNo) setBankInfo(d); })
+      .catch(() => {});
+    fetch(`${base0}/api/settings/custom_categories`, { cache: "no-store" })
+      .then((r) => r.json())
+      .then((d) => { if (Array.isArray(d)) setCustomCategories(d); })
       .catch(() => {});
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
