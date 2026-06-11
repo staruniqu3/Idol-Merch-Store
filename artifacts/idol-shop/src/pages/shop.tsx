@@ -6,7 +6,7 @@ import {
   useCreateOrder,
   getListOrdersQueryKey,
 } from "@workspace/api-client-react";
-import { ShoppingCart, Plus, Minus, X, Package, ShoppingBag, Sparkles, ExternalLink, CreditCard, CheckCircle2, ArrowUp, QrCode, Smartphone, Download } from "lucide-react";
+import { ShoppingCart, Plus, Minus, X, Package, ShoppingBag, Sparkles, ExternalLink, CreditCard, CheckCircle2, ArrowUp, QrCode, Smartphone, Download, Clock, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
@@ -93,6 +93,8 @@ export default function ShopPage() {
   const [bankInfo, setBankInfo] = useState<{ bankId: string; accountNo: string; accountName: string } | null>(null);
   const [createdOrderId, setCreatedOrderId] = useState<number | null>(null);
   const [paymentConfirmed, setPaymentConfirmed] = useState(false);
+  const [paymentTimeLeft, setPaymentTimeLeft] = useState<number | null>(null);
+  const [paymentExpired, setPaymentExpired] = useState(false);
 
   const base0 = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
 
@@ -109,6 +111,27 @@ export default function ShopPage() {
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
+
+  // Start 10-minute countdown when entering payment step
+  useEffect(() => {
+    if (step === "payment" && bankInfo) {
+      setPaymentTimeLeft(10 * 60);
+      setPaymentExpired(false);
+    }
+  }, [step, bankInfo]);
+
+  // Tick down every second
+  useEffect(() => {
+    if (paymentTimeLeft === null) return;
+    if (paymentTimeLeft <= 0) {
+      setPaymentExpired(true);
+      setPaymentConfirmed(false);
+      setPaymentTimeLeft(null);
+      return;
+    }
+    const t = setTimeout(() => setPaymentTimeLeft((v) => (v !== null ? v - 1 : null)), 1000);
+    return () => clearTimeout(t);
+  }, [paymentTimeLeft]);
 
   const cartCount = cart.reduce((s, i) => s + i.quantity, 0);
   const cartTotal = cart.reduce((s, i) => s + i.price * i.quantity, 0);
@@ -269,6 +292,8 @@ export default function ShopPage() {
     setSlotErrors({});
     setCreatedOrderId(null);
     setPaymentConfirmed(false);
+    setPaymentTimeLeft(null);
+    setPaymentExpired(false);
   };
 
   return (
@@ -356,11 +381,19 @@ export default function ShopPage() {
                   </div>
 
                   {/* QR Code block */}
-                  {!paymentConfirmed && bankInfo && createdOrderId && (
+                  {!paymentConfirmed && !paymentExpired && bankInfo && createdOrderId && (
                     <div className="bg-card border border-border rounded-2xl p-4 space-y-3">
-                      <div className="flex items-center gap-2">
-                        <QrCode size={15} className="text-primary shrink-0" />
-                        <p className="text-sm font-black">Quét mã chuyển khoản</p>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <QrCode size={15} className="text-primary shrink-0" />
+                          <p className="text-sm font-black">Quét mã chuyển khoản</p>
+                        </div>
+                        {paymentTimeLeft !== null && (
+                          <div className={`flex items-center gap-1 text-[11px] font-bold font-mono px-2 py-0.5 rounded-full border ${paymentTimeLeft <= 60 ? "text-red-600 bg-red-50 border-red-200 animate-pulse" : "text-amber-700 bg-amber-50 border-amber-200"}`}>
+                            <Clock size={10} />
+                            {String(Math.floor(paymentTimeLeft / 60)).padStart(2, "0")}:{String(paymentTimeLeft % 60).padStart(2, "0")}
+                          </div>
+                        )}
                       </div>
                       {/* VietQR image */}
                       {(() => {
@@ -428,15 +461,37 @@ export default function ShopPage() {
                     </div>
                   )}
 
+                  {/* Expired state */}
+                  {paymentExpired && (
+                    <div className="bg-red-50 border border-red-200 rounded-2xl p-4 flex flex-col items-center gap-3 text-center">
+                      <XCircle size={32} className="text-red-500" />
+                      <div>
+                        <p className="font-black text-sm text-red-700">Mã QR đã hết hạn</p>
+                        <p className="text-xs text-red-600/80 mt-0.5">Chưa nhận được thanh toán cho đơn hàng này.</p>
+                      </div>
+                      <Button
+                        variant="outline"
+                        className="w-full rounded-xl border-red-200 text-red-700 hover:bg-red-100 text-xs font-bold"
+                        onClick={() => {
+                          setPaymentExpired(false);
+                          setPaymentConfirmed(false);
+                          setPaymentTimeLeft(10 * 60);
+                        }}
+                      >
+                        Tạo lại mã QR
+                      </Button>
+                    </div>
+                  )}
+
                   {/* No QR configured */}
-                  {!paymentConfirmed && !bankInfo && (
+                  {!paymentConfirmed && !paymentExpired && !bankInfo && (
                     <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2 text-center">
                       ⚠️ Vui lòng chuyển khoản và điền form xác nhận để đơn được xử lý.
                     </p>
                   )}
 
                   {/* After payment confirmed OR no QR → show form link */}
-                  {(paymentConfirmed || !bankInfo) && (
+                  {(paymentConfirmed || (!bankInfo && !paymentExpired)) && (
                     <>
                       {paymentConfirmed && (
                         <div className="flex flex-col items-center gap-1 text-center">
