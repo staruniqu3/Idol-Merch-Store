@@ -6,7 +6,7 @@ import {
   useCreateOrder,
   getListOrdersQueryKey,
 } from "@workspace/api-client-react";
-import { ShoppingCart, Plus, Minus, X, Package, ShoppingBag, Sparkles, ExternalLink, CreditCard, CheckCircle2, ArrowUp, QrCode } from "lucide-react";
+import { ShoppingCart, Plus, Minus, X, Package, ShoppingBag, Sparkles, ExternalLink, CreditCard, CheckCircle2, ArrowUp, QrCode, Smartphone, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
@@ -363,13 +363,44 @@ export default function ShopPage() {
                         <p className="text-sm font-black">Quét mã chuyển khoản</p>
                       </div>
                       {/* VietQR image */}
-                      <div className="flex justify-center">
-                        <img
-                          src={`https://img.vietqr.io/image/${encodeURIComponent(bankInfo.bankId)}-${encodeURIComponent(bankInfo.accountNo)}-compact2.jpg?amount=${Math.round(cartTotal)}&addInfo=${encodeURIComponent(`TCD${String(createdOrderId).padStart(7, "0")}`)}&accountName=${encodeURIComponent(bankInfo.accountName)}`}
-                          alt="QR chuyển khoản"
-                          className="w-52 h-52 rounded-xl border border-border object-contain bg-white"
-                        />
-                      </div>
+                      {(() => {
+                        const transferContent = `TCD${String(createdOrderId).padStart(7, "0")}`;
+                        const qrImageUrl = `https://img.vietqr.io/image/${encodeURIComponent(bankInfo.bankId)}-${encodeURIComponent(bankInfo.accountNo)}-compact2.jpg?amount=${Math.round(cartTotal)}&addInfo=${encodeURIComponent(transferContent)}&accountName=${encodeURIComponent(bankInfo.accountName)}`;
+                        const deepLinkUrl = `https://vietqr.io/link/${encodeURIComponent(bankInfo.bankId)}-${encodeURIComponent(bankInfo.accountNo)}?amount=${Math.round(cartTotal)}&addInfo=${encodeURIComponent(transferContent)}&accountName=${encodeURIComponent(bankInfo.accountName)}`;
+                        return (
+                          <>
+                            <div className="flex justify-center">
+                              <img
+                                src={qrImageUrl}
+                                alt="QR chuyển khoản"
+                                className="w-52 h-52 rounded-xl border border-border object-contain bg-white"
+                              />
+                            </div>
+                            {/* Action buttons */}
+                            <div className="grid grid-cols-2 gap-2">
+                              <a
+                                href={deepLinkUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex items-center justify-center gap-1.5 bg-primary/10 text-primary border border-primary/20 rounded-xl py-2 text-xs font-bold hover:bg-primary/20 transition-colors"
+                              >
+                                <Smartphone size={13} />
+                                Mở app NH
+                              </a>
+                              <a
+                                href={qrImageUrl}
+                                download={`QR-${transferContent}.jpg`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex items-center justify-center gap-1.5 bg-muted text-foreground border border-border rounded-xl py-2 text-xs font-bold hover:bg-muted/80 transition-colors"
+                              >
+                                <Download size={13} />
+                                Lưu mã QR
+                              </a>
+                            </div>
+                          </>
+                        );
+                      })()}
                       {/* Transfer info */}
                       <div className="bg-muted/60 rounded-xl px-3 py-2.5 space-y-1.5 text-xs">
                         {[
