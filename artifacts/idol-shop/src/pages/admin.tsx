@@ -3384,10 +3384,23 @@ function StatsTab() {
   type StatOrderEntry = { orderId: number | string; customerName: string; phone?: string; qty: number; price: number; source: "app" | "manual"; variant?: string };
   const itemMap: Record<string, { qty: number; revenue: number; sources: Array<"app" | "manual">; variantBreakdown: Record<string, number> }> = {};
   const itemOrdersMap: Record<string, StatOrderEntry[]> = {};
+  // Separate map for pushed-down items (excluded from current batch stats)
+  const pushedDownMap: Record<string, { qty: number; revenue: number; sources: Array<"app" | "manual"> }> = {};
+  const pushedDownOrdersMap: Record<string, StatOrderEntry[]> = {};
   activeOrders.forEach((order) => {
     try {
       const items: Array<{ name: string; quantity: number; price: number; variant?: string }> = JSON.parse(order.items);
       items.forEach((it) => {
+        if (pushedDownItems.has(it.name)) {
+          // Route to pushed-down map instead
+          if (!pushedDownMap[it.name]) pushedDownMap[it.name] = { qty: 0, revenue: 0, sources: [] };
+          pushedDownMap[it.name].qty += it.quantity;
+          pushedDownMap[it.name].revenue += it.price * it.quantity;
+          if (!pushedDownMap[it.name].sources.includes("app")) pushedDownMap[it.name].sources.push("app");
+          if (!pushedDownOrdersMap[it.name]) pushedDownOrdersMap[it.name] = [];
+          pushedDownOrdersMap[it.name].push({ orderId: order.id, customerName: order.memberName, phone: order.memberPhone, qty: it.quantity, price: it.price, source: "app", variant: it.variant });
+          return;
+        }
         if (!itemMap[it.name]) itemMap[it.name] = { qty: 0, revenue: 0, sources: [], variantBreakdown: {} };
         itemMap[it.name].qty += it.quantity;
         itemMap[it.name].revenue += it.price * it.quantity;
@@ -3403,6 +3416,15 @@ function StatsTab() {
   activeManualOrders.forEach((order) => {
     order.items.forEach((it) => {
       if (!it.name.trim()) return;
+      if (pushedDownItems.has(it.name)) {
+        if (!pushedDownMap[it.name]) pushedDownMap[it.name] = { qty: 0, revenue: 0, sources: [] };
+        pushedDownMap[it.name].qty += it.qty;
+        pushedDownMap[it.name].revenue += it.price * it.qty;
+        if (!pushedDownMap[it.name].sources.includes("manual")) pushedDownMap[it.name].sources.push("manual");
+        if (!pushedDownOrdersMap[it.name]) pushedDownOrdersMap[it.name] = [];
+        pushedDownOrdersMap[it.name].push({ orderId: order.id, customerName: order.customerName, phone: order.phone, qty: it.qty, price: it.price, source: "manual", variant: it.variant });
+        return;
+      }
       if (!itemMap[it.name]) itemMap[it.name] = { qty: 0, revenue: 0, sources: [], variantBreakdown: {} };
       itemMap[it.name].qty += it.qty;
       itemMap[it.name].revenue += it.price * it.qty;
@@ -3434,21 +3456,33 @@ function StatsTab() {
         name, qty, revenue,
         ...(Object.keys(variantBreakdown).length > 0 ? { variantBreakdown } : {}),
       }));
-    // Snapshot unique buyers from app orders + manual orders
+    // Only include buyers from orders that are NOT fully pushed-down
+    const orderHasPushedDownCheck = (itemsJson: string) => {
+      try { return (JSON.parse(itemsJson) as Array<{ name: string }>).every((it) => pushedDownItems.has(it.name)); }
+      catch { return false; }
+    };
+    const manualOrderAllPushedDown = (order: typeof activeManualOrders[number]) =>
+      order.items.every((it) => pushedDownItems.has(it.name));
     const buyerMap = new Map<string, BatchBuyer>();
-    activeOrders.forEach((o) => {
-      const phone = (o.memberPhone ?? "").trim();
-      if (phone && !buyerMap.has(phone))
-        buyerMap.set(phone, { phone, name: o.memberName ?? "", orderId: o.id, source: "app" });
-    });
-    activeManualOrders.forEach((o) => {
-      const phone = (o.phone ?? "").trim();
-      if (phone && !buyerMap.has(phone))
-        buyerMap.set(phone, { phone, name: o.customerName ?? "", orderId: o.id, source: "manual" });
-    });
+    activeOrders
+      .filter((o) => !orderHasPushedDownCheck(o.items))
+      .forEach((o) => {
+        const phone = (o.memberPhone ?? "").trim();
+        if (phone && !buyerMap.has(phone))
+          buyerMap.set(phone, { phone, name: o.memberName ?? "", orderId: o.id, source: "app" });
+      });
+    activeManualOrders
+      .filter((o) => !manualOrderAllPushedDown(o))
+      .forEach((o) => {
+        const phone = (o.phone ?? "").trim();
+        if (phone && !buyerMap.has(phone))
+          buyerMap.set(phone, { phone, name: o.customerName ?? "", orderId: o.id, source: "manual" });
+      });
+    const currentBatchOrders = activeOrders.filter((o) => !orderHasPushedDownCheck(o.items));
+    const currentBatchManual = activeManualOrders.filter((o) => !manualOrderAllPushedDown(o));
     const record: BatchRecord = {
       completedAt: new Date().toISOString(),
-      orderCount: activeOrders.length + activeManualOrders.length,
+      orderCount: currentBatchOrders.length + currentBatchManual.length,
       totalQty: snapshot.reduce((s, i) => s + i.qty, 0),
       items: snapshot,
       buyers: [...buyerMap.values()],
@@ -4090,6 +4124,52 @@ function StatsTab() {
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* Lô tiếp theo: pushed-down items */}
+      {pushedDownItems.size > 0 && (
+        <div className="border border-amber-200 bg-amber-50/60 rounded-2xl overflow-hidden">
+          <div className="flex items-center gap-2 px-4 py-2.5 border-b border-amber-200/70">
+            <span className="text-sm font-black text-amber-700">↓ Lô tiếp theo</span>
+            <span className="text-[10px] bg-amber-100 text-amber-700 border border-amber-300 px-1.5 py-0.5 rounded-full font-bold ml-auto">
+              {Object.values(pushedDownMap).reduce((s, v) => s + v.qty, 0)} sản phẩm
+            </span>
+          </div>
+          <div className="divide-y divide-amber-100">
+            {Object.entries(pushedDownMap).map(([name, { qty, revenue, sources }]) => {
+              const entries = pushedDownOrdersMap[name] ?? [];
+              return (
+                <div key={name} className="px-4 py-2.5">
+                  <div className="flex items-center gap-2">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-bold text-amber-900 truncate">{name}</p>
+                      <div className="flex items-center gap-1 mt-0.5">
+                        {sources.includes("app") && <span className="text-[9px] font-bold bg-primary/10 text-primary px-1.5 py-0.5 rounded-full border border-primary/20">App</span>}
+                        {sources.includes("manual") && <span className="text-[9px] font-bold bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full border border-amber-300">Nhập tay</span>}
+                        <span className="text-[10px] text-amber-600 ml-1">{entries.length} đơn</span>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className="text-xs font-black text-amber-700">×{qty}</span>
+                      <span className="text-xs text-amber-600">{formatPrice(revenue)}</span>
+                      <button
+                        type="button"
+                        title="Bỏ đẩy xuống — đưa lại lô này"
+                        onClick={() => setPushedDownItems((prev) => { const n = new Set(prev); n.delete(name); return n; })}
+                        className="w-6 h-6 rounded-lg flex items-center justify-center bg-amber-100 border border-amber-300 text-amber-600 hover:bg-amber-200 transition-colors shrink-0"
+                      >
+                        <span className="text-[11px] font-black leading-none">↑</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <p className="text-[10px] text-amber-600/80 px-4 py-2 border-t border-amber-200/70">
+            Những sản phẩm này sẽ không vào lô hiện tại. Nhấn hoàn thành lô → chúng tự động trở thành lô mới.
+          </p>
         </div>
       )}
 
