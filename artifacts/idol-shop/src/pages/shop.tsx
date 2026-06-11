@@ -59,6 +59,7 @@ export default function ShopPage() {
   const { data: products, isLoading } = useListProducts();
   const [selectedCategory, setSelectedCategory] = useState("Tất cả");
   const [showAllCats, setShowAllCats] = useState(false);
+  const [selectedTag, setSelectedTag] = useState("Tất cả");
   const [cart, setCart] = useState<CartItem[]>([]);
   const [cartOpen, setCartOpen] = useState(false);
   const [step, setStep] = useState<"cart" | "checkout" | "payment">("cart");
@@ -81,9 +82,15 @@ export default function ShopPage() {
     .filter((c, i, arr) => !PRESET_CATEGORIES.includes(c) && arr.indexOf(c) === i)
   ];
 
-  const filtered = products?.filter((p) =>
-    selectedCategory === "Tất cả" ? true : p.category === selectedCategory
-  ) ?? [];
+  const allTags = ["Tất cả", ...Array.from(new Set(
+    (products ?? []).flatMap((p) => p.tags ?? [])
+  ))];
+
+  const filtered = products?.filter((p) => {
+    const catOk = selectedCategory === "Tất cả" || p.category === selectedCategory;
+    const tagOk = selectedTag === "Tất cả" || (p.tags ?? []).includes(selectedTag);
+    return catOk && tagOk;
+  }) ?? [];
 
   const [variantPickerProduct, setVariantPickerProduct] = useState<typeof filtered[0] | null>(null);
   const [pickedVariant, setPickedVariant] = useState<{ name: string; price?: number; stock?: number; soldOut?: boolean; subVariants?: Array<{ name: string; price?: number; stock?: number; soldOut?: boolean; subSubVariants?: Array<{ name: string; price?: number; stock?: number; soldOut?: boolean }> }> } | null>(null);
@@ -749,6 +756,25 @@ export default function ShopPage() {
             </div>
           )}
         </div>
+
+        {/* Tag filter row — only shown when products have tags */}
+        {allTags.length > 1 && (
+          <div className="flex gap-2 overflow-x-auto pb-1 mt-2">
+            {allTags.map((tag) => (
+              <button
+                key={tag}
+                onClick={() => setSelectedTag(tag)}
+                className={`shrink-0 px-3 py-1 rounded-full text-[11px] font-bold transition-all border ${
+                  selectedTag === tag
+                    ? "bg-white text-foreground border-white/60 shadow-sm"
+                    : "bg-white/10 text-white/70 border-white/20 hover:bg-white/20"
+                }`}
+              >
+                {tag === "Tất cả" ? "🏷 Tất cả" : tag}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       <div className="px-4 py-3 space-y-2 pb-24">
