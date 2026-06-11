@@ -3451,6 +3451,15 @@ function StatsTab() {
     });
   };
 
+  const deleteBatchItem = (batchIdx: number, itemName: string) => {
+    const updated = batchHistory.map((b, i) =>
+      i === batchIdx ? { ...b, items: b.items.filter((it) => it.name !== itemName), totalQty: b.totalQty - (b.items.find((it) => it.name === itemName)?.qty ?? 0) } : b
+    );
+    setBatchHistory(updated);
+    localStorage.setItem(STATS_BATCH_HISTORY_KEY, JSON.stringify(updated));
+    putToServer(STATS_BATCH_HISTORY_KEY, updated);
+  };
+
   const handleComplete = () => {
     const snapshot = Object.entries(itemMap)
       .sort((a, b) => b[1].qty - a[1].qty)
@@ -3721,27 +3730,37 @@ function StatsTab() {
                           const variants = item.variantBreakdown ? Object.entries(item.variantBreakdown).sort((a, b) => b[1] - a[1]) : [];
                           return (
                             <div key={item.name} className={`rounded-xl border overflow-hidden transition-all ${checked ? "border-emerald-200/60" : "border-border"}`}>
-                              {/* Main product row — tap to toggle */}
-                              <button type="button" onClick={() => toggleReceivedItem(key)}
-                                className={`w-full flex items-center gap-2.5 p-2 transition-all text-left ${
-                                  checked ? "bg-emerald-50" : "bg-card hover:border-emerald-300/50"
-                                }`}
-                              >
-                                <div className={`w-4 h-4 rounded-full border-2 shrink-0 flex items-center justify-center transition-all ${
-                                  checked ? "bg-emerald-500 border-emerald-500" : "border-muted-foreground/30"
-                                }`}>
-                                  {checked && <Check size={9} strokeWidth={3} className="text-white" />}
-                                </div>
-                                <span className={`flex-1 text-sm font-medium truncate ${checked ? "line-through text-muted-foreground" : ""}`}>
-                                  {item.name}
-                                </span>
-                                <div className="flex items-center gap-2 shrink-0">
-                                  <Badge variant="secondary" className={`text-[10px] font-black ${checked ? "bg-emerald-100 text-emerald-700 border-emerald-200" : "bg-primary/10 text-primary border-primary/20"}`}>
-                                    ×{item.qty}
-                                  </Badge>
-                                  <span className="text-xs text-muted-foreground">{formatPrice(item.revenue)}</span>
-                                </div>
-                              </button>
+                              {/* Main product row */}
+                              <div className={`flex items-center transition-all ${checked ? "bg-emerald-50" : "bg-card"}`}>
+                                {/* Toggle area */}
+                                <button type="button" onClick={() => toggleReceivedItem(key)}
+                                  className="flex-1 flex items-center gap-2.5 p-2 text-left min-w-0"
+                                >
+                                  <div className={`w-4 h-4 rounded-full border-2 shrink-0 flex items-center justify-center transition-all ${
+                                    checked ? "bg-emerald-500 border-emerald-500" : "border-muted-foreground/30"
+                                  }`}>
+                                    {checked && <Check size={9} strokeWidth={3} className="text-white" />}
+                                  </div>
+                                  <span className={`flex-1 text-sm font-medium truncate ${checked ? "line-through text-muted-foreground" : ""}`}>
+                                    {item.name}
+                                  </span>
+                                  <div className="flex items-center gap-2 shrink-0">
+                                    <Badge variant="secondary" className={`text-[10px] font-black ${checked ? "bg-emerald-100 text-emerald-700 border-emerald-200" : "bg-primary/10 text-primary border-primary/20"}`}>
+                                      ×{item.qty}
+                                    </Badge>
+                                    <span className="text-xs text-muted-foreground">{formatPrice(item.revenue)}</span>
+                                  </div>
+                                </button>
+                                {/* Delete button */}
+                                <button
+                                  type="button"
+                                  title="Xóa sản phẩm khỏi lô này"
+                                  onClick={() => deleteBatchItem(idx, item.name)}
+                                  className="w-8 h-full flex items-center justify-center text-muted-foreground/40 hover:text-destructive hover:bg-destructive/5 transition-colors shrink-0 border-l border-border/40"
+                                >
+                                  <X size={12} />
+                                </button>
+                              </div>
                               {/* Variant breakdown rows — read-only reference */}
                               {variants.length > 0 && (
                                 <div className={`border-t divide-y text-[11px] ${checked ? "border-emerald-100 divide-emerald-100 bg-emerald-50/60" : "border-border/60 divide-border/40 bg-muted/30"}`}>
