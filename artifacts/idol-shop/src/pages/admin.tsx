@@ -8160,7 +8160,9 @@ type CashFlowEntry = {
   note?: string;
   createdAt: string;
 };
+type FxRate = { id: string; currency: string; foreignAmount: number; vndAmount: number };
 const CASH_FLOW_KEY = "admin_cash_flow";
+const FX_RATES_KEY  = "admin_fx_rates";
 
 function CashFlowTab() {
   const base = getBaseUrl();
@@ -8182,6 +8184,15 @@ function CashFlowTab() {
   const [showProductPicker, setShowProductPicker] = useState(false);
   const { data: productList } = useListProducts();
 
+  // ── Staff Order section state ──
+  const [soAssignments, setSoAssignments] = useState<StaffAssignment[]>([]);
+  const [soCards, setSoCards] = useState<StaffCard[]>([]);
+  const [fxRates, setFxRates] = useState<FxRate[]>([]);
+  const [showStaffOrders, setShowStaffOrders] = useState(true);
+  const [staffOrderFilter, setStaffOrderFilter] = useState("all");
+  const [showFxManager, setShowFxManager] = useState(false);
+  const [fxForm, setFxForm] = useState({ currency: "THB", foreignAmount: 1000, vndAmount: 800000 });
+
   const fetchEntries = async () => {
     try {
       const r = await fetch(`${base}/api/settings/${CASH_FLOW_KEY}`, { cache: "no-store" });
@@ -8191,12 +8202,24 @@ function CashFlowTab() {
     setLoading(false);
   };
 
+  const fetchStaffData = async () => {
+    const [sa, sc, fx] = await Promise.all([
+      fetch(`${base}/api/settings/admin_staff_assignments`, { cache: "no-store" }).then(r => r.json()).catch(() => null),
+      fetch(`${base}/api/settings/admin_staff_cards`,       { cache: "no-store" }).then(r => r.json()).catch(() => null),
+      fetch(`${base}/api/settings/${FX_RATES_KEY}`,         { cache: "no-store" }).then(r => r.json()).catch(() => null),
+    ]);
+    if (Array.isArray(sa)) setSoAssignments(sa as StaffAssignment[]);
+    if (Array.isArray(sc)) setSoCards(sc as StaffCard[]);
+    if (Array.isArray(fx)) setFxRates(fx as FxRate[]);
+  };
+
   useEffect(() => {
     fetchEntries();
+    fetchStaffData();
     // Auto-sync every 30s
-    const id = setInterval(fetchEntries, 30_000);
+    const id = setInterval(() => { fetchEntries(); fetchStaffData(); }, 30_000);
     // Sync when user returns to this tab/window
-    const onVisible = () => { if (!document.hidden) fetchEntries(); };
+    const onVisible = () => { if (!document.hidden) { fetchEntries(); fetchStaffData(); } };
     document.addEventListener("visibilitychange", onVisible);
     return () => { clearInterval(id); document.removeEventListener("visibilitychange", onVisible); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -8252,6 +8275,43 @@ function CashFlowTab() {
     return acc;
   }, {} as Record<string, CashFlowEntry[]>);
   const sortedDates = Object.keys(grouped).sort((a, b) => b.localeCompare(a));
+
+  // ── Staff Order computed ──
+  const priceMap = useMemo(() => {
+    const m = new Map<string, number>();
+    (productList ?? []).forEach((p) => m.set(p.name, p.price));
+    return m;
+  }, [productList]);
+
+  const staffNameMap = useMemo(() => {
+    const m = new Map<string, string>();
+    soCards.forEach((c) => m.set(c.id, c.name));
+    return m;
+  }, [soCards]);
+
+  const filteredSo = staffOrderFilter === "all"
+    ? soAssignments
+    : soAssignments.filter((a) => a.staffId === staffOrderFilter);
+
+  const soByStaff = filteredSo.reduce((acc, a) => {
+    if (!acc[a.staffId]) acc[a.staffId] = [];
+    acc[a.staffId].push(a);
+    return acc;
+  }, {} as Record<string, StaffAssignment[]>);
+
+  const soTotalVnd = filteredSo.reduce((s, a) => s + (priceMap.get(a.productName) ?? 0) * a.qty, 0);
+
+  const saveFxRates = async (updated: FxRate[]) => {
+    setFxRates(updated);
+    await fetch(`${base}/api/settings/${FX_RATES_KEY}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(updated) }).catch(() => {});
+  };
+  const addFxRate = () => {
+    if (!fxForm.currency.trim() || fxForm.foreignAmount <= 0 || fxForm.vndAmount <= 0) return;
+    const rate: FxRate = { id: Date.now().toString(), currency: fxForm.currency.trim().toUpperCase(), foreignAmount: fxForm.foreignAmount, vndAmount: fxForm.vndAmount };
+    saveFxRates([...fxRates, rate]);
+    setFxForm({ currency: "THB", foreignAmount: 1000, vndAmount: 800000 });
+  };
+  const deleteFxRate = (id: string) => saveFxRates(fxRates.filter((r) => r.id !== id));
 
   if (loading) return <div className="text-center py-16 text-muted-foreground text-sm">Đang tải...</div>;
 
@@ -8477,6 +8537,220 @@ function CashFlowTab() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* ── Staff Order Statistics ── */}
+      <div className="border-t border-border pt-4">
+        <button
+          type="button"
+          onClick={() => setShowStaffOrders((v) => !v)}
+          className="w-full flex items-center justify-between pb-2"
+        >
+          <div className="text-left">
+            <p className="font-black text-base">Thống kê hàng Staff Order</p>
+            <p className="text-xs text-muted-foreground">Tiền gốc cần đưa staff · quy đổi ngoại tệ</p>
+          </div>
+          <ChevronDown size={14} className={`text-muted-foreground transition-transform shrink-0 ${showStaffOrders ? "rotate-180" : ""}`} />
+        </button>
+
+        {showStaffOrders && (
+          <div className="space-y-4 mt-1">
+
+            {/* FX Rate manager */}
+            <div className="rounded-2xl border border-border bg-muted/20 p-3 space-y-2">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-bold text-foreground">Tỷ giá ngoại tệ</p>
+                <button
+                  type="button"
+                  onClick={() => setShowFxManager((v) => !v)}
+                  className="text-[10px] text-primary font-bold px-2.5 py-0.5 rounded-lg border border-primary/30 hover:bg-primary/5 transition-colors"
+                >
+                  {showFxManager ? "Ẩn" : "Cài đặt"}
+                </button>
+              </div>
+
+              {fxRates.length > 0 && (
+                <div className="flex flex-wrap gap-1.5">
+                  {fxRates.map((r) => (
+                    <div key={r.id} className="flex items-center gap-1 bg-background border border-border rounded-full px-2.5 py-1">
+                      <span className="text-[10px] font-bold">{r.foreignAmount.toLocaleString()} {r.currency} = {formatPrice(r.vndAmount)}</span>
+                      <button type="button" onClick={() => deleteFxRate(r.id)} className="text-muted-foreground/50 hover:text-destructive transition-colors text-xs leading-none ml-0.5">×</button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {showFxManager && (
+                <div className="space-y-2 pt-2 border-t border-border">
+                  <div className="grid grid-cols-3 gap-1.5">
+                    <div>
+                      <p className="text-[10px] text-muted-foreground mb-1">Tiền tệ</p>
+                      <Input
+                        value={fxForm.currency}
+                        onChange={(e) => setFxForm((f) => ({ ...f, currency: e.target.value.toUpperCase() }))}
+                        placeholder="THB"
+                        maxLength={5}
+                        className="h-8 text-xs text-center font-bold"
+                      />
+                    </div>
+                    <div>
+                      <p className="text-[10px] text-muted-foreground mb-1">Số ngoại tệ</p>
+                      <Input
+                        type="number"
+                        value={fxForm.foreignAmount}
+                        onChange={(e) => setFxForm((f) => ({ ...f, foreignAmount: Number(e.target.value) }))}
+                        className="h-8 text-xs"
+                      />
+                    </div>
+                    <div>
+                      <p className="text-[10px] text-muted-foreground mb-1">= VND</p>
+                      <Input
+                        type="number"
+                        step={1000}
+                        value={fxForm.vndAmount}
+                        onChange={(e) => setFxForm((f) => ({ ...f, vndAmount: Number(e.target.value) }))}
+                        className="h-8 text-xs"
+                      />
+                    </div>
+                  </div>
+                  {fxForm.foreignAmount > 0 && fxForm.vndAmount > 0 && (
+                    <p className="text-[10px] text-muted-foreground text-center">
+                      1 {fxForm.currency} ≈ {formatPrice(Math.round(fxForm.vndAmount / fxForm.foreignAmount))}
+                    </p>
+                  )}
+                  <Button size="sm" onClick={addFxRate} className="w-full h-7 text-xs">+ Thêm tỷ giá</Button>
+                </div>
+              )}
+
+              {fxRates.length === 0 && !showFxManager && (
+                <p className="text-[10px] text-muted-foreground italic">Chưa có tỷ giá — nhấn Cài đặt để thêm</p>
+              )}
+            </div>
+
+            {/* Staff filter chips */}
+            {soCards.length > 0 && (
+              <div className="flex gap-2 overflow-x-auto hide-scrollbar pb-1">
+                {(["all", ...soCards.map((c) => c.id)] as string[]).map((sid) => {
+                  const label = sid === "all" ? "Tất cả" : (staffNameMap.get(sid) ?? sid);
+                  return (
+                    <button
+                      key={sid}
+                      type="button"
+                      onClick={() => setStaffOrderFilter(sid)}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap border transition-all ${
+                        staffOrderFilter === sid ? "bg-primary text-white border-primary" : "border-border text-muted-foreground hover:text-foreground"
+                      }`}
+                    >{label}</button>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Summary cards */}
+            {filteredSo.length > 0 && (
+              <div className={`grid gap-2`} style={{ gridTemplateColumns: `repeat(${1 + fxRates.length}, minmax(0, 1fr))` }}>
+                <div className="bg-violet-50 border border-violet-200 rounded-2xl p-3 text-center">
+                  <p className="text-[10px] font-bold text-violet-500 uppercase tracking-wider mb-1">Tổng VND</p>
+                  <p className="text-xs font-black text-violet-700">{formatPrice(soTotalVnd)}</p>
+                </div>
+                {fxRates.map((r) => {
+                  const foreign = soTotalVnd / r.vndAmount * r.foreignAmount;
+                  return (
+                    <div key={r.id} className="bg-amber-50 border border-amber-200 rounded-2xl p-3 text-center">
+                      <p className="text-[10px] font-bold text-amber-600 uppercase tracking-wider mb-1">{r.currency}</p>
+                      <p className="text-xs font-black text-amber-700">{Math.ceil(foreign).toLocaleString()}</p>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Assignment list */}
+            {filteredSo.length === 0 ? (
+              <p className="text-center text-sm text-muted-foreground italic py-8">Chưa có đơn nào được gán cho staff</p>
+            ) : (
+              <div className="space-y-3">
+                {Object.entries(soByStaff).map(([staffId, items]) => {
+                  const staffName = staffNameMap.get(staffId) ?? staffId;
+                  const staffVnd = items.reduce((s, a) => s + (priceMap.get(a.productName) ?? 0) * a.qty, 0);
+                  return (
+                    <div key={staffId} className="rounded-2xl border border-border overflow-hidden">
+                      {/* Staff header */}
+                      <div className="bg-primary/5 border-b border-border px-3 py-2.5 flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <div className="w-7 h-7 rounded-full bg-primary/15 flex items-center justify-center shrink-0">
+                            <span className="text-[9px] font-black text-primary">{staffName.slice(0, 2).toUpperCase()}</span>
+                          </div>
+                          <div>
+                            <p className="font-bold text-sm leading-tight">{staffName}</p>
+                            <p className="text-[10px] text-muted-foreground">{items.length} đơn · {items.reduce((s, a) => s + a.qty, 0)} sp</p>
+                          </div>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <p className="text-sm font-black text-violet-700">{formatPrice(staffVnd)}</p>
+                          {fxRates.length > 0 && (
+                            <p className="text-[10px] text-amber-600 font-bold">
+                              {fxRates.map((r) => `${Math.ceil(staffVnd / r.vndAmount * r.foreignAmount).toLocaleString()} ${r.currency}`).join(" · ")}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                      {/* Assignment rows */}
+                      <div className="divide-y divide-border/40">
+                        {items.map((a, idx) => {
+                          const unitPrice = priceMap.get(a.productName) ?? 0;
+                          const total = unitPrice * a.qty;
+                          return (
+                            <div key={idx} className="px-3 py-2.5 bg-card">
+                              <div className="flex items-start gap-2">
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-xs font-bold leading-snug">{a.productName}</p>
+                                  {a.variant && (
+                                    <span className="text-[9px] bg-violet-100 text-violet-700 border border-violet-200 px-1.5 py-0.5 rounded-full font-bold inline-block mt-0.5">
+                                      {a.variant}
+                                    </span>
+                                  )}
+                                  <div className="flex items-center gap-2 mt-1 flex-wrap">
+                                    <span className="text-[11px] font-semibold text-foreground/80">{a.customerName || "—"}</span>
+                                    {a.phone && (
+                                      <button
+                                        type="button"
+                                        title="Copy SĐT"
+                                        onClick={() => navigator.clipboard.writeText(a.phone!).catch(() => {})}
+                                        className="text-[10px] text-primary font-mono hover:underline active:opacity-60"
+                                      >
+                                        {a.phone}
+                                      </button>
+                                    )}
+                                  </div>
+                                </div>
+                                <div className="text-right shrink-0">
+                                  <p className="text-xs font-black text-primary">×{a.qty}</p>
+                                  {unitPrice > 0 ? (
+                                    <>
+                                      <p className="text-[11px] text-muted-foreground">{formatPrice(total)}</p>
+                                      {fxRates.length > 0 && (
+                                        <p className="text-[9px] text-amber-600 font-bold">
+                                          {fxRates.map((r) => `${Math.ceil(total / r.vndAmount * r.foreignAmount).toLocaleString()} ${r.currency}`).join(" · ")}
+                                        </p>
+                                      )}
+                                    </>
+                                  ) : (
+                                    <p className="text-[10px] text-muted-foreground/50">—</p>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

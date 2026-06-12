@@ -38,6 +38,8 @@ const ALLOWED_KEYS = new Set([
   "shop_payment_bank_info",
   // Product categories (custom ones added by admin)
   "custom_categories",
+  // Foreign exchange rates for staff order cost tracking
+  "admin_fx_rates",
 ]);
 
 router.get("/settings/:key", async (req, res): Promise<void> => {
