@@ -6199,6 +6199,9 @@ function CostTab() {
   const [expandedColMonths, setExpandedColMonths] = useState<Set<string>>(() => new Set([currentMonth]));
   const toggleColMonth = (m: string) => setExpandedColMonths((prev) => { const s = new Set(prev); s.has(m) ? s.delete(m) : s.add(m); return s; });
   const [fixedExpanded, setFixedExpanded] = useState(true);
+  const [varExpanded, setVarExpanded] = useState(true);
+  const [collExpanded, setCollExpanded] = useState(true);
+  const [shipperExpanded, setShipperExpanded] = useState(true);
 
   const saveProfitEntries = (next: ProfitEntry[]) => { setProfitEntries(next); localStorage.setItem(PROFIT_ENTRIES_KEY, JSON.stringify(next)); syncToServer(PROFIT_ENTRIES_KEY, next); };
   const saveProfitExpenses = (next: FixedExpense[]) => { setProfitExpenses(next); localStorage.setItem(PROFIT_EXPENSES_KEY, JSON.stringify(next)); syncToServer(PROFIT_EXPENSES_KEY, next); };
@@ -7196,12 +7199,17 @@ function CostTab() {
 
           return (
             <div className="bg-card border border-border rounded-2xl overflow-hidden">
-              {/* Header — collapsible nếu có dữ liệu */}
-              <div className="flex items-center justify-between px-4 py-3">
-                <h5 className="text-sm font-bold">Phí chi không cố định</h5>
+              <div
+                className="flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-black/5 transition-colors select-none"
+                onClick={() => setVarExpanded((p) => !p)}
+              >
+                <div className="flex items-center gap-2">
+                  <ChevronDown size={13} className={`text-muted-foreground transition-transform ${varExpanded ? "" : "-rotate-90"}`} />
+                  <h5 className="text-sm font-bold">Phí chi không cố định</h5>
+                </div>
                 {grandTotal > 0 && <span className="text-xs font-black text-rose-600">{vnd2(grandTotal)} ₫ tổng</span>}
               </div>
-              <div className="px-4 pb-4 space-y-3 border-t border-border">
+              {varExpanded && <div className="px-4 pb-4 space-y-3 border-t border-border">
                 <p className="text-[10px] text-muted-foreground pt-2">Tiền cân, ship nội địa/quốc tế, phí phát sinh… Gắn nhóm để tổng hợp theo danh mục.</p>
                 {/* Add form */}
                 <div className="space-y-1.5">
@@ -7288,7 +7296,7 @@ function CostTab() {
                     </div>
                   </div>
                 )}
-              </div>
+              </div>}
             </div>
           );
         })()}
@@ -7327,11 +7335,17 @@ function CostTab() {
 
           return (
             <div className="bg-card border border-border rounded-2xl overflow-hidden">
-              <div className="flex items-center justify-between px-4 py-3">
-                <h5 className="text-sm font-bold">Thu từ khách</h5>
+              <div
+                className="flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-black/5 transition-colors select-none"
+                onClick={() => setCollExpanded((p) => !p)}
+              >
+                <div className="flex items-center gap-2">
+                  <ChevronDown size={13} className={`text-muted-foreground transition-transform ${collExpanded ? "" : "-rotate-90"}`} />
+                  <h5 className="text-sm font-bold">Thu từ khách</h5>
+                </div>
                 {grandTotal > 0 && <span className="text-xs font-black text-teal-600">+{vnd2(grandTotal)} ₫ tổng</span>}
               </div>
-              <div className="px-4 pb-4 space-y-3 border-t border-border">
+              {collExpanded && <div className="px-4 pb-4 space-y-3 border-t border-border">
                 <p className="text-[10px] text-muted-foreground pt-2">Thu tiền cân, phí ship, phụ phí thu thêm từ khách…</p>
                 <div className="flex gap-2">
                   <input type="text" placeholder="Tên khoản (VD: Thu tiền cân batch 4)..." value={newColName}
@@ -7383,7 +7397,7 @@ function CostTab() {
                     </div>
                   </div>
                 )}
-              </div>
+              </div>}
             </div>
           );
         })()}
@@ -7423,12 +7437,19 @@ function CostTab() {
           };
 
           return (
-            <div className="bg-card border border-border rounded-2xl p-4 space-y-3">
-              <div className="flex items-center justify-between">
-                <h5 className="text-sm font-bold">Trả cho Shipper Staff</h5>
+            <div className="bg-card border border-border rounded-2xl overflow-hidden">
+              <div
+                className="flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-black/5 transition-colors select-none"
+                onClick={() => setShipperExpanded((p) => !p)}
+              >
+                <div className="flex items-center gap-2">
+                  <ChevronDown size={13} className={`text-muted-foreground transition-transform ${shipperExpanded ? "" : "-rotate-90"}`} />
+                  <h5 className="text-sm font-bold">Trả cho Shipper Staff</h5>
+                </div>
                 {monthTotal > 0 && <span className="text-[10px] text-amber-700 font-bold">{vnd2(monthTotal)} ₫ tháng này</span>}
               </div>
-              <p className="text-[10px] text-muted-foreground -mt-1">Thù lao trả riêng cho nhân viên đi giao hàng…</p>
+              {shipperExpanded && <div className="px-4 pb-4 space-y-3 border-t border-border">
+              <p className="text-[10px] text-muted-foreground pt-2">Thù lao trả riêng cho nhân viên đi giao hàng…</p>
 
               <div className="flex gap-2">
                 <input type="text" placeholder="Tên / ghi chú (VD: Ship Hà Nội tháng 4)..." value={newShipName}
@@ -7452,6 +7473,7 @@ function CostTab() {
                   </div>
                 </div>
               )}
+              </div>}
             </div>
           );
         })()}
