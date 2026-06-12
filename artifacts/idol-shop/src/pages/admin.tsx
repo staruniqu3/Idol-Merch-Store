@@ -13,7 +13,7 @@ import {
 import {
   Shield, Package, ShoppingBag, ShoppingCart, Truck, Users, Gift, LogOut, Plus, Pencil, Trash2, ChevronDown, CreditCard,
   TrendingUp, Star, Calendar, X, Check, BarChart3, Sparkles, Bell, Pin, Ticket, Eye, EyeOff, Tag, AlertTriangle, Copy, History, Receipt, Upload, Search, CheckCircle, Archive,
-  ArrowUp, ArrowDown, Wallet,
+  ArrowUp, ArrowDown, Wallet, RefreshCw,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -3409,7 +3409,7 @@ function StatsTab() {
 
   // ── Load all stats state from server on mount ──
   useEffect(() => {
-    Promise.all([
+    const loadAll = () => Promise.all([
       loadFromServer<number[]>(STATS_ACCOUNTED_KEY, (d) => setAccountedIds(new Set(d)), STATS_ACCOUNTED_KEY, []),
       loadFromServer<string[]>(STATS_ACCOUNTED_MANUAL_KEY, (d) => setAccountedManualIds(new Set(d)), STATS_ACCOUNTED_MANUAL_KEY, []),
       loadFromServer<string[]>(STATS_ORDERED_ITEMS_KEY, (d) => setOrderedItems(new Set(d)), STATS_ORDERED_ITEMS_KEY, []),
@@ -3420,6 +3420,11 @@ function StatsTab() {
       loadFromServer<StaffCard[]>(STATS_STAFF_CARDS_KEY, (d) => { setStaffCards(d); localStorage.setItem(STATS_STAFF_CARDS_KEY, JSON.stringify(d)); }, STATS_STAFF_CARDS_KEY, []),
       loadFromServer<StaffAssignment[]>(STATS_STAFF_ASSIGNMENTS_KEY, (d) => { setStaffAssignments(d); localStorage.setItem(STATS_STAFF_ASSIGNMENTS_KEY, JSON.stringify(d)); }, STATS_STAFF_ASSIGNMENTS_KEY, []),
     ]);
+    loadAll();
+    const id = setInterval(loadAll, 60_000);
+    const onVisible = () => { if (!document.hidden) loadAll(); };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => { clearInterval(id); document.removeEventListener("visibilitychange", onVisible); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -6202,6 +6207,8 @@ function CostTab() {
   const [varExpanded, setVarExpanded] = useState(true);
   const [collExpanded, setCollExpanded] = useState(true);
   const [shipperExpanded, setShipperExpanded] = useState(true);
+  const [refundExpanded, setRefundExpanded] = useState(true);
+  const [lastSynced, setLastSynced] = useState<Date | null>(null);
 
   const saveProfitEntries = (next: ProfitEntry[]) => { setProfitEntries(next); localStorage.setItem(PROFIT_ENTRIES_KEY, JSON.stringify(next)); syncToServer(PROFIT_ENTRIES_KEY, next); };
   const saveProfitExpenses = (next: FixedExpense[]) => { setProfitExpenses(next); localStorage.setItem(PROFIT_EXPENSES_KEY, JSON.stringify(next)); syncToServer(PROFIT_EXPENSES_KEY, next); };
@@ -6277,7 +6284,7 @@ function CostTab() {
     }));
   };
 
-  useEffect(() => {
+  const loadAll = () => {
     const loadRates = fetch(`${base}/api/exchange-rates`, { cache: "no-store" })
       .then((r) => r.json())
       .then((d) => {
@@ -6286,7 +6293,7 @@ function CostTab() {
       })
       .catch(() => setError("Không thể tải tỷ giá. Kiểm tra kết nối mạng."));
 
-    Promise.all([
+    return Promise.all([
       loadRates,
       loadFromServer<ManualRates>(COST_MANUAL_KEY, (d) => { setManual(d); setRatesSynced(true); }, COST_MANUAL_KEY, {}),
       loadFromServer<ProfitEntry[]>(PROFIT_ENTRIES_KEY, setProfitEntries, PROFIT_ENTRIES_KEY, []),
@@ -6299,7 +6306,16 @@ function CostTab() {
       loadFromServer<WalletEntry[]>(WALLETS_KEY, setWallets, WALLETS_KEY, []),
       loadFromServer<YearPlan[]>(YEAR_PLANS_KEY, setYearPlans, YEAR_PLANS_KEY, []),
       loadFromServer<IntlShipRate[]>(INTL_SHIP_RATES_KEY, setIntlShipRates, INTL_SHIP_RATES_KEY, []),
-    ]).finally(() => setLoading(false));
+    ]).then(() => setLastSynced(new Date()));
+  };
+
+  useEffect(() => {
+    loadAll().finally(() => setLoading(false));
+    const id = setInterval(loadAll, 60_000);
+    const onVisible = () => { if (!document.hidden) loadAll(); };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => { clearInterval(id); document.removeEventListener("visibilitychange", onVisible); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const saveManual = (next: ManualRates) => {
@@ -6341,6 +6357,14 @@ function CostTab() {
           )}
         </div>
         <div className="flex gap-1.5 shrink-0">
+          <button
+            type="button"
+            onClick={() => loadAll()}
+            className="flex items-center gap-1 text-xs text-sky-700 border border-sky-300 bg-sky-50 px-2.5 py-1.5 rounded-xl hover:bg-sky-100 transition-colors"
+            title={lastSynced ? `Lần cuối: ${lastSynced.toLocaleTimeString("vi-VN")}` : "Làm mới dữ liệu từ server"}
+          >
+            <RefreshCw size={12} /> Làm mới
+          </button>
           <button
             type="button"
             disabled={syncing}
@@ -7525,12 +7549,19 @@ function CostTab() {
           };
 
           return (
-            <div className="bg-card border border-border rounded-2xl p-4 space-y-3">
-              <div className="flex items-center justify-between">
-                <h5 className="text-sm font-bold">Refund cho khách</h5>
+            <div className="bg-card border border-border rounded-2xl overflow-hidden">
+              <div
+                className="flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-black/5 transition-colors select-none"
+                onClick={() => setRefundExpanded((p) => !p)}
+              >
+                <div className="flex items-center gap-2">
+                  <ChevronDown size={13} className={`text-muted-foreground transition-transform ${refundExpanded ? "" : "-rotate-90"}`} />
+                  <h5 className="text-sm font-bold">Refund cho khách</h5>
+                </div>
                 {monthTotal > 0 && <span className="text-[10px] text-purple-700 font-bold">{vnd2(monthTotal)} ₫ tháng này</span>}
               </div>
-              <p className="text-[10px] text-muted-foreground -mt-1">Ghi lại các khoản hoàn tiền kèm mã/tên khách hàng</p>
+              {refundExpanded && <div className="px-4 pb-4 space-y-3 border-t border-border">
+              <p className="text-[10px] text-muted-foreground pt-2">Ghi lại các khoản hoàn tiền kèm mã/tên khách hàng</p>
 
               {/* Add form */}
               <div className="space-y-1.5">
@@ -7563,6 +7594,7 @@ function CostTab() {
                   </div>
                 </div>
               )}
+              </div>}
             </div>
           );
         })()}
