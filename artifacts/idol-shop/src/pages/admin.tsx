@@ -293,7 +293,7 @@ function ProductsTab() {
   type SubSubVariantDraft = { name: string; price?: number; stock?: number; soldOut?: boolean };
   type SubVariantDraft = { name: string; price?: number; stock?: number; soldOut?: boolean; subSubVariants?: SubSubVariantDraft[]; _showSubSubs?: boolean };
   type VariantDraft = { name: string; price?: number; stock?: number; soldOut?: boolean; memberOnly?: boolean; subVariants?: SubVariantDraft[]; _showSubs?: boolean };
-  const [form, setForm] = useState({ name: "", description: "", price: "", category: "Kpop", stock: "0", isAvailable: true, isSoldOut: false, orderType: "preorder", orderLabel: "", orderName: "", imageUrl: "", tags: [] as string[], variants: [] as VariantDraft[], slotPrefix: "", slotConfig: {} as Record<string, any> });
+  const [form, setForm] = useState({ name: "", description: "", price: "", category: "Kpop", stock: "0", isAvailable: true, isSoldOut: false, orderType: "preorder", orderLabel: "", orderName: "", imageUrl: "", tags: [] as string[], variants: [] as VariantDraft[], slotPrefix: "", slotConfig: {} as Record<string, any>, lockAt: "" });
   const [subVariantInputs, setSubVariantInputs] = useState<Record<number, { name: string; price: string; stock: string }>>({});
   const [subSubVariantInputs, setSubSubVariantInputs] = useState<Record<string, { name: string; price: string; stock: string }>>({});
   const [copiedSubVariants, setCopiedSubVariants] = useState<SubVariantDraft[] | null>(null);
@@ -304,6 +304,8 @@ function ProductsTab() {
   const [customCategories, setCustomCategories] = useState<string[]>(() => {
     try { return JSON.parse(localStorage.getItem("custom_categories") || "[]"); } catch { return []; }
   });
+  const [productLocks, setProductLocks] = useState<Record<string, string>>({});
+  const [showArchived, setShowArchived] = useState(false);
 
   const PRESET_CATEGORIES = ["Kpop", "GMMTV", "US UK", "Tạp Hoá"];
   const allCategories = [...PRESET_CATEGORIES, ...customCategories];
@@ -315,6 +317,11 @@ function ProductsTab() {
     fetch(`${base2}/api/settings/custom_categories`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(next) }).catch(() => {});
   };
 
+  const saveProductLocks = (next: Record<string, string>) => {
+    setProductLocks(next);
+    fetch(`${base2}/api/settings/admin_preorder_locks`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(next) }).catch(() => {});
+  };
+
   useEffect(() => {
     fetch(`${base2}/api/settings/custom_categories`, { cache: "no-store" })
       .then((r) => r.json())
@@ -324,6 +331,10 @@ function ProductsTab() {
           try { const local = JSON.parse(localStorage.getItem("custom_categories") || "[]"); if (local.length > 0) { fetch(`${base2}/api/settings/custom_categories`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(local) }).catch(() => {}); } } catch {}
         }
       }).catch(() => {});
+    fetch(`${base2}/api/settings/admin_preorder_locks`, { cache: "no-store" })
+      .then((r) => r.json())
+      .then((d) => { if (d && typeof d === "object" && !Array.isArray(d)) setProductLocks(d as Record<string, string>); })
+      .catch(() => {});
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -349,7 +360,7 @@ function ProductsTab() {
     "Weverse Album", "Limited Edition", "Merch Bundle",
   ];
 
-  const resetForm = () => { setForm({ name: "", description: "", price: "", category: "Kpop", stock: "0", isAvailable: true, isSoldOut: false, orderType: "preorder", orderLabel: "", orderName: "", imageUrl: "", tags: [], variants: [], slotPrefix: "", slotConfig: {} }); setCustomTagInput(""); setCustomVariantInput({ name: "", price: "", stock: "" }); setSubVariantInputs({}); setSubSubVariantInputs({}); setCopiedSubVariants(null); setCopiedSubSubVariants(null); };
+  const resetForm = () => { setForm({ name: "", description: "", price: "", category: "Kpop", stock: "0", isAvailable: true, isSoldOut: false, orderType: "preorder", orderLabel: "", orderName: "", imageUrl: "", tags: [], variants: [], slotPrefix: "", slotConfig: {}, lockAt: "" }); setCustomTagInput(""); setCustomVariantInput({ name: "", price: "", stock: "" }); setSubVariantInputs({}); setSubSubVariantInputs({}); setCopiedSubVariants(null); setCopiedSubSubVariants(null); };
 
   const addCustomTag = () => {
     const tag = customTagInput.trim();
@@ -362,7 +373,7 @@ function ProductsTab() {
     setEditId(p.id);
     setSubVariantInputs({});
     setSubSubVariantInputs({});
-    setForm({ name: p.name, description: p.description ?? "", price: String(p.price), category: p.category, stock: String(p.stock), isAvailable: p.isAvailable, isSoldOut: (p as any).isSoldOut ?? false, orderType: p.orderType, orderLabel: (p as any).orderLabel ?? "", orderName: (p as any).orderName ?? "", imageUrl: p.imageUrl ?? "", tags: p.tags ?? [], variants: (p.variants ?? []).map((v: any) => ({ name: v.name, price: v.price ?? undefined, stock: v.stock ?? undefined, soldOut: v.soldOut ?? false, memberOnly: v.memberOnly ?? false, subVariants: (v.subVariants ?? []).map((sv: any) => ({ name: sv.name, price: sv.price ?? undefined, stock: sv.stock ?? undefined, soldOut: sv.soldOut ?? false, subSubVariants: (sv.subSubVariants ?? []).map((ssv: any) => ({ name: ssv.name, price: ssv.price ?? undefined, stock: ssv.stock ?? undefined, soldOut: ssv.soldOut ?? false })), _showSubSubs: (sv.subSubVariants ?? []).length > 0 })), _showSubs: (v.subVariants ?? []).length > 0 })), slotPrefix: (p as any).slotPrefix ?? "", slotConfig: (p as any).slotConfig ?? {} });
+    setForm({ name: p.name, description: p.description ?? "", price: String(p.price), category: p.category, stock: String(p.stock), isAvailable: p.isAvailable, isSoldOut: (p as any).isSoldOut ?? false, orderType: p.orderType, orderLabel: (p as any).orderLabel ?? "", orderName: (p as any).orderName ?? "", imageUrl: p.imageUrl ?? "", tags: p.tags ?? [], variants: (p.variants ?? []).map((v: any) => ({ name: v.name, price: v.price ?? undefined, stock: v.stock ?? undefined, soldOut: v.soldOut ?? false, memberOnly: v.memberOnly ?? false, subVariants: (v.subVariants ?? []).map((sv: any) => ({ name: sv.name, price: sv.price ?? undefined, stock: sv.stock ?? undefined, soldOut: sv.soldOut ?? false, subSubVariants: (sv.subSubVariants ?? []).map((ssv: any) => ({ name: ssv.name, price: ssv.price ?? undefined, stock: ssv.stock ?? undefined, soldOut: ssv.soldOut ?? false })), _showSubSubs: (sv.subSubVariants ?? []).length > 0 })), _showSubs: (v.subVariants ?? []).length > 0 })), slotPrefix: (p as any).slotPrefix ?? "", slotConfig: (p as any).slotConfig ?? {}, lockAt: productLocks[String(p.id)] ?? "" });
     setOpen(true);
   };
 
@@ -414,14 +425,26 @@ function ProductsTab() {
       const allVariantsSoldOut = cleanVariants.length > 0 && cleanVariants.every((v) => v.soldOut);
       const cleanSlotConfig = form.orderType === "slot" && Object.keys(form.slotConfig).length > 0 ? form.slotConfig : null;
       const data = { name: form.name, description: form.description || null, price, category: form.category, stock, isAvailable: form.isAvailable, isSoldOut: allVariantsSoldOut, orderType: form.orderType, orderLabel: form.orderLabel.trim() || null, orderName: form.orderName.trim() || null, imageUrl: form.imageUrl || null, tags: form.tags.length > 0 ? form.tags : null, variants: cleanVariants.length > 0 ? cleanVariants : null, slotPrefix: form.orderType === "slot" ? (form.slotPrefix.trim() || null) : null, slotConfig: cleanSlotConfig };
+      const pendingLockAt = form.lockAt;
       if (editId) {
         updateProduct.mutate({ id: editId, data }, {
-          onSuccess: () => { queryClient.invalidateQueries({ queryKey: getListProductsQueryKey() }); setOpen(false); resetForm(); setEditId(null); toast({ title: "Đã cập nhật sản phẩm" }); },
+          onSuccess: () => {
+            const next = { ...productLocks };
+            if (pendingLockAt) next[String(editId)] = pendingLockAt;
+            else delete next[String(editId)];
+            saveProductLocks(next);
+            queryClient.invalidateQueries({ queryKey: getListProductsQueryKey() }); setOpen(false); resetForm(); setEditId(null); toast({ title: "Đã cập nhật sản phẩm" });
+          },
           onError: (err: unknown) => { toast({ title: "Lỗi khi lưu sản phẩm", description: err instanceof Error ? err.message : "Vui lòng thử lại", variant: "destructive" }); },
         });
       } else {
         createProduct.mutate({ data }, {
-          onSuccess: () => { queryClient.invalidateQueries({ queryKey: getListProductsQueryKey() }); setOpen(false); resetForm(); toast({ title: "Đã thêm sản phẩm mới" }); },
+          onSuccess: (created: any) => {
+            if (pendingLockAt && created?.id) {
+              saveProductLocks({ ...productLocks, [String(created.id)]: pendingLockAt });
+            }
+            queryClient.invalidateQueries({ queryKey: getListProductsQueryKey() }); setOpen(false); resetForm(); toast({ title: "Đã thêm sản phẩm mới" });
+          },
           onError: (err: unknown) => { toast({ title: "Lỗi khi thêm sản phẩm", description: err instanceof Error ? err.message : "Vui lòng thử lại", variant: "destructive" }); },
         });
       }
@@ -1119,75 +1142,129 @@ function ProductsTab() {
               <Switch checked={form.isAvailable} onCheckedChange={(v) => setForm({ ...form, isAvailable: v })} id="avail" />
               <Label htmlFor="avail">Đang bán</Label>
             </div>
+            {(form.orderType === "preorder" || form.orderType === "slot") && (
+              <div>
+                <Label>Tự khóa lúc</Label>
+                <Input
+                  type="datetime-local"
+                  value={form.lockAt}
+                  onChange={(e) => setForm({ ...form, lockAt: e.target.value })}
+                  className="rounded-xl mt-1"
+                />
+                <div className="flex items-center justify-between mt-1">
+                  <p className="text-[10px] text-muted-foreground">Đúng ngày giờ này tự đóng PO — để trống = không khoá</p>
+                  {form.lockAt && (
+                    <button type="button" onClick={() => setForm({ ...form, lockAt: "" })} className="text-[10px] text-destructive hover:opacity-70">Xóa</button>
+                  )}
+                </div>
+              </div>
+            )}
             <Button className="w-full rounded-xl" onClick={handleSave} data-testid="button-save-product">Lưu</Button>
           </div>
         </DialogContent>
       </Dialog>
 
-      <div className="space-y-2">
-        {products?.map((p) => (
-          <div key={p.id} className="bg-card border border-border rounded-2xl p-3 flex items-center gap-3" data-testid={`admin-product-${p.id}`}>
-            <div className="w-10 h-10 bg-muted rounded-xl flex items-center justify-center shrink-0">
-              <Package size={16} className="text-muted-foreground" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="font-bold text-sm truncate">{p.name}</p>
-              <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                {(() => {
-                  const allPrices = (p.variants ?? []).flatMap((v: any) => [
-                    ...(v.price != null ? [v.price as number] : []),
-                    ...((v.subVariants ?? []) as any[]).flatMap((sv: any) => [
-                      ...(sv.price != null ? [sv.price as number] : []),
-                      ...((sv.subSubVariants ?? []) as any[]).flatMap((ssv: any) => ssv.price != null ? [ssv.price as number] : []),
-                    ]),
-                  ]) as number[];
-                  const vPrices = allPrices.length > 0 ? allPrices : [];
-                  if (vPrices.length >= 2) {
-                    const mn = Math.min(...vPrices), mx = Math.max(...vPrices);
-                    if (mn !== mx) return <span className="text-xs text-primary font-bold">{formatPrice(mn)} – {formatPrice(mx)}</span>;
-                  }
-                  return <span className="text-xs text-primary font-bold">{formatPrice(vPrices[0] ?? p.price)}</span>;
-                })()}
-                <span className="text-xs text-muted-foreground">Kho: {p.stock}</span>
-                <span className="text-[10px] bg-secondary/10 text-secondary px-1.5 py-0.5 rounded-full font-semibold">
-                  {(p as any).orderLabel ?? p.orderType}
-                </span>
-                {!p.isAvailable && <Badge variant="secondary" className="text-[10px] bg-red-50 text-red-600">Tắt</Badge>}
-                {(p as any).isSoldOut && <Badge variant="secondary" className="text-[10px] bg-red-100 text-red-700 font-bold border border-red-200">SOLD OUT</Badge>}
+      {(() => {
+        const now = new Date();
+        const allProds = products ?? [];
+        const activeProds   = allProds.filter((p) => p.isAvailable);
+        const archivedProds = allProds.filter((p) => !p.isAvailable);
+        const renderCard = (p: NonNullable<typeof products>[0]) => {
+          const lockAt    = productLocks[String(p.id)];
+          const lockDate  = lockAt ? new Date(lockAt) : null;
+          const lockPast  = lockDate ? lockDate <= now : false;
+          return (
+            <div key={p.id} className="bg-card border border-border rounded-2xl p-3 flex items-center gap-3" data-testid={`admin-product-${p.id}`}>
+              <div className="w-10 h-10 bg-muted rounded-xl flex items-center justify-center shrink-0">
+                <Package size={16} className="text-muted-foreground" />
               </div>
-              {p.tags && p.tags.length > 0 && (
-                <div className="flex flex-wrap gap-1 mt-1">
-                  {p.tags.map((t) => (
-                    <span key={t} className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/15">{t}</span>
-                  ))}
+              <div className="flex-1 min-w-0">
+                <p className="font-bold text-sm truncate">{p.name}</p>
+                <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                  {(() => {
+                    const allPrices = (p.variants ?? []).flatMap((v: any) => [
+                      ...(v.price != null ? [v.price as number] : []),
+                      ...((v.subVariants ?? []) as any[]).flatMap((sv: any) => [
+                        ...(sv.price != null ? [sv.price as number] : []),
+                        ...((sv.subSubVariants ?? []) as any[]).flatMap((ssv: any) => ssv.price != null ? [ssv.price as number] : []),
+                      ]),
+                    ]) as number[];
+                    const vPrices = allPrices.length > 0 ? allPrices : [];
+                    if (vPrices.length >= 2) {
+                      const mn = Math.min(...vPrices), mx = Math.max(...vPrices);
+                      if (mn !== mx) return <span className="text-xs text-primary font-bold">{formatPrice(mn)} – {formatPrice(mx)}</span>;
+                    }
+                    return <span className="text-xs text-primary font-bold">{formatPrice(vPrices[0] ?? p.price)}</span>;
+                  })()}
+                  <span className="text-xs text-muted-foreground">Kho: {p.stock}</span>
+                  <span className="text-[10px] bg-secondary/10 text-secondary px-1.5 py-0.5 rounded-full font-semibold">
+                    {(p as any).orderLabel ?? p.orderType}
+                  </span>
+                  {!p.isAvailable && <Badge variant="secondary" className="text-[10px] bg-red-50 text-red-600">Tắt</Badge>}
+                  {(p as any).isSoldOut && <Badge variant="secondary" className="text-[10px] bg-red-100 text-red-700 font-bold border border-red-200">SOLD OUT</Badge>}
+                  {lockDate && (
+                    <Badge variant="secondary" className={`text-[9px] font-bold border ${lockPast ? "bg-red-50 text-red-600 border-red-200" : "bg-amber-50 text-amber-700 border-amber-200"}`}>
+                      {lockPast
+                        ? "🔒 PO đã khoá"
+                        : `⏰ ${lockDate.toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit" })} ${lockDate.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })}`}
+                    </Badge>
+                  )}
                 </div>
-              )}
-            </div>
-            <div className="flex items-center gap-2 shrink-0">
-              <div className="flex flex-col items-center gap-0.5">
-                <Switch
-                  checked={!!(p as any).isSoldOut}
-                  onCheckedChange={(v) => {
-                    const currentVariants = (p.variants ?? []) as any[];
-                    const newVariants = currentVariants.map((vv: any) => ({
-                      ...vv,
-                      soldOut: v,
-                      subVariants: (vv.subVariants ?? []).map((sv: any) => ({ ...sv, soldOut: v })),
-                    }));
-                    updateProduct.mutate(
-                      { id: p.id, data: { isSoldOut: v, ...(newVariants.length > 0 ? { variants: newVariants } : {}) } as any },
-                      { onSuccess: () => queryClient.invalidateQueries({ queryKey: getListProductsQueryKey() }) }
-                    );
-                  }}
-                />
-                <span className={`text-[9px] font-bold transition-colors ${(p as any).isSoldOut ? "text-red-500" : "text-muted-foreground"}`}>Sold</span>
+                {p.tags && p.tags.length > 0 && (
+                  <div className="flex flex-wrap gap-1 mt-1">
+                    {p.tags.map((t) => (
+                      <span key={t} className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/15">{t}</span>
+                    ))}
+                  </div>
+                )}
               </div>
-              <Button variant="ghost" size="icon" className="h-8 w-8 rounded-xl" onClick={() => openEdit(p)} data-testid={`button-edit-product-${p.id}`}><Pencil size={13} /></Button>
-              <Button variant="ghost" size="icon" className="h-8 w-8 rounded-xl text-destructive" onClick={() => deleteProduct.mutate({ id: p.id }, { onSuccess: () => queryClient.invalidateQueries({ queryKey: getListProductsQueryKey() }) })} data-testid={`button-delete-product-${p.id}`}><Trash2 size={13} /></Button>
+              <div className="flex items-center gap-2 shrink-0">
+                <div className="flex flex-col items-center gap-0.5">
+                  <Switch
+                    checked={!!(p as any).isSoldOut}
+                    onCheckedChange={(v) => {
+                      const currentVariants = (p.variants ?? []) as any[];
+                      const newVariants = currentVariants.map((vv: any) => ({
+                        ...vv,
+                        soldOut: v,
+                        subVariants: (vv.subVariants ?? []).map((sv: any) => ({ ...sv, soldOut: v })),
+                      }));
+                      updateProduct.mutate(
+                        { id: p.id, data: { isSoldOut: v, ...(newVariants.length > 0 ? { variants: newVariants } : {}) } as any },
+                        { onSuccess: () => queryClient.invalidateQueries({ queryKey: getListProductsQueryKey() }) }
+                      );
+                    }}
+                  />
+                  <span className={`text-[9px] font-bold transition-colors ${(p as any).isSoldOut ? "text-red-500" : "text-muted-foreground"}`}>Sold</span>
+                </div>
+                <Button variant="ghost" size="icon" className="h-8 w-8 rounded-xl" onClick={() => openEdit(p)} data-testid={`button-edit-product-${p.id}`}><Pencil size={13} /></Button>
+                <Button variant="ghost" size="icon" className="h-8 w-8 rounded-xl text-destructive" onClick={() => deleteProduct.mutate({ id: p.id }, { onSuccess: () => queryClient.invalidateQueries({ queryKey: getListProductsQueryKey() }) })} data-testid={`button-delete-product-${p.id}`}><Trash2 size={13} /></Button>
+              </div>
             </div>
-          </div>
-        ))}
-      </div>
+          );
+        };
+        return (
+          <>
+            <div className="space-y-2">{activeProds.map(renderCard)}</div>
+            {archivedProds.length > 0 && (
+              <div className="border-t border-border pt-3 mt-1">
+                <button
+                  type="button"
+                  onClick={() => setShowArchived((v) => !v)}
+                  className="w-full flex items-center gap-2 text-left py-1.5 px-1 rounded-xl hover:bg-muted/40 transition-colors"
+                >
+                  <ChevronDown size={13} className={`text-muted-foreground transition-transform shrink-0 ${showArchived ? "rotate-180" : ""}`} />
+                  <span className="text-xs font-bold text-muted-foreground">Đã lưu trữ</span>
+                  <span className="text-[10px] bg-muted text-muted-foreground font-bold px-1.5 py-0.5 rounded-full">{archivedProds.length}</span>
+                </button>
+                {showArchived && (
+                  <div className="space-y-2 mt-2 opacity-70">{archivedProds.map(renderCard)}</div>
+                )}
+              </div>
+            )}
+          </>
+        );
+      })()}
     </div>
   );
 }

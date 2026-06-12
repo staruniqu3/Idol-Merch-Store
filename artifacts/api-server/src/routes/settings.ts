@@ -40,6 +40,8 @@ const ALLOWED_KEYS = new Set([
   "custom_categories",
   // Foreign exchange rates for staff order cost tracking
   "admin_fx_rates",
+  // Per-product auto-lock datetimes for preorder products
+  "admin_preorder_locks",
 ]);
 
 router.get("/settings/:key", async (req, res): Promise<void> => {

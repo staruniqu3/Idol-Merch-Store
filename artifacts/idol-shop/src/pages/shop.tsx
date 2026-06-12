@@ -61,6 +61,7 @@ export default function ShopPage() {
   const [showAllCats, setShowAllCats] = useState(false);
   const [selectedTag, setSelectedTag] = useState("Tất cả");
   const [customCategories, setCustomCategories] = useState<string[]>([]);
+  const [productLocks, setProductLocks] = useState<Record<string, string>>({});
   const [cart, setCart] = useState<CartItem[]>([]);
   const [cartOpen, setCartOpen] = useState(false);
   const [step, setStep] = useState<"cart" | "checkout" | "payment">("cart");
@@ -119,6 +120,10 @@ export default function ShopPage() {
     fetch(`${base0}/api/settings/custom_categories`, { cache: "no-store" })
       .then((r) => r.json())
       .then((d) => { if (Array.isArray(d)) setCustomCategories(d); })
+      .catch(() => {});
+    fetch(`${base0}/api/settings/admin_preorder_locks`, { cache: "no-store" })
+      .then((r) => r.json())
+      .then((d) => { if (d && typeof d === "object" && !Array.isArray(d)) setProductLocks(d as Record<string, string>); })
       .catch(() => {});
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -799,7 +804,7 @@ export default function ShopPage() {
             </div>
           ))}
 
-        {!isLoading && filtered.filter((p) => p.isAvailable).length === 0 && (
+        {!isLoading && filtered.filter((p) => p.isAvailable && !(productLocks[String(p.id)] && new Date(productLocks[String(p.id)]) <= new Date())).length === 0 && (
           <div className="flex flex-col items-center justify-center py-16 text-muted-foreground gap-3">
             <div className="w-20 h-20 rounded-3xl bg-muted flex items-center justify-center">
               <Package size={36} strokeWidth={1.2} />
@@ -808,7 +813,7 @@ export default function ShopPage() {
           </div>
         )}
 
-        {filtered.filter((p) => p.isAvailable).map((product) => {
+        {filtered.filter((p) => p.isAvailable && !(productLocks[String(p.id)] && new Date(productLocks[String(p.id)]) <= new Date())).map((product) => {
           const _variants = (product.variants ?? []) as Array<{ soldOut?: boolean }>;
           const cardSoldOut = _variants.length > 0 ? _variants.every((v) => v.soldOut) : !!(product as any).isSoldOut;
           return (
