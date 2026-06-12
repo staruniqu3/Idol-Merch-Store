@@ -3734,21 +3734,23 @@ function StatsTab() {
                               <div className={`flex items-center transition-all ${checked ? "bg-emerald-50" : "bg-card"}`}>
                                 {/* Toggle area */}
                                 <button type="button" onClick={() => toggleReceivedItem(key)}
-                                  className="flex-1 flex items-center gap-2.5 p-2 text-left min-w-0"
+                                  className="flex-1 flex items-start gap-2.5 p-2 text-left min-w-0"
                                 >
-                                  <div className={`w-4 h-4 rounded-full border-2 shrink-0 flex items-center justify-center transition-all ${
+                                  <div className={`w-4 h-4 rounded-full border-2 shrink-0 mt-0.5 flex items-center justify-center transition-all ${
                                     checked ? "bg-emerald-500 border-emerald-500" : "border-muted-foreground/30"
                                   }`}>
                                     {checked && <Check size={9} strokeWidth={3} className="text-white" />}
                                   </div>
-                                  <span className={`flex-1 text-sm font-medium truncate ${checked ? "line-through text-muted-foreground" : ""}`}>
-                                    {item.name}
-                                  </span>
-                                  <div className="flex items-center gap-2 shrink-0">
-                                    <Badge variant="secondary" className={`text-[10px] font-black ${checked ? "bg-emerald-100 text-emerald-700 border-emerald-200" : "bg-primary/10 text-primary border-primary/20"}`}>
-                                      ×{item.qty}
-                                    </Badge>
-                                    <span className="text-xs text-muted-foreground">{formatPrice(item.revenue)}</span>
+                                  <div className="flex-1 min-w-0">
+                                    <p className={`text-sm font-medium leading-snug ${checked ? "line-through text-muted-foreground" : ""}`}>
+                                      {item.name}
+                                    </p>
+                                    <div className="flex items-center gap-2 mt-0.5">
+                                      <Badge variant="secondary" className={`text-[10px] font-black ${checked ? "bg-emerald-100 text-emerald-700 border-emerald-200" : "bg-primary/10 text-primary border-primary/20"}`}>
+                                        ×{item.qty}
+                                      </Badge>
+                                      <span className="text-xs text-muted-foreground">{formatPrice(item.revenue)}</span>
+                                    </div>
                                   </div>
                                 </button>
                                 {/* Delete button */}
