@@ -8268,6 +8268,7 @@ function CashFlowTab() {
   const [showStaffOrders, setShowStaffOrders] = useState(true);
   const [staffOrderFilter, setStaffOrderFilter] = useState("all");
   const [showFxManager, setShowFxManager] = useState(false);
+  const [collapsedStaff, setCollapsedStaff] = useState<Set<string>>(new Set());
   const [fxForm, setFxForm] = useState({ currency: "THB", foreignAmount: 1000, vndAmount: 800000 });
 
   const fetchEntries = async () => {
@@ -8751,8 +8752,16 @@ function CashFlowTab() {
                   const staffVnd = items.reduce((s, a) => s + (priceMap.get(a.productName) ?? 0) * a.qty, 0);
                   return (
                     <div key={staffId} className="rounded-2xl border border-border overflow-hidden">
-                      {/* Staff header */}
-                      <div className="bg-primary/5 border-b border-border px-3 py-2.5 flex items-center justify-between">
+                      {/* Staff header — collapsible */}
+                      <button
+                        type="button"
+                        onClick={() => setCollapsedStaff((prev) => {
+                          const next = new Set(prev);
+                          if (next.has(staffId)) next.delete(staffId); else next.add(staffId);
+                          return next;
+                        })}
+                        className="w-full bg-primary/5 border-b border-border px-3 py-2.5 flex items-center justify-between text-left"
+                      >
                         <div className="flex items-center gap-2">
                           <div className="w-7 h-7 rounded-full bg-primary/15 flex items-center justify-center shrink-0">
                             <span className="text-[9px] font-black text-primary">{staffName.slice(0, 2).toUpperCase()}</span>
@@ -8762,17 +8771,20 @@ function CashFlowTab() {
                             <p className="text-[10px] text-muted-foreground">{items.length} đơn · {items.reduce((s, a) => s + a.qty, 0)} sp</p>
                           </div>
                         </div>
-                        <div className="text-right shrink-0">
-                          <p className="text-sm font-black text-violet-700">{formatPrice(staffVnd)}</p>
-                          {fxRates.length > 0 && (
-                            <p className="text-[10px] text-amber-600 font-bold">
-                              {fxRates.map((r) => `${Math.ceil(staffVnd / r.vndAmount * r.foreignAmount).toLocaleString()} ${r.currency}`).join(" · ")}
-                            </p>
-                          )}
+                        <div className="flex items-center gap-2 shrink-0">
+                          <div className="text-right">
+                            <p className="text-sm font-black text-violet-700">{formatPrice(staffVnd)}</p>
+                            {fxRates.length > 0 && (
+                              <p className="text-[10px] text-amber-600 font-bold">
+                                {fxRates.map((r) => `${Math.ceil(staffVnd / r.vndAmount * r.foreignAmount).toLocaleString()} ${r.currency}`).join(" · ")}
+                              </p>
+                            )}
+                          </div>
+                          <ChevronDown size={13} className={`text-muted-foreground transition-transform ${collapsedStaff.has(staffId) ? "" : "rotate-180"}`} />
                         </div>
-                      </div>
+                      </button>
                       {/* Assignment rows */}
-                      <div className="divide-y divide-border/40">
+                      {!collapsedStaff.has(staffId) && <div className="divide-y divide-border/40">
                         {items.map((a, idx) => {
                           const unitPrice = priceMap.get(a.productName) ?? 0;
                           const total = unitPrice * a.qty;
@@ -8787,16 +8799,20 @@ function CashFlowTab() {
                                     </span>
                                   )}
                                   <div className="flex items-center gap-2 mt-1 flex-wrap">
-                                    <span className="text-[11px] font-semibold text-foreground/80">{a.customerName || "—"}</span>
-                                    {a.phone && (
+                                    {a.customerName && a.customerName !== a.phone && (
+                                      <span className="text-[11px] font-semibold text-foreground/80">{a.customerName}</span>
+                                    )}
+                                    {a.phone ? (
                                       <button
                                         type="button"
                                         title="Copy SĐT"
-                                        onClick={() => navigator.clipboard.writeText(a.phone!).catch(() => {})}
+                                        onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(a.phone!).catch(() => {}); }}
                                         className="text-[10px] text-primary font-mono hover:underline active:opacity-60"
                                       >
                                         {a.phone}
                                       </button>
+                                    ) : (
+                                      <span className="text-[11px] font-semibold text-foreground/80">{a.customerName || "—"}</span>
                                     )}
                                   </div>
                                 </div>
@@ -8819,7 +8835,7 @@ function CashFlowTab() {
                             </div>
                           );
                         })}
-                      </div>
+                      </div>}
                     </div>
                   );
                 })}
