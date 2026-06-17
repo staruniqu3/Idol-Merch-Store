@@ -140,6 +140,7 @@ type Update = {
   description: string;
   status: string;
   estimatedDate: string | null;
+  estimatedArrivalDate: string | null;
   createdAt: string;
 };
 
@@ -196,9 +197,18 @@ function ShippingModal({ update, onClose }: { update: Update; onClose: () => voi
               <div className="bg-primary/10 rounded-2xl p-3">
                 <div className="flex items-center gap-1.5 text-primary mb-1">
                   <MapPin size={13} />
-                  <span className="text-[11px] font-semibold">Dự kiến</span>
+                  <span className="text-[11px] font-semibold">🚚 Ngày đi hàng</span>
                 </div>
                 <p className="text-sm font-bold text-primary">{update.estimatedDate}</p>
+              </div>
+            )}
+            {update.estimatedArrivalDate && (
+              <div className="bg-emerald-500/10 rounded-2xl p-3">
+                <div className="flex items-center gap-1.5 text-emerald-700 mb-1">
+                  <MapPin size={13} />
+                  <span className="text-[11px] font-semibold">📦 Ngày hàng về</span>
+                </div>
+                <p className="text-sm font-bold text-emerald-700">{update.estimatedArrivalDate}</p>
               </div>
             )}
           </div>
@@ -776,11 +786,22 @@ export default function ShippingPage() {
                         <ChevronRight size={14} className="text-muted-foreground" />
                       </div>
                     </div>
-                    {update.estimatedDate && (
-                      <div className="mt-3 pt-3 border-t border-border flex items-center gap-1.5">
-                        <MapPin size={11} className="text-primary" />
-                        <span className="text-xs text-muted-foreground">Dự kiến:</span>
-                        <span className="text-xs font-bold text-primary">{update.estimatedDate}</span>
+                    {(update.estimatedDate || update.estimatedArrivalDate) && (
+                      <div className="mt-3 pt-3 border-t border-border flex flex-wrap gap-x-4 gap-y-1">
+                        {update.estimatedDate && (
+                          <div className="flex items-center gap-1.5">
+                            <MapPin size={11} className="text-primary" />
+                            <span className="text-xs text-muted-foreground">🚚 Đi hàng:</span>
+                            <span className="text-xs font-bold text-primary">{update.estimatedDate}</span>
+                          </div>
+                        )}
+                        {update.estimatedArrivalDate && (
+                          <div className="flex items-center gap-1.5">
+                            <MapPin size={11} className="text-emerald-600" />
+                            <span className="text-xs text-muted-foreground">📦 Hàng về:</span>
+                            <span className="text-xs font-bold text-emerald-700">{update.estimatedArrivalDate}</span>
+                          </div>
+                        )}
                       </div>
                     )}
                   </button>

@@ -12,4 +12,6 @@ export interface UpdateShippingUpdateBody {
   status?: string;
   /** @nullable */
   estimatedDate?: string | null;
+  /** @nullable */
+  estimatedArrivalDate?: string | null;
 }

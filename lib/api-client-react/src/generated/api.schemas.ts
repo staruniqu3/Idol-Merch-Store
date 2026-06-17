@@ -121,6 +121,8 @@ export interface ShippingUpdate {
   status: string;
   /** @nullable */
   estimatedDate?: string | null;
+  /** @nullable */
+  estimatedArrivalDate?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -131,6 +133,8 @@ export interface CreateShippingUpdateBody {
   status: string;
   /** @nullable */
   estimatedDate?: string | null;
+  /** @nullable */
+  estimatedArrivalDate?: string | null;
 }
 
 export interface UpdateShippingUpdateBody {
@@ -139,6 +143,8 @@ export interface UpdateShippingUpdateBody {
   status?: string;
   /** @nullable */
   estimatedDate?: string | null;
+  /** @nullable */
+  estimatedArrivalDate?: string | null;
 }
 
 export interface Member {

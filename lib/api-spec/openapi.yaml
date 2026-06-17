@@ -696,6 +696,8 @@ components:
           description: "preparing, in_transit, arrived, delivered"
         estimatedDate:
           type: ["string", "null"]
+        estimatedArrivalDate:
+          type: ["string", "null"]
         createdAt:
           type: string
           format: date-time
@@ -715,6 +717,8 @@ components:
           type: string
         estimatedDate:
           type: ["string", "null"]
+        estimatedArrivalDate:
+          type: ["string", "null"]
       required: [title, description, status]
 
     UpdateShippingUpdateBody:
@@ -727,6 +731,8 @@ components:
         status:
           type: string
         estimatedDate:
+          type: ["string", "null"]
+        estimatedArrivalDate:
           type: ["string", "null"]
 
     Member:

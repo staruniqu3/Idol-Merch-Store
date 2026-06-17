@@ -22,30 +22,6 @@ export const ListProductsQueryParams = zod.object({
   available: zod.coerce.boolean().optional(),
 });
 
-const SubSubVariantItem = zod.object({
-  name: zod.string(),
-  price: zod.number().optional(),
-  stock: zod.number().optional(),
-  soldOut: zod.boolean().optional(),
-});
-
-const SubVariantItem = zod.object({
-  name: zod.string(),
-  price: zod.number().optional(),
-  stock: zod.number().optional(),
-  soldOut: zod.boolean().optional(),
-  subSubVariants: zod.array(SubSubVariantItem).optional(),
-});
-
-const VariantItem = zod.object({
-  name: zod.string(),
-  price: zod.number().optional(),
-  stock: zod.number().optional(),
-  soldOut: zod.boolean().optional(),
-  memberOnly: zod.boolean().optional(),
-  subVariants: zod.array(SubVariantItem).optional(),
-});
-
 export const ListProductsResponseItem = zod.object({
   id: zod.number(),
   name: zod.string(),
@@ -57,12 +33,6 @@ export const ListProductsResponseItem = zod.object({
   isAvailable: zod.boolean(),
   isSoldOut: zod.boolean(),
   orderType: zod.string().describe("preorder or pickup"),
-  orderLabel: zod.string().nullish(),
-  orderName: zod.string().nullish(),
-  tags: zod.array(zod.string()).nullish(),
-  variants: zod.array(VariantItem).nullish(),
-  slotPrefix: zod.string().nullish(),
-  slotConfig: zod.record(zod.string(), zod.any()).nullish(),
   createdAt: zod.coerce.date(),
 });
 export const ListProductsResponse = zod.array(ListProductsResponseItem);
@@ -78,14 +48,7 @@ export const CreateProductBody = zod.object({
   category: zod.string(),
   stock: zod.number(),
   isAvailable: zod.boolean(),
-  isSoldOut: zod.boolean().optional(),
   orderType: zod.string(),
-  orderLabel: zod.string().nullish(),
-  orderName: zod.string().nullish(),
-  tags: zod.array(zod.string()).nullish(),
-  variants: zod.array(VariantItem).nullish(),
-  slotPrefix: zod.string().nullish(),
-  slotConfig: zod.record(zod.string(), zod.any()).nullish(),
 });
 
 /**
@@ -106,12 +69,6 @@ export const GetProductResponse = zod.object({
   isAvailable: zod.boolean(),
   isSoldOut: zod.boolean(),
   orderType: zod.string().describe("preorder or pickup"),
-  orderLabel: zod.string().nullish(),
-  orderName: zod.string().nullish(),
-  tags: zod.array(zod.string()).nullish(),
-  variants: zod.array(VariantItem).nullish(),
-  slotPrefix: zod.string().nullish(),
-  slotConfig: zod.record(zod.string(), zod.any()).nullish(),
   createdAt: zod.coerce.date(),
 });
 
@@ -132,12 +89,6 @@ export const UpdateProductBody = zod.object({
   isAvailable: zod.boolean().optional(),
   isSoldOut: zod.boolean().optional(),
   orderType: zod.string().optional(),
-  orderLabel: zod.string().nullish(),
-  orderName: zod.string().nullish(),
-  tags: zod.array(zod.string()).nullish(),
-  variants: zod.array(VariantItem).nullish(),
-  slotPrefix: zod.string().nullish(),
-  slotConfig: zod.record(zod.string(), zod.any()).nullish(),
 });
 
 export const UpdateProductResponse = zod.object({
@@ -151,12 +102,6 @@ export const UpdateProductResponse = zod.object({
   isAvailable: zod.boolean(),
   isSoldOut: zod.boolean(),
   orderType: zod.string().describe("preorder or pickup"),
-  orderLabel: zod.string().nullish(),
-  orderName: zod.string().nullish(),
-  tags: zod.array(zod.string()).nullish(),
-  variants: zod.array(VariantItem).nullish(),
-  slotPrefix: zod.string().nullish(),
-  slotConfig: zod.record(zod.string(), zod.any()).nullish(),
   createdAt: zod.coerce.date(),
 });
 
@@ -303,6 +248,7 @@ export const ListShippingUpdatesResponseItem = zod.object({
   description: zod.string(),
   status: zod.string().describe("preparing, in_transit, arrived, delivered"),
   estimatedDate: zod.string().nullish(),
+  estimatedArrivalDate: zod.string().nullish(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -318,6 +264,7 @@ export const CreateShippingUpdateBody = zod.object({
   description: zod.string(),
   status: zod.string(),
   estimatedDate: zod.string().nullish(),
+  estimatedArrivalDate: zod.string().nullish(),
 });
 
 /**
@@ -332,6 +279,7 @@ export const UpdateShippingUpdateBody = zod.object({
   description: zod.string().optional(),
   status: zod.string().optional(),
   estimatedDate: zod.string().nullish(),
+  estimatedArrivalDate: zod.string().nullish(),
 });
 
 export const UpdateShippingUpdateResponse = zod.object({
@@ -340,6 +288,7 @@ export const UpdateShippingUpdateResponse = zod.object({
   description: zod.string(),
   status: zod.string().describe("preparing, in_transit, arrived, delivered"),
   estimatedDate: zod.string().nullish(),
+  estimatedArrivalDate: zod.string().nullish(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });

@@ -2969,7 +2969,7 @@ function ShippingTab() {
     queryFn: async () => {
       const res = await fetch(`${base}/api/shipping?all=true`, { cache: "no-store" });
       if (!res.ok) return [];
-      return res.json() as Promise<Array<{ id: number; title: string; description: string; status: string; estimatedDate: string | null; returnedAt: string | null; createdAt: string }>>;
+      return res.json() as Promise<Array<{ id: number; title: string; description: string; status: string; estimatedDate: string | null; estimatedArrivalDate: string | null; returnedAt: string | null; createdAt: string }>>;
     },
   });
   const createUpdate = useCreateShippingUpdate();
@@ -2979,11 +2979,11 @@ function ShippingTab() {
   const { toast } = useToast();
   const [open, setOpen] = useState(false);
   const [editId, setEditId] = useState<number | null>(null);
-  const [form, setForm] = useState({ title: "", description: "", status: "preparing", estimatedDate: "" });
+  const [form, setForm] = useState({ title: "", description: "", status: "preparing", estimatedDate: "", estimatedArrivalDate: "" });
 
-  const resetForm = () => setForm({ title: "", description: "", status: "preparing", estimatedDate: "" });
+  const resetForm = () => setForm({ title: "", description: "", status: "preparing", estimatedDate: "", estimatedArrivalDate: "" });
   const openEdit = (u: NonNullable<typeof updates>[0]) => {
-    setEditId(u.id); setForm({ title: u.title, description: u.description, status: u.status, estimatedDate: u.estimatedDate ?? "" }); setOpen(true);
+    setEditId(u.id); setForm({ title: u.title, description: u.description, status: u.status, estimatedDate: u.estimatedDate ?? "", estimatedArrivalDate: u.estimatedArrivalDate ?? "" }); setOpen(true);
   };
 
   const invalidate = () => {
@@ -2993,7 +2993,7 @@ function ShippingTab() {
 
   const handleSave = () => {
     if (!form.title || !form.description) { toast({ title: "Nhập đủ thông tin", variant: "destructive" }); return; }
-    const data = { title: form.title, description: form.description, status: form.status, estimatedDate: form.estimatedDate || null };
+    const data = { title: form.title, description: form.description, status: form.status, estimatedDate: form.estimatedDate || null, estimatedArrivalDate: form.estimatedArrivalDate || null };
     if (editId) {
       updateUpdate.mutate({ id: editId, data }, { onSuccess: () => { invalidate(); setOpen(false); resetForm(); setEditId(null); toast({ title: "Đã cập nhật" }); } });
     } else {
@@ -3024,7 +3024,10 @@ function ShippingTab() {
                 </SelectContent>
               </Select>
             </div>
-            <div><Label>Ngày dự kiến</Label><Input type="date" value={form.estimatedDate} onChange={(e) => setForm({ ...form, estimatedDate: e.target.value })} className="rounded-xl mt-1" /></div>
+            <div className="grid grid-cols-2 gap-2">
+              <div><Label className="text-xs">🚚 Dự kiến ngày đi hàng</Label><Input type="date" value={form.estimatedDate} onChange={(e) => setForm({ ...form, estimatedDate: e.target.value })} className="rounded-xl mt-1" /></div>
+              <div><Label className="text-xs">📦 Dự kiến ngày hàng về</Label><Input type="date" value={form.estimatedArrivalDate} onChange={(e) => setForm({ ...form, estimatedArrivalDate: e.target.value })} className="rounded-xl mt-1" /></div>
+            </div>
             <Button className="w-full rounded-xl" onClick={handleSave} data-testid="button-save-shipping">Lưu</Button>
           </div>
         </DialogContent>
