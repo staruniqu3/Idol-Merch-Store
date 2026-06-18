@@ -408,7 +408,7 @@ function StatusCarousel({ entries }: { entries: StatusEntry[] }) {
 }
 
 export default function ShippingPage() {
-  const { data: updates, isLoading: updatesLoading } = useListShippingUpdates();
+  const { data: updates, isLoading: updatesLoading } = useListShippingUpdates(undefined, { query: { refetchInterval: 10_000 } });
   const [selected, setSelected] = useState<Update | null>(null);
   const [sheetData, setSheetData] = useState<SheetShipping[]>([]);
   const [sheetLoading, setSheetLoading] = useState(true);

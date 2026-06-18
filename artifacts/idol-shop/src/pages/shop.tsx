@@ -56,7 +56,7 @@ function formatPrice(price: number) {
 const MATMAT_URL = "https://matmat.up.railway.app/";
 
 export default function ShopPage() {
-  const { data: products, isLoading } = useListProducts();
+  const { data: products, isLoading } = useListProducts(undefined, { query: { refetchInterval: 10_000 } });
   const [selectedCategory, setSelectedCategory] = useState("Tất cả");
   const [showAllCats, setShowAllCats] = useState(false);
   const [selectedTag, setSelectedTag] = useState("Tất cả");

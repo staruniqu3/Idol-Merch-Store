@@ -214,8 +214,8 @@ function BankSettingsCard() {
 // ===================== Dashboard =====================
 function DashboardTab() {
   const { data: summary } = useGetOrderSummary();
-  const { data: members } = useListMembers();
-  const { data: products } = useListProducts(undefined, { query: { refetchInterval: 30_000 } });
+  const { data: members } = useListMembers({ query: { refetchInterval: 10_000 } });
+  const { data: products } = useListProducts(undefined, { query: { refetchInterval: 10_000 } });
 
   const [reminderDismissed, setReminderDismissed] = useState<string>(() =>
     localStorage.getItem("income_reminder_dismissed") ?? ""
@@ -282,7 +282,7 @@ function DashboardTab() {
 
 // ===================== Products =====================
 function ProductsTab() {
-  const { data: products } = useListProducts(undefined, { query: { refetchInterval: 30_000 } });
+  const { data: products } = useListProducts(undefined, { query: { refetchInterval: 10_000 } });
   const createProduct = useCreateProduct();
   const updateProduct = useUpdateProduct();
   const deleteProduct = useDeleteProduct();
@@ -1464,9 +1464,9 @@ const manualStatusLabels: Record<string, string> = {
 };
 
 function OrdersTab() {
-  const { data: orders } = useListOrders();
-  const { data: products } = useListProducts(undefined, { query: { refetchInterval: 30_000 } });
-  const { data: allMembers } = useListMembers({ query: { refetchInterval: 30_000 } });
+  const { data: orders } = useListOrders(undefined, { query: { refetchInterval: 10_000 } });
+  const { data: products } = useListProducts(undefined, { query: { refetchInterval: 10_000 } });
+  const { data: allMembers } = useListMembers({ query: { refetchInterval: 10_000 } });
   const updateOrder = useUpdateOrder();
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -1586,7 +1586,7 @@ function OrdersTab() {
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ordersMode]);
-  const { data: manualOrders = [] } = useListManualOrders();
+  const { data: manualOrders = [] } = useListManualOrders({ query: { refetchInterval: 10_000 } });
   const createManualOrderMut = useCreateManualOrder();
   const updateManualOrderMut = useUpdateManualOrder();
   const deleteManualOrderMut = useDeleteManualOrder();
@@ -3291,7 +3291,7 @@ type BatchRecord = {
 };
 
 function StatsTab() {
-  const { data: orders } = useListOrders();
+  const { data: orders } = useListOrders(undefined, { query: { refetchInterval: 10_000 } });
   const base = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
 
   // ── Server-sync helpers (server = source of truth) ──
@@ -4782,7 +4782,7 @@ interface MergedMember {
 
 function MembersTab() {
   const addPoints = useAddPoints();
-  const { data: dbMembers, refetch: refetchDb } = useListMembers();
+  const { data: dbMembers, refetch: refetchDb } = useListMembers({ query: { refetchInterval: 10_000 } });
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const [sheetMembers, setSheetMembers] = useState<any[]>([]);
@@ -4985,7 +4985,7 @@ function MembersTab() {
 
 // ===================== Rewards =====================
 function RewardsTab() {
-  const { data: rewards } = useListRewards();
+  const { data: rewards } = useListRewards({ query: { refetchInterval: 10_000 } });
   const createReward = useCreateReward();
   const deleteReward = useDeleteReward();
   const queryClient = useQueryClient();
