@@ -766,7 +766,7 @@ function ProductsTab() {
                                         <Input
                                           value={ssvInput.name}
                                           onChange={(e) => setSubSubVariantInputs((s) => ({ ...s, [ssvKey]: { ...ssvInput, name: e.target.value } }))}
-                                          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addSubSubVariant(); } }}
+                                          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); e.stopPropagation(); addSubSubVariant(); } }}
                                           placeholder="Tên size (S, M, L...)"
                                           className="rounded h-6 text-[9px] flex-1 bg-white px-1.5"
                                         />
@@ -805,7 +805,7 @@ function ProductsTab() {
                               <Input
                                 value={subInput.name}
                                 onChange={(e) => setSubVariantInputs((s) => ({ ...s, [idx]: { ...subInput, name: e.target.value } }))}
-                                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addSubVariant(); } }}
+                                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); e.stopPropagation(); addSubVariant(); } }}
                                 placeholder="Tên biến thể phụ..."
                                 className="rounded-lg h-7 text-[10px] flex-1 bg-white"
                               />
