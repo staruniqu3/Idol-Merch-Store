@@ -23,6 +23,17 @@ export interface Product {
   isSoldOut: boolean;
   /** preorder or pickup */
   orderType: string;
+  /** @nullable */
+  orderLabel?: string | null;
+  /** @nullable */
+  orderName?: string | null;
+  /** @nullable */
+  tags?: string[] | null;
+  /** @nullable */
+  variants?: unknown[] | null;
+  /** @nullable */
+  slotPrefix?: string | null;
+  slotConfig?: unknown | null;
   createdAt: string;
 }
 
@@ -37,6 +48,17 @@ export interface CreateProductBody {
   stock: number;
   isAvailable: boolean;
   orderType: string;
+  /** @nullable */
+  orderLabel?: string | null;
+  /** @nullable */
+  orderName?: string | null;
+  /** @nullable */
+  tags?: string[] | null;
+  /** @nullable */
+  variants?: unknown[] | null;
+  /** @nullable */
+  slotPrefix?: string | null;
+  slotConfig?: unknown | null;
 }
 
 export interface UpdateProductBody {
@@ -51,6 +73,17 @@ export interface UpdateProductBody {
   isAvailable?: boolean;
   isSoldOut?: boolean;
   orderType?: string;
+  /** @nullable */
+  orderLabel?: string | null;
+  /** @nullable */
+  orderName?: string | null;
+  /** @nullable */
+  tags?: string[] | null;
+  /** @nullable */
+  variants?: unknown[] | null;
+  /** @nullable */
+  slotPrefix?: string | null;
+  slotConfig?: unknown | null;
 }
 
 export interface Order {

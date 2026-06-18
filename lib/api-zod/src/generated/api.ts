@@ -33,6 +33,12 @@ export const ListProductsResponseItem = zod.object({
   isAvailable: zod.boolean(),
   isSoldOut: zod.boolean(),
   orderType: zod.string().describe("preorder or pickup"),
+  orderLabel: zod.string().nullish(),
+  orderName: zod.string().nullish(),
+  tags: zod.array(zod.string()).nullish(),
+  variants: zod.array(zod.unknown()).nullish(),
+  slotPrefix: zod.string().nullish(),
+  slotConfig: zod.unknown().nullish(),
   createdAt: zod.coerce.date(),
 });
 export const ListProductsResponse = zod.array(ListProductsResponseItem);
@@ -49,6 +55,12 @@ export const CreateProductBody = zod.object({
   stock: zod.number(),
   isAvailable: zod.boolean(),
   orderType: zod.string(),
+  orderLabel: zod.string().nullish(),
+  orderName: zod.string().nullish(),
+  tags: zod.array(zod.string()).nullish(),
+  variants: zod.array(zod.unknown()).nullish(),
+  slotPrefix: zod.string().nullish(),
+  slotConfig: zod.unknown().nullish(),
 });
 
 /**
@@ -69,6 +81,12 @@ export const GetProductResponse = zod.object({
   isAvailable: zod.boolean(),
   isSoldOut: zod.boolean(),
   orderType: zod.string().describe("preorder or pickup"),
+  orderLabel: zod.string().nullish(),
+  orderName: zod.string().nullish(),
+  tags: zod.array(zod.string()).nullish(),
+  variants: zod.array(zod.unknown()).nullish(),
+  slotPrefix: zod.string().nullish(),
+  slotConfig: zod.unknown().nullish(),
   createdAt: zod.coerce.date(),
 });
 
@@ -89,6 +107,12 @@ export const UpdateProductBody = zod.object({
   isAvailable: zod.boolean().optional(),
   isSoldOut: zod.boolean().optional(),
   orderType: zod.string().optional(),
+  orderLabel: zod.string().nullish(),
+  orderName: zod.string().nullish(),
+  tags: zod.array(zod.string()).nullish(),
+  variants: zod.array(zod.unknown()).nullish(),
+  slotPrefix: zod.string().nullish(),
+  slotConfig: zod.unknown().nullish(),
 });
 
 export const UpdateProductResponse = zod.object({
@@ -102,6 +126,12 @@ export const UpdateProductResponse = zod.object({
   isAvailable: zod.boolean(),
   isSoldOut: zod.boolean(),
   orderType: zod.string().describe("preorder or pickup"),
+  orderLabel: zod.string().nullish(),
+  orderName: zod.string().nullish(),
+  tags: zod.array(zod.string()).nullish(),
+  variants: zod.array(zod.unknown()).nullish(),
+  slotPrefix: zod.string().nullish(),
+  slotConfig: zod.unknown().nullish(),
   createdAt: zod.coerce.date(),
 });
 

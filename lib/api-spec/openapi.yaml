@@ -545,6 +545,21 @@ components:
         orderType:
           type: string
           description: "preorder or pickup"
+        orderLabel:
+          type: ["string", "null"]
+        orderName:
+          type: ["string", "null"]
+        tags:
+          type: ["array", "null"]
+          items:
+            type: string
+        variants:
+          type: ["array", "null"]
+          items: {}
+        slotPrefix:
+          type: ["string", "null"]
+        slotConfig:
+          nullable: true
         createdAt:
           type: string
           format: date-time
@@ -569,6 +584,21 @@ components:
           type: boolean
         orderType:
           type: string
+        orderLabel:
+          type: ["string", "null"]
+        orderName:
+          type: ["string", "null"]
+        tags:
+          type: ["array", "null"]
+          items:
+            type: string
+        variants:
+          type: ["array", "null"]
+          items: {}
+        slotPrefix:
+          type: ["string", "null"]
+        slotConfig:
+          nullable: true
       required: [name, price, category, stock, isAvailable, orderType]
 
     UpdateProductBody:
@@ -592,6 +622,21 @@ components:
           type: boolean
         orderType:
           type: string
+        orderLabel:
+          type: ["string", "null"]
+        orderName:
+          type: ["string", "null"]
+        tags:
+          type: ["array", "null"]
+          items:
+            type: string
+        variants:
+          type: ["array", "null"]
+          items: {}
+        slotPrefix:
+          type: ["string", "null"]
+        slotConfig:
+          nullable: true
 
     Order:
       type: object
