@@ -70,9 +70,10 @@ const tierColors: Record<string, string> = {
 };
 
 // ── Formatted price input (shows 640.000 when blurred, raw digits when focused) ──
-function PriceInput({ value, onChange, placeholder, className, style, title, "data-testid": dataTestId }: {
+function PriceInput({ value, onChange, onKeyDown, placeholder, className, style, title, "data-testid": dataTestId }: {
   value: number | string | undefined;
   onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  onKeyDown?: (e: React.KeyboardEvent<HTMLInputElement>) => void;
   placeholder?: string;
   className?: string;
   style?: React.CSSProperties;
@@ -102,6 +103,7 @@ function PriceInput({ value, onChange, placeholder, className, style, title, "da
       title={title}
       onFocus={() => setFocused(true)}
       onBlur={() => setFocused(false)}
+      onKeyDown={onKeyDown}
       onChange={(e) => {
         const digits = e.target.value.replace(/[^\d]/g, "");
         onChange({ ...e, target: { ...e.target, value: digits } } as React.ChangeEvent<HTMLInputElement>);
@@ -773,6 +775,7 @@ function ProductsTab() {
                                         <PriceInput
                                           value={ssvInput.price}
                                           onChange={(e) => setSubSubVariantInputs((s) => ({ ...s, [ssvKey]: { ...ssvInput, price: e.target.value } }))}
+                                          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); e.stopPropagation(); addSubSubVariant(); } }}
                                           placeholder="Giá"
                                           className="rounded h-6 text-[9px] w-20 bg-white px-1.5 border border-input outline-none focus:border-primary/60"
                                         />
@@ -780,6 +783,7 @@ function ProductsTab() {
                                           <Input
                                             value={ssvInput.stock}
                                             onChange={(e) => setSubSubVariantInputs((s) => ({ ...s, [ssvKey]: { ...ssvInput, stock: e.target.value } }))}
+                                            onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); e.stopPropagation(); addSubSubVariant(); } }}
                                             placeholder="Kho"
                                             type="number"
                                             min="0"
@@ -812,6 +816,7 @@ function ProductsTab() {
                               <PriceInput
                                 value={subInput.price}
                                 onChange={(e) => setSubVariantInputs((s) => ({ ...s, [idx]: { ...subInput, price: e.target.value } }))}
+                                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); e.stopPropagation(); addSubVariant(); } }}
                                 placeholder="Giá"
                                 className="rounded-lg h-7 text-[10px] w-24 bg-white border border-input px-2 outline-none focus:border-primary/60"
                               />
@@ -819,6 +824,7 @@ function ProductsTab() {
                                 <Input
                                   value={subInput.stock}
                                   onChange={(e) => setSubVariantInputs((s) => ({ ...s, [idx]: { ...subInput, stock: e.target.value } }))}
+                                  onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); e.stopPropagation(); addSubVariant(); } }}
                                   placeholder="Kho"
                                   type="number"
                                   min="0"
@@ -863,6 +869,19 @@ function ProductsTab() {
                 <PriceInput
                   value={customVariantInput.price}
                   onChange={(e) => setCustomVariantInput((s) => ({ ...s, price: e.target.value }))}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      const name = customVariantInput.name.trim();
+                      if (!name) return;
+                      const p = customVariantInput.price.trim();
+                      const price = p ? parseFloat(p) : undefined;
+                      const stk = customVariantInput.stock.trim();
+                      const stock = stk ? parseInt(stk) : undefined;
+                      setForm((f) => ({ ...f, variants: [...f.variants, { name, price, stock }] }));
+                      setCustomVariantInput({ name: "", price: "", stock: "" });
+                    }
+                  }}
                   placeholder="Giá (VND)"
                   className="rounded-xl h-8 text-xs w-28 bg-background border border-input px-2 outline-none focus:border-primary/60"
                 />
@@ -870,6 +889,19 @@ function ProductsTab() {
                   <Input
                     value={customVariantInput.stock}
                     onChange={(e) => setCustomVariantInput((s) => ({ ...s, stock: e.target.value }))}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        const name = customVariantInput.name.trim();
+                        if (!name) return;
+                        const p = customVariantInput.price.trim();
+                        const price = p ? parseFloat(p) : undefined;
+                        const stk = customVariantInput.stock.trim();
+                        const stock = stk ? parseInt(stk) : undefined;
+                        setForm((f) => ({ ...f, variants: [...f.variants, { name, price, stock }] }));
+                        setCustomVariantInput({ name: "", price: "", stock: "" });
+                      }
+                    }}
                     placeholder="Kho"
                     type="number"
                     min="0"
