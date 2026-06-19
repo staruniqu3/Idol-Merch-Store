@@ -441,7 +441,6 @@ function AddVariantRow({ isPreorder, onAdd }: {
       )}
       <button
         type="button"
-        tabIndex={-1}
         onClick={handleAdd}
         className="shrink-0 h-8 px-3 rounded-xl text-xs font-bold bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
       >
