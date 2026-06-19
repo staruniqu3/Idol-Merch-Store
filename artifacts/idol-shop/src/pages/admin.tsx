@@ -282,6 +282,105 @@ function DashboardTab() {
   );
 }
 
+// ── Isolated add-row components (local state → reliable clear after add) ──
+function AddSubVariantRow({ idx, isPreorder, onAdd }: {
+  idx: number;
+  isPreorder: boolean;
+  onAdd: (idx: number, name: string, price?: number, stock?: number) => void;
+}) {
+  const [name, setName] = useState("");
+  const [price, setPrice] = useState("");
+  const [stock, setStock] = useState("");
+  const nameRef = useRef<HTMLInputElement>(null);
+  const handleAdd = () => {
+    const n = name.trim();
+    if (!n) return;
+    onAdd(idx, n, price ? parseFloat(price) : undefined, stock ? parseInt(stock) : undefined);
+    setName(""); setPrice(""); setStock("");
+    setTimeout(() => nameRef.current?.focus(), 0);
+  };
+  return (
+    <div className="flex gap-1.5 pt-0.5">
+      <input
+        ref={nameRef}
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); e.stopPropagation(); handleAdd(); } }}
+        placeholder="Tên biến thể phụ..."
+        className="flex h-7 w-full rounded-lg border border-input bg-white px-3 py-1 text-[10px] shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring flex-1"
+      />
+      <PriceInput
+        value={price}
+        onChange={(e) => setPrice(e.target.value)}
+        onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); e.stopPropagation(); handleAdd(); } }}
+        placeholder="Giá"
+        className="rounded-lg h-7 text-[10px] w-24 bg-white border border-input px-2 outline-none focus:border-primary/60"
+      />
+      {!isPreorder && (
+        <input
+          type="number"
+          min="0"
+          value={stock}
+          onChange={(e) => setStock(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); e.stopPropagation(); handleAdd(); } }}
+          placeholder="Kho"
+          className="flex h-7 rounded-lg border border-input bg-white px-2 py-1 text-[10px] shadow-sm w-14 outline-none focus:border-primary/60"
+        />
+      )}
+      <button type="button" onClick={handleAdd} className="shrink-0 h-7 px-2 rounded-lg text-[10px] font-bold bg-violet-600 text-white hover:bg-violet-700 transition-colors">+</button>
+    </div>
+  );
+}
+
+function AddSubSubVariantRow({ ssvKey, isPreorder, onAdd }: {
+  ssvKey: string;
+  isPreorder: boolean;
+  onAdd: (ssvKey: string, name: string, price?: number, stock?: number) => void;
+}) {
+  const [name, setName] = useState("");
+  const [price, setPrice] = useState("");
+  const [stock, setStock] = useState("");
+  const nameRef = useRef<HTMLInputElement>(null);
+  const handleAdd = () => {
+    const n = name.trim();
+    if (!n) return;
+    onAdd(ssvKey, n, price ? parseFloat(price) : undefined, stock ? parseInt(stock) : undefined);
+    setName(""); setPrice(""); setStock("");
+    setTimeout(() => nameRef.current?.focus(), 0);
+  };
+  return (
+    <div className="flex gap-1 pt-0.5">
+      <input
+        ref={nameRef}
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); e.stopPropagation(); handleAdd(); } }}
+        placeholder="Tên size (S, M, L...)"
+        className="flex h-6 w-full rounded border border-input bg-white px-1.5 py-1 text-[9px] shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring flex-1"
+      />
+      <PriceInput
+        value={price}
+        onChange={(e) => setPrice(e.target.value)}
+        onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); e.stopPropagation(); handleAdd(); } }}
+        placeholder="Giá"
+        className="rounded h-6 text-[9px] w-20 bg-white px-1.5 border border-input outline-none focus:border-primary/60"
+      />
+      {!isPreorder && (
+        <input
+          type="number"
+          min="0"
+          value={stock}
+          onChange={(e) => setStock(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); e.stopPropagation(); handleAdd(); } }}
+          placeholder="Kho"
+          className="flex h-6 rounded border border-input bg-white px-1.5 py-1 text-[9px] shadow-sm w-12 outline-none focus:border-primary/60"
+        />
+      )}
+      <button type="button" onClick={handleAdd} className="shrink-0 h-6 px-2 rounded text-[9px] font-bold bg-fuchsia-600 text-white hover:bg-fuchsia-700 transition-colors">+</button>
+    </div>
+  );
+}
+
 // ===================== Products =====================
 function ProductsTab() {
   const { data: products } = useListProducts(undefined, { query: { refetchInterval: 10_000 } });
@@ -296,11 +395,7 @@ function ProductsTab() {
   type SubVariantDraft = { name: string; price?: number; stock?: number; soldOut?: boolean; subSubVariants?: SubSubVariantDraft[]; _showSubSubs?: boolean };
   type VariantDraft = { name: string; price?: number; stock?: number; soldOut?: boolean; memberOnly?: boolean; subVariants?: SubVariantDraft[]; _showSubs?: boolean };
   const [form, setForm] = useState({ name: "", description: "", price: "", category: "Kpop", stock: "0", isAvailable: true, isSoldOut: false, orderType: "preorder", orderLabel: "", orderName: "", imageUrl: "", tags: [] as string[], variants: [] as VariantDraft[], slotPrefix: "", slotConfig: {} as Record<string, any>, lockAt: "" });
-  const [subVariantInputs, setSubVariantInputs] = useState<Record<number, { name: string; price: string; stock: string }>>({});
   const lastAddMainRef = useRef<number>(0);
-  const lastAddSubRef  = useRef<Record<number, number>>({});
-  const lastAddSubSubRef = useRef<Record<string, number>>({});
-  const [subSubVariantInputs, setSubSubVariantInputs] = useState<Record<string, { name: string; price: string; stock: string }>>({});
   const [copiedSubVariants, setCopiedSubVariants] = useState<SubVariantDraft[] | null>(null);
   const [copiedSubSubVariants, setCopiedSubSubVariants] = useState<SubSubVariantDraft[] | null>(null);
   const [customTagInput, setCustomTagInput] = useState("");
@@ -368,7 +463,7 @@ function ProductsTab() {
     "Weverse Album", "Limited Edition", "Merch Bundle",
   ];
 
-  const resetForm = () => { setForm({ name: "", description: "", price: "", category: "Kpop", stock: "0", isAvailable: true, isSoldOut: false, orderType: "preorder", orderLabel: "", orderName: "", imageUrl: "", tags: [], variants: [], slotPrefix: "", slotConfig: {}, lockAt: "" }); setCustomTagInput(""); setCustomVariantInput({ name: "", price: "", stock: "" }); setSubVariantInputs({}); setSubSubVariantInputs({}); setCopiedSubVariants(null); setCopiedSubSubVariants(null); };
+  const resetForm = () => { setForm({ name: "", description: "", price: "", category: "Kpop", stock: "0", isAvailable: true, isSoldOut: false, orderType: "preorder", orderLabel: "", orderName: "", imageUrl: "", tags: [], variants: [], slotPrefix: "", slotConfig: {}, lockAt: "" }); setCustomTagInput(""); setCustomVariantInput({ name: "", price: "", stock: "" }); setCopiedSubVariants(null); setCopiedSubSubVariants(null); };
 
   const addCustomTag = () => {
     const tag = customTagInput.trim();
@@ -379,8 +474,6 @@ function ProductsTab() {
 
   const openEdit = (p: NonNullable<typeof products>[0]) => {
     setEditId(p.id);
-    setSubVariantInputs({});
-    setSubSubVariantInputs({});
     setForm({ name: p.name, description: p.description ?? "", price: String(p.price), category: p.category, stock: String(p.stock), isAvailable: p.isAvailable, isSoldOut: (p as any).isSoldOut ?? false, orderType: p.orderType, orderLabel: (p as any).orderLabel ?? "", orderName: (p as any).orderName ?? "", imageUrl: p.imageUrl ?? "", tags: p.tags ?? [], variants: (p.variants ?? []).map((v: any) => ({ name: v.name, price: v.price ?? undefined, stock: v.stock ?? undefined, soldOut: v.soldOut ?? false, memberOnly: v.memberOnly ?? false, subVariants: (v.subVariants ?? []).map((sv: any) => ({ name: sv.name, price: sv.price ?? undefined, stock: sv.stock ?? undefined, soldOut: sv.soldOut ?? false, subSubVariants: (sv.subSubVariants ?? []).map((ssv: any) => ({ name: ssv.name, price: ssv.price ?? undefined, stock: ssv.stock ?? undefined, soldOut: ssv.soldOut ?? false })), _showSubSubs: (sv.subSubVariants ?? []).length > 0 })), _showSubs: (v.subVariants ?? []).length > 0 })), slotPrefix: (p as any).slotPrefix ?? "", slotConfig: (p as any).slotConfig ?? {}, lockAt: productLocks[String(p.id)] ?? "" });
     setOpen(true);
   };
@@ -579,18 +672,6 @@ function ProductsTab() {
               {form.variants.length > 0 && (
                 <div className="space-y-1.5">
                   {form.variants.map((v, idx) => {
-                    const subInput = subVariantInputs[idx] ?? { name: "", price: "", stock: "" };
-                    const addSubVariant = () => {
-                      const now = Date.now();
-                      if (now - (lastAddSubRef.current[idx] ?? 0) < 400) return;
-                      lastAddSubRef.current[idx] = now;
-                      const name = subInput.name.trim();
-                      if (!name) return;
-                      const price = subInput.price ? parseFloat(subInput.price) : undefined;
-                      const stock = subInput.stock ? parseInt(subInput.stock) : undefined;
-                      setForm((f) => ({ ...f, variants: f.variants.map((vv, i) => i === idx ? { ...vv, subVariants: [...(vv.subVariants ?? []), { name, price, stock }] } : vv) }));
-                      setSubVariantInputs((s) => ({ ...s, [idx]: { name: "", price: "", stock: "" } }));
-                    };
                     return (
                       <div key={idx} className={`rounded-xl border transition-colors ${v.soldOut ? "bg-red-50 border-red-200" : "bg-background border-border"}`}>
                         <div className="flex items-center gap-2 px-3 py-1.5">
@@ -694,18 +775,6 @@ function ProductsTab() {
 
                             {(v.subVariants ?? []).map((sv, svIdx) => {
                               const ssvKey = `${idx}-${svIdx}`;
-                              const ssvInput = subSubVariantInputs[ssvKey] ?? { name: "", price: "", stock: "" };
-                              const addSubSubVariant = () => {
-                                const now = Date.now();
-                                if (now - (lastAddSubSubRef.current[ssvKey] ?? 0) < 400) return;
-                                lastAddSubSubRef.current[ssvKey] = now;
-                                const name = ssvInput.name.trim();
-                                if (!name) return;
-                                const price = ssvInput.price ? parseFloat(ssvInput.price) : undefined;
-                                const stock = ssvInput.stock ? parseInt(ssvInput.stock) : undefined;
-                                setForm((f) => ({ ...f, variants: f.variants.map((vv, vi) => vi === idx ? { ...vv, subVariants: (vv.subVariants ?? []).map((s, si) => si === svIdx ? { ...s, subSubVariants: [...(s.subSubVariants ?? []), { name, price, stock }] } : s) } : vv) }));
-                                setSubSubVariantInputs((s) => ({ ...s, [ssvKey]: { name: "", price: "", stock: "" } }));
-                              };
                               return (
                                 <div key={svIdx} className={`rounded-lg border text-[10px] ${sv.soldOut ? "bg-red-50 border-red-200" : "bg-white border-violet-200"}`}>
                                   {/* Sub-variant row */}
@@ -810,84 +879,28 @@ function ProductsTab() {
                                           </button>
                                         </div>
                                       ))}
-                                      {/* Add sub-sub-variant — key resets inputs after each add */}
-                                      <div key={`add-ssv-${ssvKey}-${(sv.subSubVariants ?? []).length}`} className="flex gap-1 pt-0.5">
-                                        <Input
-                                          value={ssvInput.name}
-                                          onChange={(e) => { const val = e.target.value; setSubSubVariantInputs((s) => ({ ...s, [ssvKey]: { ...(s[ssvKey] ?? { name: "", price: "", stock: "" }), name: val } })); }}
-                                          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); e.stopPropagation(); addSubSubVariant(); } }}
-                                          placeholder="Tên size (S, M, L...)"
-                                          className="rounded h-6 text-[9px] flex-1 bg-white px-1.5"
-                                          autoFocus
-                                        />
-                                        <PriceInput
-                                          value={ssvInput.price}
-                                          onChange={(e) => { const val = e.target.value; setSubSubVariantInputs((s) => ({ ...s, [ssvKey]: { ...(s[ssvKey] ?? { name: "", price: "", stock: "" }), price: val } })); }}
-                                          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); e.stopPropagation(); addSubSubVariant(); } }}
-                                          placeholder="Giá"
-                                          className="rounded h-6 text-[9px] w-20 bg-white px-1.5 border border-input outline-none focus:border-primary/60"
-                                        />
-                                        {form.orderType !== "preorder" && (
-                                          <Input
-                                            value={ssvInput.stock}
-                                            onChange={(e) => { const val = e.target.value; setSubSubVariantInputs((s) => ({ ...s, [ssvKey]: { ...(s[ssvKey] ?? { name: "", price: "", stock: "" }), stock: val } })); }}
-                                            onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); e.stopPropagation(); addSubSubVariant(); } }}
-                                            placeholder="Kho"
-                                            type="number"
-                                            min="0"
-                                            className="rounded h-6 text-[9px] w-12 bg-white px-1.5"
-                                          />
-                                        )}
-                                        <button
-                                          type="button"
-                                          onClick={addSubSubVariant}
-                                          className="shrink-0 h-6 px-2 rounded text-[9px] font-bold bg-fuchsia-600 text-white hover:bg-fuchsia-700 transition-colors"
-                                        >
-                                          +
-                                        </button>
-                                      </div>
+                                      {/* Add sub-sub-variant row */}
+                                      <AddSubSubVariantRow
+                                        ssvKey={ssvKey}
+                                        isPreorder={form.orderType === "preorder"}
+                                        onAdd={(key, name, price, stock) => {
+                                          setForm((f) => ({ ...f, variants: f.variants.map((vv, vi) => vi === idx ? { ...vv, subVariants: (vv.subVariants ?? []).map((s, si) => si === svIdx ? { ...s, subSubVariants: [...(s.subSubVariants ?? []), { name, price, stock }] } : s) } : vv) }));
+                                        }}
+                                      />
                                     </div>
                                   )}
                                 </div>
                               );
                             })}
 
-                            {/* Add sub-variant row — key resets inputs after each add */}
-                            <div key={`add-sub-${idx}-${(v.subVariants ?? []).length}`} className="flex gap-1.5 pt-0.5">
-                              <Input
-                                value={subInput.name}
-                                onChange={(e) => { const val = e.target.value; setSubVariantInputs((s) => ({ ...s, [idx]: { ...(s[idx] ?? { name: "", price: "", stock: "" }), name: val } })); }}
-                                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); e.stopPropagation(); addSubVariant(); } }}
-                                placeholder="Tên biến thể phụ..."
-                                className="rounded-lg h-7 text-[10px] flex-1 bg-white"
-                                autoFocus
-                              />
-                              <PriceInput
-                                value={subInput.price}
-                                onChange={(e) => { const val = e.target.value; setSubVariantInputs((s) => ({ ...s, [idx]: { ...(s[idx] ?? { name: "", price: "", stock: "" }), price: val } })); }}
-                                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); e.stopPropagation(); addSubVariant(); } }}
-                                placeholder="Giá"
-                                className="rounded-lg h-7 text-[10px] w-24 bg-white border border-input px-2 outline-none focus:border-primary/60"
-                              />
-                              {form.orderType !== "preorder" && (
-                                <Input
-                                  value={subInput.stock}
-                                  onChange={(e) => { const val = e.target.value; setSubVariantInputs((s) => ({ ...s, [idx]: { ...(s[idx] ?? { name: "", price: "", stock: "" }), stock: val } })); }}
-                                  onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); e.stopPropagation(); addSubVariant(); } }}
-                                  placeholder="Kho"
-                                  type="number"
-                                  min="0"
-                                  className="rounded-lg h-7 text-[10px] w-14 bg-white"
-                                />
-                              )}
-                              <button
-                                type="button"
-                                onClick={addSubVariant}
-                                className="shrink-0 h-7 px-2 rounded-lg text-[10px] font-bold bg-violet-600 text-white hover:bg-violet-700 transition-colors"
-                              >
-                                +
-                              </button>
-                            </div>
+                            {/* Add sub-variant row */}
+                            <AddSubVariantRow
+                              idx={idx}
+                              isPreorder={form.orderType === "preorder"}
+                              onAdd={(i, name, price, stock) => {
+                                setForm((f) => ({ ...f, variants: f.variants.map((vv, vi) => vi === i ? { ...vv, subVariants: [...(vv.subVariants ?? []), { name, price, stock }] } : vv) }));
+                              }}
+                            />
                           </div>
                         )}
                       </div>
