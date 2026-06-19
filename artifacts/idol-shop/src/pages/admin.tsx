@@ -8439,7 +8439,7 @@ function CashFlowTab() {
   const [staffOrderFilter, setStaffOrderFilter] = useState("all");
   const [showFxManager, setShowFxManager] = useState(false);
   const [collapsedStaff, setCollapsedStaff] = useState<Set<string>>(new Set());
-  const [fxForm, setFxForm] = useState({ currency: "THB", foreignAmount: 1000, vndAmount: 800000 });
+  const [fxForm, setFxForm] = useState({ currency: "THB", vndRate: 800 });
 
   const fetchEntries = async () => {
     try {
@@ -8554,10 +8554,10 @@ function CashFlowTab() {
     await fetch(`${base}/api/settings/${FX_RATES_KEY}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(updated) }).catch(() => {});
   };
   const addFxRate = () => {
-    if (!fxForm.currency.trim() || fxForm.foreignAmount <= 0 || fxForm.vndAmount <= 0) return;
-    const rate: FxRate = { id: Date.now().toString(), currency: fxForm.currency.trim().toUpperCase(), foreignAmount: fxForm.foreignAmount, vndAmount: fxForm.vndAmount };
+    if (!fxForm.currency.trim() || fxForm.vndRate <= 0) return;
+    const rate: FxRate = { id: Date.now().toString(), currency: fxForm.currency.trim().toUpperCase(), foreignAmount: 1, vndAmount: fxForm.vndRate };
     saveFxRates([...fxRates, rate]);
-    setFxForm({ currency: "THB", foreignAmount: 1000, vndAmount: 800000 });
+    setFxForm({ currency: "THB", vndRate: 800 });
   };
   const deleteFxRate = (id: string) => saveFxRates(fxRates.filter((r) => r.id !== id));
 
@@ -8820,7 +8820,7 @@ function CashFlowTab() {
                 <div className="flex flex-wrap gap-1.5">
                   {fxRates.map((r) => (
                     <div key={r.id} className="flex items-center gap-1 bg-background border border-border rounded-full px-2.5 py-1">
-                      <span className="text-[10px] font-bold">{r.foreignAmount.toLocaleString()} {r.currency} = {formatPrice(r.vndAmount)}</span>
+                      <span className="text-[10px] font-bold">1 {r.currency} ≈ {formatPrice(Math.round(r.vndAmount / r.foreignAmount))}</span>
                       <button type="button" onClick={() => deleteFxRate(r.id)} className="text-muted-foreground/50 hover:text-destructive transition-colors text-xs leading-none ml-0.5">×</button>
                     </div>
                   ))}
@@ -8829,7 +8829,7 @@ function CashFlowTab() {
 
               {showFxManager && (
                 <div className="space-y-2 pt-2 border-t border-border">
-                  <div className="grid grid-cols-3 gap-1.5">
+                  <div className="grid grid-cols-2 gap-1.5">
                     <div>
                       <p className="text-[10px] text-muted-foreground mb-1">Tiền tệ</p>
                       <Input
@@ -8841,28 +8841,20 @@ function CashFlowTab() {
                       />
                     </div>
                     <div>
-                      <p className="text-[10px] text-muted-foreground mb-1">Số ngoại tệ</p>
+                      <p className="text-[10px] text-muted-foreground mb-1">1 đơn vị = VND</p>
                       <Input
                         type="number"
-                        value={fxForm.foreignAmount}
-                        onChange={(e) => setFxForm((f) => ({ ...f, foreignAmount: Number(e.target.value) }))}
-                        className="h-8 text-xs"
-                      />
-                    </div>
-                    <div>
-                      <p className="text-[10px] text-muted-foreground mb-1">= VND</p>
-                      <Input
-                        type="number"
-                        step={1000}
-                        value={fxForm.vndAmount}
-                        onChange={(e) => setFxForm((f) => ({ ...f, vndAmount: Number(e.target.value) }))}
+                        step={10}
+                        value={fxForm.vndRate}
+                        onChange={(e) => setFxForm((f) => ({ ...f, vndRate: Number(e.target.value) }))}
+                        placeholder="800"
                         className="h-8 text-xs"
                       />
                     </div>
                   </div>
-                  {fxForm.foreignAmount > 0 && fxForm.vndAmount > 0 && (
+                  {fxForm.vndRate > 0 && (
                     <p className="text-[10px] text-muted-foreground text-center">
-                      1 {fxForm.currency} ≈ {formatPrice(Math.round(fxForm.vndAmount / fxForm.foreignAmount))}
+                      1 {fxForm.currency || "?"} ≈ {formatPrice(fxForm.vndRate)}
                     </p>
                   )}
                   <Button size="sm" onClick={addFxRate} className="w-full h-7 text-xs">+ Thêm tỷ giá</Button>
