@@ -531,7 +531,7 @@ function ProductsTab() {
     "Weverse Album", "Limited Edition", "Merch Bundle",
   ];
 
-  const resetForm = () => { setForm({ name: "", description: "", price: "", category: "Kpop", stock: "0", isAvailable: true, isSoldOut: false, orderType: "preorder", orderLabel: "", orderName: "", imageUrl: "", tags: [], variants: [], slotPrefix: "", slotConfig: {}, lockAt: "" }); setCustomTagInput(""); setCustomVariantInput({ name: "", price: "", stock: "" }); setCopiedSubVariants(null); setCopiedSubSubVariants(null); };
+  const resetForm = () => { setForm({ name: "", description: "", price: "", category: "Kpop", stock: "0", isAvailable: true, isSoldOut: false, orderType: "preorder", orderLabel: "", orderName: "", imageUrl: "", tags: [], variants: [], slotPrefix: "", slotConfig: {}, lockAt: "" }); setCustomTagInput(""); setCopiedSubVariants(null); setCopiedSubSubVariants(null); };
 
   const addCustomTag = () => {
     const tag = customTagInput.trim();
