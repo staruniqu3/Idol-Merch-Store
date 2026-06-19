@@ -663,7 +663,7 @@ export default function PreorderPage() {
                           </span>
                         </div>
                       )}
-                      {(item.pickupDate || isPickupOnly) && (
+                      {(item.pickupDate || isPickup) && (
                         <div className="flex items-start gap-1.5 text-xs">
                           <Package size={12} className="text-emerald-500 mt-0.5 shrink-0" />
                           <div>

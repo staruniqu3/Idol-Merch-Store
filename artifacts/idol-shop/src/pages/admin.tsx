@@ -6006,6 +6006,7 @@ function CostTab() {
   const [editVal, setEditVal] = useState("");
   const [ratesSynced, setRatesSynced] = useState(false);
   const [syncing, setSyncing] = useState(false);
+  const { toast } = useToast();
 
   // Calculator state
   const [calcAmount, setCalcAmount] = useState("");
