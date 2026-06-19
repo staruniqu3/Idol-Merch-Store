@@ -391,6 +391,66 @@ function AddSubSubVariantRow({ ssvKey, isPreorder, onAdd }: {
   );
 }
 
+function AddVariantRow({ isPreorder, onAdd }: {
+  isPreorder: boolean;
+  onAdd: (name: string, price?: number, stock?: number) => void;
+}) {
+  const nameRef = useRef<HTMLInputElement>(null);
+  const priceRef = useRef<HTMLInputElement>(null);
+  const stockRef = useRef<HTMLInputElement>(null);
+  const lastRef = useRef(0);
+  const handleAdd = () => {
+    const now = Date.now();
+    if (now - lastRef.current < 80) return;
+    lastRef.current = now;
+    const n = (nameRef.current?.value ?? "").trim();
+    if (!n) return;
+    const priceRaw = (priceRef.current?.value ?? "").replace(/\./g, "").replace(/,/g, "");
+    const stockRaw = (stockRef.current?.value ?? "");
+    onAdd(n, priceRaw ? parseFloat(priceRaw) : undefined, stockRaw ? parseInt(stockRaw) : undefined);
+    if (nameRef.current) nameRef.current.value = "";
+    if (priceRef.current) priceRef.current.value = "";
+    if (stockRef.current) stockRef.current.value = "";
+    nameRef.current?.focus();
+  };
+  return (
+    <div className="flex gap-2 pt-1 border-t border-border/60">
+      <input
+        ref={nameRef}
+        onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); e.stopPropagation(); e.nativeEvent.stopImmediatePropagation(); handleAdd(); } }}
+        placeholder="Tên biến thể..."
+        className="flex h-8 w-full rounded-xl border border-input bg-background px-3 py-1 text-xs shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring flex-1"
+      />
+      <input
+        ref={priceRef}
+        type="text"
+        inputMode="numeric"
+        onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); e.stopPropagation(); e.nativeEvent.stopImmediatePropagation(); handleAdd(); } }}
+        placeholder="Giá (VND)"
+        className="rounded-xl h-8 text-xs w-28 bg-background border border-input px-2 outline-none focus:border-primary/60"
+      />
+      {!isPreorder && (
+        <input
+          ref={stockRef}
+          type="number"
+          min="0"
+          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); e.stopPropagation(); e.nativeEvent.stopImmediatePropagation(); handleAdd(); } }}
+          placeholder="Kho"
+          className="rounded-xl h-8 text-xs w-16 bg-background border border-input px-2 outline-none focus:border-primary/60"
+        />
+      )}
+      <button
+        type="button"
+        tabIndex={-1}
+        onClick={handleAdd}
+        className="shrink-0 h-8 px-3 rounded-xl text-xs font-bold bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+      >
+        + Thêm
+      </button>
+    </div>
+  );
+}
+
 // ===================== Products =====================
 function ProductsTab() {
   const { data: products } = useListProducts(undefined, { query: { refetchInterval: 10_000 } });
@@ -405,11 +465,9 @@ function ProductsTab() {
   type SubVariantDraft = { name: string; price?: number; stock?: number; soldOut?: boolean; subSubVariants?: SubSubVariantDraft[]; _showSubSubs?: boolean };
   type VariantDraft = { name: string; price?: number; stock?: number; soldOut?: boolean; memberOnly?: boolean; subVariants?: SubVariantDraft[]; _showSubs?: boolean };
   const [form, setForm] = useState({ name: "", description: "", price: "", category: "Kpop", stock: "0", isAvailable: true, isSoldOut: false, orderType: "preorder", orderLabel: "", orderName: "", imageUrl: "", tags: [] as string[], variants: [] as VariantDraft[], slotPrefix: "", slotConfig: {} as Record<string, any>, lockAt: "" });
-  const lastAddMainRef = useRef<number>(0);
   const [copiedSubVariants, setCopiedSubVariants] = useState<SubVariantDraft[] | null>(null);
   const [copiedSubSubVariants, setCopiedSubSubVariants] = useState<SubSubVariantDraft[] | null>(null);
   const [customTagInput, setCustomTagInput] = useState("");
-  const [customVariantInput, setCustomVariantInput] = useState({ name: "", price: "", stock: "" });
   const [customCategoryInput, setCustomCategoryInput] = useState("");
   const [customCategories, setCustomCategories] = useState<string[]>(() => {
     try { return JSON.parse(localStorage.getItem("custom_categories") || "[]"); } catch { return []; }
@@ -918,97 +976,12 @@ function ProductsTab() {
                   })}
                 </div>
               )}
-              <div className="flex gap-2 pt-1 border-t border-border/60">
-                <Input
-                  value={customVariantInput.name}
-                  onChange={(e) => setCustomVariantInput((s) => ({ ...s, name: e.target.value }))}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      const now = Date.now();
-                      if (now - lastAddMainRef.current < 400) return;
-                      lastAddMainRef.current = now;
-                      const name = customVariantInput.name.trim();
-                      if (!name) return;
-                      const p = customVariantInput.price.trim();
-                      const price = p ? parseFloat(p) : undefined;
-                      const stk = customVariantInput.stock.trim();
-                      const stock = stk ? parseInt(stk) : undefined;
-                      setForm((f) => ({ ...f, variants: [...f.variants, { name, price, stock }] }));
-                      setCustomVariantInput({ name: "", price: "", stock: "" });
-                    }
-                  }}
-                  placeholder="Tên biến thể..."
-                  className="rounded-xl h-8 text-xs flex-1 bg-background"
-                />
-                <PriceInput
-                  value={customVariantInput.price}
-                  onChange={(e) => setCustomVariantInput((s) => ({ ...s, price: e.target.value }))}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      const now = Date.now();
-                      if (now - lastAddMainRef.current < 400) return;
-                      lastAddMainRef.current = now;
-                      const name = customVariantInput.name.trim();
-                      if (!name) return;
-                      const p = customVariantInput.price.trim();
-                      const price = p ? parseFloat(p) : undefined;
-                      const stk = customVariantInput.stock.trim();
-                      const stock = stk ? parseInt(stk) : undefined;
-                      setForm((f) => ({ ...f, variants: [...f.variants, { name, price, stock }] }));
-                      setCustomVariantInput({ name: "", price: "", stock: "" });
-                    }
-                  }}
-                  placeholder="Giá (VND)"
-                  className="rounded-xl h-8 text-xs w-28 bg-background border border-input px-2 outline-none focus:border-primary/60"
-                />
-                {form.orderType !== "preorder" && (
-                  <Input
-                    value={customVariantInput.stock}
-                    onChange={(e) => setCustomVariantInput((s) => ({ ...s, stock: e.target.value }))}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        e.preventDefault();
-                        const now = Date.now();
-                        if (now - lastAddMainRef.current < 400) return;
-                        lastAddMainRef.current = now;
-                        const name = customVariantInput.name.trim();
-                        if (!name) return;
-                        const p = customVariantInput.price.trim();
-                        const price = p ? parseFloat(p) : undefined;
-                        const stk = customVariantInput.stock.trim();
-                        const stock = stk ? parseInt(stk) : undefined;
-                        setForm((f) => ({ ...f, variants: [...f.variants, { name, price, stock }] }));
-                        setCustomVariantInput({ name: "", price: "", stock: "" });
-                      }
-                    }}
-                    placeholder="Kho"
-                    type="number"
-                    min="0"
-                    className="rounded-xl h-8 text-xs w-16 bg-background"
-                  />
-                )}
-                <button
-                  type="button"
-                  onClick={() => {
-                    const now = Date.now();
-                    if (now - lastAddMainRef.current < 400) return;
-                    lastAddMainRef.current = now;
-                    const name = customVariantInput.name.trim();
-                    if (!name) return;
-                    const p = customVariantInput.price.trim();
-                    const price = p ? parseFloat(p) : undefined;
-                    const stk = customVariantInput.stock.trim();
-                    const stock = stk ? parseInt(stk) : undefined;
-                    setForm((f) => ({ ...f, variants: [...f.variants, { name, price, stock }] }));
-                    setCustomVariantInput({ name: "", price: "", stock: "" });
-                  }}
-                  className="shrink-0 h-8 px-3 rounded-xl text-xs font-bold bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
-                >
-                  + Thêm
-                </button>
-              </div>
+              <AddVariantRow
+                isPreorder={form.orderType === "preorder"}
+                onAdd={(name, price, stock) => {
+                  setForm((f) => ({ ...f, variants: [...f.variants, { name, price, stock }] }));
+                }}
+              />
             </div>
             <div><Label>Mô tả</Label><Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={2} className="rounded-xl mt-1" /></div>
             {(() => {
