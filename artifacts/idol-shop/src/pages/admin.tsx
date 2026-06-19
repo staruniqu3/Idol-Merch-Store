@@ -4333,7 +4333,7 @@ function StatsTab() {
                               <span className="text-[11px] text-muted-foreground block">{formatPrice(entry.price * entry.qty)}</span>
                               {statsFxRates.length > 0 && entry.price > 0 && (
                                 <span className="text-[9px] text-amber-600 font-bold block">
-                                  {statsFxRates.map((r) => `${Math.ceil((entry.price * entry.qty) / r.vndAmount * r.foreignAmount).toLocaleString()} ${r.currency}`).join(" · ")}
+                                  {statsFxRates.map((r) => `${(Math.ceil((entry.price * entry.qty) / r.vndAmount * r.foreignAmount) + 70).toLocaleString()} ${r.currency}`).join(" · ")}
                                 </span>
                               )}
                             </div>
