@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
 import { desc, notInArray } from "drizzle-orm";
 import { db, ordersTable } from "@workspace/db";
-import { getAllSheetPhones } from "../lib/google-sheets";
+import { getAllSheetEntries } from "../lib/google-sheets";
 
 const router: IRouter = Router();
 
@@ -25,14 +25,14 @@ router.get("/order-status", async (_req, res): Promise<void> => {
   res.json(orders);
 });
 
-// Returns all unique phone numbers found in the Google Form sheets (both old and new).
-// Used by admin to cross-reference with DB orders.
+// Returns all sheet entries {phone, timestamp} from Google Form sheets (both old and new).
+// Used by admin to cross-reference with DB orders by phone AND date.
 router.get("/sheet-phones", async (_req, res): Promise<void> => {
   try {
-    const phones = await getAllSheetPhones();
-    res.json({ phones });
+    const entries = await getAllSheetEntries();
+    res.json({ entries });
   } catch {
-    res.json({ phones: [] });
+    res.json({ entries: [] });
   }
 });
 

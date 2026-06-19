@@ -94,21 +94,33 @@ export interface SheetOrder {
   notes: string;
 }
 
-export async function getAllSheetPhones(): Promise<string[]> {
+export interface SheetEntry {
+  phone: string;
+  timestamp: string;
+}
+
+export async function getAllSheetEntries(): Promise<SheetEntry[]> {
   const sheets = await getGoogleSheetsClient();
+  // Fetch columns A (timestamp) and C (phone) from both sheets
   const [r1, r2] = await Promise.allSettled([
-    sheets.spreadsheets.values.get({ spreadsheetId: ORDERS_SHEET_ID, range: `${ORDERS_SHEET_NAME}!C:C` }),
-    sheets.spreadsheets.values.get({ spreadsheetId: ORDERS_SHEET_2_ID, range: `${ORDERS_SHEET_2_NAME}!C:C` }),
+    sheets.spreadsheets.values.get({ spreadsheetId: ORDERS_SHEET_ID, range: `${ORDERS_SHEET_NAME}!A:C` }),
+    sheets.spreadsheets.values.get({ spreadsheetId: ORDERS_SHEET_2_ID, range: `${ORDERS_SHEET_2_NAME}!A:C` }),
   ]);
   const norm = (p: string) => p.replace(/\D/g, "").replace(/^84/, "0");
-  const phones = new Set<string>();
+  const entries: SheetEntry[] = [];
   const rows1 = r1.status === "fulfilled" ? (r1.value.data.values ?? []).slice(1) : [];
   const rows2 = r2.status === "fulfilled" ? (r2.value.data.values ?? []).slice(1) : [];
   [...rows1, ...rows2].forEach((row) => {
-    const p = norm((row[0] ?? "").trim());
-    if (p.length >= 9) phones.add(p);
+    const phone = norm((row[2] ?? "").trim()); // col C = SĐT
+    const timestamp = (row[0] ?? "").trim();   // col A = Timestamp
+    if (phone.length >= 9) entries.push({ phone, timestamp });
   });
-  return Array.from(phones);
+  return entries;
+}
+
+export async function getAllSheetPhones(): Promise<string[]> {
+  const entries = await getAllSheetEntries();
+  return Array.from(new Set(entries.map((e) => e.phone)));
 }
 
 export async function getMemberOrdersByPhone(phone: string): Promise<SheetOrder[]> {

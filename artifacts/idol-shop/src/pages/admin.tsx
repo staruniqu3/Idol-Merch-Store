@@ -1848,38 +1848,78 @@ function OrdersTab() {
   };
   const updateManualStatus = (id: string, status: string) =>
     updateManualOrderMut.mutate({ id, status });
-  const [sheetPhones, setSheetPhones] = useState<Set<string>>(new Set());
+  // sheetEntries: normalized phone → sorted list of sheet timestamps
+  const [sheetEntries, setSheetEntries] = useState<Map<string, string[]>>(new Map());
   const [sheetPhoneLoading, setSheetPhoneLoading] = useState(true);
 
   const normPhone = (p: string) => p.replace(/\D/g, "").replace(/^84/, "0");
+
+  // Parse Google Sheets timestamp (handles ISO and DD/MM/YYYY HH:MM:SS)
+  const parseSheetTs = (ts: string): number => {
+    if (!ts) return NaN;
+    const d = new Date(ts);
+    if (!isNaN(d.getTime())) return d.getTime();
+    const m = ts.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?)?/);
+    if (m) return new Date(`${m[3]}-${m[2].padStart(2, "0")}-${m[1].padStart(2, "0")}T${(m[4] ?? "00").padStart(2, "0")}:${m[5] ?? "00"}:${m[6] ?? "00"}`).getTime();
+    return NaN;
+  };
 
   useEffect(() => {
     const base = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
     fetch(`${base}/api/orders/cleanup`, { method: "DELETE" }).catch(() => {});
     fetch(`${base}/api/sheet-phones`, { cache: "no-store" })
       .then((r) => r.json())
-      .then((d) => setSheetPhones(new Set((d.phones ?? []).map(normPhone))))
+      .then((d) => {
+        const map = new Map<string, string[]>();
+        for (const e of ((d.entries ?? d.phones?.map((p: string) => ({ phone: p, timestamp: "" })) ?? []) as { phone: string; timestamp: string }[])) {
+          const p = normPhone(e.phone);
+          if (!map.has(p)) map.set(p, []);
+          map.get(p)!.push(e.timestamp);
+        }
+        setSheetEntries(map);
+      })
       .catch(() => {})
       .finally(() => setSheetPhoneLoading(false));
   }, []);
 
-  const crossRefOrders = useMemo(() => {
-    if (!orders || sheetPhones.size === 0) return new Set<number>();
-    const matched = new Set<number>();
+  // Derived phone-only Set (for slot cross-ref which has no order date)
+  const sheetPhones = useMemo(() => new Set(sheetEntries.keys()), [sheetEntries]);
+
+  // Match window: sheet entry must be within 14 days of the DB order's createdAt
+  const SHEET_MATCH_WINDOW_MS = 14 * 24 * 60 * 60 * 1000;
+
+  // For each order, find the closest sheet entry timestamp (if within window)
+  const crossRefMatchedDates = useMemo(() => {
+    const result = new Map<number, string>(); // orderId → matched sheet timestamp string
+    if (!orders || sheetEntries.size === 0) return result;
     for (const o of orders) {
-      if (!(o as any).sheetChecked && sheetPhones.has(normPhone(o.memberPhone ?? ""))) matched.add(o.id);
+      if ((o as any).sheetChecked) continue;
+      const normP = normPhone(o.memberPhone ?? "");
+      const timestamps = sheetEntries.get(normP) ?? [];
+      if (timestamps.length === 0) continue;
+      const orderTime = new Date((o as any).createdAt).getTime();
+      let closest: { ts: string; diff: number } | null = null;
+      for (const ts of timestamps) {
+        const t = parseSheetTs(ts);
+        if (isNaN(t)) continue;
+        const diff = Math.abs(orderTime - t);
+        if (!closest || diff < closest.diff) closest = { ts, diff };
+      }
+      if (closest && closest.diff <= SHEET_MATCH_WINDOW_MS) result.set(o.id, closest.ts);
     }
-    return matched;
-  }, [orders, sheetPhones]);
+    return result;
+  }, [orders, sheetEntries]);
+
+  const crossRefOrders = useMemo(() => new Set(crossRefMatchedDates.keys()), [crossRefMatchedDates]);
 
   const crossRefPhones = useMemo(() => {
-    if (!orders || sheetPhones.size === 0) return [] as string[];
+    if (!orders || crossRefOrders.size === 0) return [] as string[];
     const seen = new Set<string>();
     return orders
-      .filter((o) => !(o as any).sheetChecked && sheetPhones.has(normPhone(o.memberPhone ?? "")))
+      .filter((o) => crossRefOrders.has(o.id))
       .map((o) => o.memberPhone ?? "")
       .filter((p) => { const k = normPhone(p); if (seen.has(k)) return false; seen.add(k); return true; });
-  }, [orders, sheetPhones]);
+  }, [orders, crossRefOrders]);
 
   // Slot cross-ref: phones that appear in order Google Sheet
   const slotCrossRefIds = useMemo(() => {
@@ -2611,18 +2651,34 @@ function OrdersTab() {
                   </div>
                   <MemberCodeEditor orderId={order.id} currentCode={(order as any).memberCode ?? null} />
                   {hasCrossRef && (
-                    <button
-                      className="w-full flex items-center justify-center gap-2 text-xs font-bold py-2 px-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-700 hover:bg-green-50 hover:border-green-300 hover:text-green-700 transition-colors"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        updateOrder.mutate({ id: order.id, data: { sheetChecked: true } }, {
-                          onSuccess: () => { queryClient.invalidateQueries({ queryKey: getListOrdersQueryKey() }); toast({ title: "Đã đánh dấu kiểm tra Sheet" }); },
-                        });
-                      }}
-                    >
-                      <AlertTriangle size={12} className="text-amber-500" />
-                      Đánh dấu đã kiểm tra Google Sheet
-                    </button>
+                    <div className="space-y-1.5">
+                      {(() => {
+                        const matchedTs = crossRefMatchedDates.get(order.id);
+                        if (!matchedTs) return null;
+                        const matchedDate = new Date(matchedTs);
+                        const dateStr = isNaN(matchedDate.getTime())
+                          ? matchedTs
+                          : matchedDate.toLocaleDateString("vi-VN", { weekday: "short", day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
+                        return (
+                          <div className="flex items-center gap-1.5 text-[11px] bg-amber-50 border border-amber-200 rounded-xl px-3 py-1.5">
+                            <AlertTriangle size={11} className="text-amber-500 shrink-0" />
+                            <span className="text-amber-700">Form Sheet ngày <span className="font-bold">{dateStr}</span></span>
+                          </div>
+                        );
+                      })()}
+                      <button
+                        className="w-full flex items-center justify-center gap-2 text-xs font-bold py-2 px-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-700 hover:bg-green-50 hover:border-green-300 hover:text-green-700 transition-colors"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          updateOrder.mutate({ id: order.id, data: { sheetChecked: true } }, {
+                            onSuccess: () => { queryClient.invalidateQueries({ queryKey: getListOrdersQueryKey() }); toast({ title: "Đã đánh dấu kiểm tra Sheet" }); },
+                          });
+                        }}
+                      >
+                        <Check size={12} className="text-amber-500" />
+                        Đánh dấu đã kiểm tra Google Sheet
+                      </button>
+                    </div>
                   )}
                   <div>
                     <Label className="text-xs">Cập nhật trạng thái</Label>
