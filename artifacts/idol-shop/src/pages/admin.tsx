@@ -292,7 +292,11 @@ function AddSubVariantRow({ idx, isPreorder, onAdd }: {
   const [price, setPrice] = useState("");
   const [stock, setStock] = useState("");
   const nameRef = useRef<HTMLInputElement>(null);
+  const lastRef = useRef(0);
   const handleAdd = () => {
+    const now = Date.now();
+    if (now - lastRef.current < 500) return;
+    lastRef.current = now;
     const n = name.trim();
     if (!n) return;
     onAdd(idx, n, price ? parseFloat(price) : undefined, stock ? parseInt(stock) : undefined);
@@ -341,7 +345,11 @@ function AddSubSubVariantRow({ ssvKey, isPreorder, onAdd }: {
   const [price, setPrice] = useState("");
   const [stock, setStock] = useState("");
   const nameRef = useRef<HTMLInputElement>(null);
+  const lastRef = useRef(0);
   const handleAdd = () => {
+    const now = Date.now();
+    if (now - lastRef.current < 500) return;
+    lastRef.current = now;
     const n = name.trim();
     if (!n) return;
     onAdd(ssvKey, n, price ? parseFloat(price) : undefined, stock ? parseInt(stock) : undefined);
