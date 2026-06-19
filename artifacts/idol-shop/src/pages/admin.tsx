@@ -398,13 +398,13 @@ function AddVariantRow({ isPreorder, onAdd }: {
   const nameRef = useRef<HTMLInputElement>(null);
   const priceRef = useRef<HTMLInputElement>(null);
   const stockRef = useRef<HTMLInputElement>(null);
-  const lastRef = useRef(0);
+  const [nameEmpty, setNameEmpty] = useState(false);
+  const addingRef = useRef(false);
   const handleAdd = () => {
-    const now = Date.now();
-    if (now - lastRef.current < 80) return;
-    lastRef.current = now;
+    if (addingRef.current) return;
     const n = (nameRef.current?.value ?? "").trim();
-    if (!n) return;
+    if (!n) { setNameEmpty(true); nameRef.current?.focus(); setTimeout(() => setNameEmpty(false), 800); return; }
+    addingRef.current = true;
     const priceRaw = (priceRef.current?.value ?? "").replace(/\./g, "").replace(/,/g, "");
     const stockRaw = (stockRef.current?.value ?? "");
     onAdd(n, priceRaw ? parseFloat(priceRaw) : undefined, stockRaw ? parseInt(stockRaw) : undefined);
@@ -412,14 +412,15 @@ function AddVariantRow({ isPreorder, onAdd }: {
     if (priceRef.current) priceRef.current.value = "";
     if (stockRef.current) stockRef.current.value = "";
     nameRef.current?.focus();
+    setTimeout(() => { addingRef.current = false; }, 300);
   };
   return (
-    <div className="flex gap-2 pt-1 border-t border-border/60">
+    <div className="flex flex-wrap gap-2 pt-1 border-t border-border/60">
       <input
         ref={nameRef}
         onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); e.stopPropagation(); e.nativeEvent.stopImmediatePropagation(); handleAdd(); } }}
         placeholder="Tên biến thể..."
-        className="flex h-8 w-full rounded-xl border border-input bg-background px-3 py-1 text-xs shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring flex-1"
+        className={`h-8 rounded-xl border bg-background px-3 py-1 text-xs shadow-sm transition-colors placeholder:text-muted-foreground outline-none focus:ring-1 focus:ring-ring flex-1 min-w-[120px] ${nameEmpty ? "border-red-400 ring-1 ring-red-400" : "border-input"}`}
       />
       <input
         ref={priceRef}
@@ -441,8 +442,8 @@ function AddVariantRow({ isPreorder, onAdd }: {
       )}
       <button
         type="button"
-        onClick={handleAdd}
-        className="shrink-0 h-8 px-3 rounded-xl text-xs font-bold bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+        onPointerDown={(e) => { e.preventDefault(); handleAdd(); }}
+        className="shrink-0 h-8 px-3 rounded-xl text-xs font-bold bg-primary text-primary-foreground hover:bg-primary/90 active:opacity-70 transition-all"
       >
         + Thêm
       </button>
