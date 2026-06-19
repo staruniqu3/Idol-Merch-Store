@@ -810,18 +810,19 @@ function ProductsTab() {
                                           </button>
                                         </div>
                                       ))}
-                                      {/* Add sub-sub-variant */}
-                                      <div className="flex gap-1 pt-0.5">
+                                      {/* Add sub-sub-variant — key resets inputs after each add */}
+                                      <div key={`add-ssv-${ssvKey}-${(sv.subSubVariants ?? []).length}`} className="flex gap-1 pt-0.5">
                                         <Input
                                           value={ssvInput.name}
-                                          onChange={(e) => setSubSubVariantInputs((s) => ({ ...s, [ssvKey]: { ...ssvInput, name: e.target.value } }))}
+                                          onChange={(e) => { const val = e.target.value; setSubSubVariantInputs((s) => ({ ...s, [ssvKey]: { ...(s[ssvKey] ?? { name: "", price: "", stock: "" }), name: val } })); }}
                                           onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); e.stopPropagation(); addSubSubVariant(); } }}
                                           placeholder="Tên size (S, M, L...)"
                                           className="rounded h-6 text-[9px] flex-1 bg-white px-1.5"
+                                          autoFocus
                                         />
                                         <PriceInput
                                           value={ssvInput.price}
-                                          onChange={(e) => setSubSubVariantInputs((s) => ({ ...s, [ssvKey]: { ...ssvInput, price: e.target.value } }))}
+                                          onChange={(e) => { const val = e.target.value; setSubSubVariantInputs((s) => ({ ...s, [ssvKey]: { ...(s[ssvKey] ?? { name: "", price: "", stock: "" }), price: val } })); }}
                                           onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); e.stopPropagation(); addSubSubVariant(); } }}
                                           placeholder="Giá"
                                           className="rounded h-6 text-[9px] w-20 bg-white px-1.5 border border-input outline-none focus:border-primary/60"
@@ -829,7 +830,7 @@ function ProductsTab() {
                                         {form.orderType !== "preorder" && (
                                           <Input
                                             value={ssvInput.stock}
-                                            onChange={(e) => setSubSubVariantInputs((s) => ({ ...s, [ssvKey]: { ...ssvInput, stock: e.target.value } }))}
+                                            onChange={(e) => { const val = e.target.value; setSubSubVariantInputs((s) => ({ ...s, [ssvKey]: { ...(s[ssvKey] ?? { name: "", price: "", stock: "" }), stock: val } })); }}
                                             onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); e.stopPropagation(); addSubSubVariant(); } }}
                                             placeholder="Kho"
                                             type="number"
@@ -851,18 +852,19 @@ function ProductsTab() {
                               );
                             })}
 
-                            {/* Add sub-variant row */}
-                            <div className="flex gap-1.5 pt-0.5">
+                            {/* Add sub-variant row — key resets inputs after each add */}
+                            <div key={`add-sub-${idx}-${(v.subVariants ?? []).length}`} className="flex gap-1.5 pt-0.5">
                               <Input
                                 value={subInput.name}
-                                onChange={(e) => setSubVariantInputs((s) => ({ ...s, [idx]: { ...subInput, name: e.target.value } }))}
+                                onChange={(e) => { const val = e.target.value; setSubVariantInputs((s) => ({ ...s, [idx]: { ...(s[idx] ?? { name: "", price: "", stock: "" }), name: val } })); }}
                                 onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); e.stopPropagation(); addSubVariant(); } }}
                                 placeholder="Tên biến thể phụ..."
                                 className="rounded-lg h-7 text-[10px] flex-1 bg-white"
+                                autoFocus
                               />
                               <PriceInput
                                 value={subInput.price}
-                                onChange={(e) => setSubVariantInputs((s) => ({ ...s, [idx]: { ...subInput, price: e.target.value } }))}
+                                onChange={(e) => { const val = e.target.value; setSubVariantInputs((s) => ({ ...s, [idx]: { ...(s[idx] ?? { name: "", price: "", stock: "" }), price: val } })); }}
                                 onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); e.stopPropagation(); addSubVariant(); } }}
                                 placeholder="Giá"
                                 className="rounded-lg h-7 text-[10px] w-24 bg-white border border-input px-2 outline-none focus:border-primary/60"
@@ -870,7 +872,7 @@ function ProductsTab() {
                               {form.orderType !== "preorder" && (
                                 <Input
                                   value={subInput.stock}
-                                  onChange={(e) => setSubVariantInputs((s) => ({ ...s, [idx]: { ...subInput, stock: e.target.value } }))}
+                                  onChange={(e) => { const val = e.target.value; setSubVariantInputs((s) => ({ ...s, [idx]: { ...(s[idx] ?? { name: "", price: "", stock: "" }), stock: val } })); }}
                                   onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); e.stopPropagation(); addSubVariant(); } }}
                                   placeholder="Kho"
                                   type="number"
