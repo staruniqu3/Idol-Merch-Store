@@ -282,51 +282,51 @@ function DashboardTab() {
   );
 }
 
-// ── Isolated add-row components (local state → reliable clear after add) ──
+// ── Isolated add-row components (uncontrolled DOM inputs → guaranteed clear) ──
 function AddSubVariantRow({ idx, isPreorder, onAdd }: {
   idx: number;
   isPreorder: boolean;
   onAdd: (idx: number, name: string, price?: number, stock?: number) => void;
 }) {
-  const [name, setName] = useState("");
-  const [price, setPrice] = useState("");
-  const [stock, setStock] = useState("");
   const nameRef = useRef<HTMLInputElement>(null);
+  const priceRef = useRef<HTMLInputElement>(null);
+  const stockRef = useRef<HTMLInputElement>(null);
   const lastRef = useRef(0);
   const handleAdd = () => {
     const now = Date.now();
     if (now - lastRef.current < 80) return;
     lastRef.current = now;
-    const n = name.trim();
+    const n = (nameRef.current?.value ?? "").trim();
     if (!n) return;
-    onAdd(idx, n, price ? parseFloat(price) : undefined, stock ? parseInt(stock) : undefined);
-    setName(""); setPrice(""); setStock("");
-    setTimeout(() => nameRef.current?.focus(), 0);
+    const priceRaw = (priceRef.current?.value ?? "").replace(/\./g, "").replace(/,/g, "");
+    const stockRaw = (stockRef.current?.value ?? "");
+    onAdd(idx, n, priceRaw ? parseFloat(priceRaw) : undefined, stockRaw ? parseInt(stockRaw) : undefined);
+    if (nameRef.current) nameRef.current.value = "";
+    if (priceRef.current) priceRef.current.value = "";
+    if (stockRef.current) stockRef.current.value = "";
+    nameRef.current?.focus();
   };
   return (
     <div className="flex gap-1.5 pt-0.5">
       <input
         ref={nameRef}
-        autoFocus
-        value={name}
-        onChange={(e) => setName(e.target.value)}
         onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); e.stopPropagation(); e.nativeEvent.stopImmediatePropagation(); handleAdd(); } }}
         placeholder="Tên biến thể phụ..."
         className="flex h-7 w-full rounded-lg border border-input bg-white px-3 py-1 text-[10px] shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring flex-1"
       />
-      <PriceInput
-        value={price}
-        onChange={(e) => setPrice(e.target.value)}
+      <input
+        ref={priceRef}
+        type="text"
+        inputMode="numeric"
         onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); e.stopPropagation(); e.nativeEvent.stopImmediatePropagation(); handleAdd(); } }}
         placeholder="Giá"
         className="rounded-lg h-7 text-[10px] w-24 bg-white border border-input px-2 outline-none focus:border-primary/60"
       />
       {!isPreorder && (
         <input
+          ref={stockRef}
           type="number"
           min="0"
-          value={stock}
-          onChange={(e) => setStock(e.target.value)}
           onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); e.stopPropagation(); e.nativeEvent.stopImmediatePropagation(); handleAdd(); } }}
           placeholder="Kho"
           className="flex h-7 rounded-lg border border-input bg-white px-2 py-1 text-[10px] shadow-sm w-14 outline-none focus:border-primary/60"
@@ -342,45 +342,45 @@ function AddSubSubVariantRow({ ssvKey, isPreorder, onAdd }: {
   isPreorder: boolean;
   onAdd: (ssvKey: string, name: string, price?: number, stock?: number) => void;
 }) {
-  const [name, setName] = useState("");
-  const [price, setPrice] = useState("");
-  const [stock, setStock] = useState("");
   const nameRef = useRef<HTMLInputElement>(null);
+  const priceRef = useRef<HTMLInputElement>(null);
+  const stockRef = useRef<HTMLInputElement>(null);
   const lastRef = useRef(0);
   const handleAdd = () => {
     const now = Date.now();
     if (now - lastRef.current < 80) return;
     lastRef.current = now;
-    const n = name.trim();
+    const n = (nameRef.current?.value ?? "").trim();
     if (!n) return;
-    onAdd(ssvKey, n, price ? parseFloat(price) : undefined, stock ? parseInt(stock) : undefined);
-    setName(""); setPrice(""); setStock("");
-    setTimeout(() => nameRef.current?.focus(), 0);
+    const priceRaw = (priceRef.current?.value ?? "").replace(/\./g, "").replace(/,/g, "");
+    const stockRaw = (stockRef.current?.value ?? "");
+    onAdd(ssvKey, n, priceRaw ? parseFloat(priceRaw) : undefined, stockRaw ? parseInt(stockRaw) : undefined);
+    if (nameRef.current) nameRef.current.value = "";
+    if (priceRef.current) priceRef.current.value = "";
+    if (stockRef.current) stockRef.current.value = "";
+    nameRef.current?.focus();
   };
   return (
     <div className="flex gap-1 pt-0.5">
       <input
         ref={nameRef}
-        autoFocus
-        value={name}
-        onChange={(e) => setName(e.target.value)}
         onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); e.stopPropagation(); e.nativeEvent.stopImmediatePropagation(); handleAdd(); } }}
         placeholder="Tên size (S, M, L...)"
         className="flex h-6 w-full rounded border border-input bg-white px-1.5 py-1 text-[9px] shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring flex-1"
       />
-      <PriceInput
-        value={price}
-        onChange={(e) => setPrice(e.target.value)}
+      <input
+        ref={priceRef}
+        type="text"
+        inputMode="numeric"
         onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); e.stopPropagation(); e.nativeEvent.stopImmediatePropagation(); handleAdd(); } }}
         placeholder="Giá"
         className="rounded h-6 text-[9px] w-20 bg-white px-1.5 border border-input outline-none focus:border-primary/60"
       />
       {!isPreorder && (
         <input
+          ref={stockRef}
           type="number"
           min="0"
-          value={stock}
-          onChange={(e) => setStock(e.target.value)}
           onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); e.stopPropagation(); e.nativeEvent.stopImmediatePropagation(); handleAdd(); } }}
           placeholder="Kho"
           className="flex h-6 rounded border border-input bg-white px-1.5 py-1 text-[9px] shadow-sm w-12 outline-none focus:border-primary/60"
@@ -891,7 +891,6 @@ function ProductsTab() {
                                       ))}
                                       {/* Add sub-sub-variant row */}
                                       <AddSubSubVariantRow
-                                        key={`ssv-add-${idx}-${svIdx}-${sv.subSubVariants?.length ?? 0}`}
                                         ssvKey={ssvKey}
                                         isPreorder={form.orderType === "preorder"}
                                         onAdd={(key, name, price, stock) => {
@@ -906,7 +905,6 @@ function ProductsTab() {
 
                             {/* Add sub-variant row */}
                             <AddSubVariantRow
-                              key={`sv-add-${idx}-${v.subVariants?.length ?? 0}`}
                               idx={idx}
                               isPreorder={form.orderType === "preorder"}
                               onAdd={(i, name, price, stock) => {
