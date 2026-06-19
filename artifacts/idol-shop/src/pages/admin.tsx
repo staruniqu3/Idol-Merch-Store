@@ -3377,7 +3377,7 @@ const STATS_BATCH_MANUAL_BUYERS_KEY  = "stats_batch_manual_buyers";
 const STATS_STAFF_CARDS_KEY          = "admin_staff_cards";
 const STATS_STAFF_ASSIGNMENTS_KEY    = "admin_staff_assignments";
 const STATS_FX_RATES_KEY             = "admin_fx_rates";
-type StatsFxRate = { id: string; currency: string; foreignAmount: number; vndAmount: number };
+type StatsFxRate = { id: string; currency: string };
 
 type BatchBuyer       = { phone: string; name: string; orderId?: number | string; source: "app" | "manual" };
 type StaffCard        = { id: string; name: string; token: string };
@@ -3472,6 +3472,7 @@ function StatsTab() {
   const [statsFxRates, setStatsFxRates] = useState<StatsFxRate[]>(() => {
     try { return JSON.parse(localStorage.getItem(STATS_FX_RATES_KEY) || "[]"); } catch { return []; }
   });
+  const [statsLiveRates, setStatsLiveRates] = useState<Record<string, number>>({});
 
   // ── Staff state ──
   const [staffCards, setStaffCards] = useState<StaffCard[]>(() => {
@@ -3529,6 +3530,7 @@ function StatsTab() {
       loadFromServer<StaffAssignment[]>(STATS_STAFF_ASSIGNMENTS_KEY, (d) => { setStaffAssignments(d); localStorage.setItem(STATS_STAFF_ASSIGNMENTS_KEY, JSON.stringify(d)); }, STATS_STAFF_ASSIGNMENTS_KEY, []),
       loadFromServer<StatsFxRate[]>(STATS_FX_RATES_KEY, (d) => { setStatsFxRates(d); localStorage.setItem(STATS_FX_RATES_KEY, JSON.stringify(d)); }, STATS_FX_RATES_KEY, []),
     ]);
+    fetch(`${base}/api/exchange-rates`, { cache: "no-store" }).then(r => r.json()).then(d => { if (d?.rates) setStatsLiveRates(d.rates as Record<string, number>); }).catch(() => {});
     loadAll();
     const id = setInterval(loadAll, 60_000);
     const onVisible = () => { if (!document.hidden) loadAll(); };
@@ -4333,7 +4335,7 @@ function StatsTab() {
                               <span className="text-[11px] text-muted-foreground block">{formatPrice(entry.price * entry.qty)}</span>
                               {statsFxRates.length > 0 && entry.price > 0 && (
                                 <span className="text-[9px] text-amber-600 font-bold block">
-                                  {statsFxRates.map((r) => `${(Math.ceil((entry.price * entry.qty) / r.vndAmount * r.foreignAmount) + 70).toLocaleString()} ${r.currency}`).join(" · ")}
+                                  {statsFxRates.map((r) => `${(Math.ceil((entry.price * entry.qty) / (statsLiveRates[r.currency] ?? 1)) + 70).toLocaleString()} ${r.currency}`).join(" · ")}
                                 </span>
                               )}
                             </div>
@@ -8407,7 +8409,7 @@ type CashFlowEntry = {
   note?: string;
   createdAt: string;
 };
-type FxRate = { id: string; currency: string; foreignAmount: number; vndAmount: number };
+type FxRate = { id: string; currency: string };
 const CASH_FLOW_KEY = "admin_cash_flow";
 const FX_RATES_KEY  = "admin_fx_rates";
 
@@ -8435,11 +8437,10 @@ function CashFlowTab() {
   const [soAssignments, setSoAssignments] = useState<StaffAssignment[]>([]);
   const [soCards, setSoCards] = useState<StaffCard[]>([]);
   const [fxRates, setFxRates] = useState<FxRate[]>([]);
+  const [liveRates, setLiveRates] = useState<Record<string, number>>({});
   const [showStaffOrders, setShowStaffOrders] = useState(true);
   const [staffOrderFilter, setStaffOrderFilter] = useState("all");
-  const [showFxManager, setShowFxManager] = useState(false);
   const [collapsedStaff, setCollapsedStaff] = useState<Set<string>>(new Set());
-  const [fxForm, setFxForm] = useState({ currency: "THB", vndRate: 800 });
 
   const fetchEntries = async () => {
     try {
@@ -8451,14 +8452,16 @@ function CashFlowTab() {
   };
 
   const fetchStaffData = async () => {
-    const [sa, sc, fx] = await Promise.all([
+    const [sa, sc, fx, xr] = await Promise.all([
       fetch(`${base}/api/settings/admin_staff_assignments`, { cache: "no-store" }).then(r => r.json()).catch(() => null),
       fetch(`${base}/api/settings/admin_staff_cards`,       { cache: "no-store" }).then(r => r.json()).catch(() => null),
       fetch(`${base}/api/settings/${FX_RATES_KEY}`,         { cache: "no-store" }).then(r => r.json()).catch(() => null),
+      fetch(`${base}/api/exchange-rates`,                   { cache: "no-store" }).then(r => r.json()).catch(() => null),
     ]);
     if (Array.isArray(sa)) setSoAssignments(sa as StaffAssignment[]);
     if (Array.isArray(sc)) setSoCards(sc as StaffCard[]);
     if (Array.isArray(fx)) setFxRates(fx as FxRate[]);
+    if (xr?.rates) setLiveRates(xr.rates as Record<string, number>);
   };
 
   useEffect(() => {
@@ -8553,13 +8556,11 @@ function CashFlowTab() {
     setFxRates(updated);
     await fetch(`${base}/api/settings/${FX_RATES_KEY}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(updated) }).catch(() => {});
   };
-  const addFxRate = () => {
-    if (!fxForm.currency.trim() || fxForm.vndRate <= 0) return;
-    const rate: FxRate = { id: Date.now().toString(), currency: fxForm.currency.trim().toUpperCase(), foreignAmount: 1, vndAmount: fxForm.vndRate };
-    saveFxRates([...fxRates, rate]);
-    setFxForm({ currency: "THB", vndRate: 800 });
+  const toggleFxCurrency = (code: string) => {
+    const exists = fxRates.find((r) => r.currency === code);
+    if (exists) saveFxRates(fxRates.filter((r) => r.currency !== code));
+    else saveFxRates([...fxRates, { id: Date.now().toString(), currency: code }]);
   };
-  const deleteFxRate = (id: string) => saveFxRates(fxRates.filter((r) => r.id !== id));
 
   if (loading) return <div className="text-center py-16 text-muted-foreground text-sm">Đang tải...</div>;
 
@@ -8807,62 +8808,28 @@ function CashFlowTab() {
             <div className="rounded-2xl border border-border bg-muted/20 p-3 space-y-2">
               <div className="flex items-center justify-between">
                 <p className="text-xs font-bold text-foreground">Tỷ giá ngoại tệ</p>
-                <button
-                  type="button"
-                  onClick={() => setShowFxManager((v) => !v)}
-                  className="text-[10px] text-primary font-bold px-2.5 py-0.5 rounded-lg border border-primary/30 hover:bg-primary/5 transition-colors"
-                >
-                  {showFxManager ? "Ẩn" : "Cài đặt"}
-                </button>
+                <p className="text-[10px] text-muted-foreground">Chọn tiền tệ để hiển thị</p>
               </div>
 
-              {fxRates.length > 0 && (
-                <div className="flex flex-wrap gap-1.5">
-                  {fxRates.map((r) => (
-                    <div key={r.id} className="flex items-center gap-1 bg-background border border-border rounded-full px-2.5 py-1">
-                      <span className="text-[10px] font-bold">1 {r.currency} ≈ {formatPrice(Math.round(r.vndAmount / r.foreignAmount))}</span>
-                      <button type="button" onClick={() => deleteFxRate(r.id)} className="text-muted-foreground/50 hover:text-destructive transition-colors text-xs leading-none ml-0.5">×</button>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {showFxManager && (
-                <div className="space-y-2 pt-2 border-t border-border">
-                  <div className="grid grid-cols-2 gap-1.5">
-                    <div>
-                      <p className="text-[10px] text-muted-foreground mb-1">Tiền tệ</p>
-                      <Input
-                        value={fxForm.currency}
-                        onChange={(e) => setFxForm((f) => ({ ...f, currency: e.target.value.toUpperCase() }))}
-                        placeholder="THB"
-                        maxLength={5}
-                        className="h-8 text-xs text-center font-bold"
-                      />
-                    </div>
-                    <div>
-                      <p className="text-[10px] text-muted-foreground mb-1">1 đơn vị = VND</p>
-                      <Input
-                        type="number"
-                        step={10}
-                        value={fxForm.vndRate}
-                        onChange={(e) => setFxForm((f) => ({ ...f, vndRate: Number(e.target.value) }))}
-                        placeholder="800"
-                        className="h-8 text-xs"
-                      />
-                    </div>
-                  </div>
-                  {fxForm.vndRate > 0 && (
-                    <p className="text-[10px] text-muted-foreground text-center">
-                      1 {fxForm.currency || "?"} ≈ {formatPrice(fxForm.vndRate)}
-                    </p>
-                  )}
-                  <Button size="sm" onClick={addFxRate} className="w-full h-7 text-xs">+ Thêm tỷ giá</Button>
-                </div>
-              )}
-
-              {fxRates.length === 0 && !showFxManager && (
-                <p className="text-[10px] text-muted-foreground italic">Chưa có tỷ giá — nhấn Cài đặt để thêm</p>
+              <div className="flex flex-wrap gap-1.5">
+                {CURRENCY_ROWS.map(({ code, flag }) => {
+                  const active = fxRates.some((r) => r.currency === code);
+                  const rate = liveRates[code];
+                  return (
+                    <button
+                      key={code}
+                      type="button"
+                      onClick={() => toggleFxCurrency(code)}
+                      className={`flex items-center gap-1 rounded-full px-2.5 py-1 border text-[10px] font-bold transition-colors ${active ? "bg-primary text-primary-foreground border-primary" : "bg-background border-border text-muted-foreground hover:border-primary/40"}`}
+                    >
+                      <span>{flag} {code}</span>
+                      {rate && <span className={`${active ? "opacity-80" : "opacity-60"}`}>≈ {formatPrice(Math.round(rate))}</span>}
+                    </button>
+                  );
+                })}
+              </div>
+              {Object.keys(liveRates).length === 0 && (
+                <p className="text-[10px] text-muted-foreground italic">Đang tải tỷ giá...</p>
               )}
             </div>
 
@@ -8893,7 +8860,8 @@ function CashFlowTab() {
                   <p className="text-xs font-black text-violet-700">{formatPrice(soTotalVnd)}</p>
                 </div>
                 {fxRates.map((r) => {
-                  const foreign = soTotalVnd / r.vndAmount * r.foreignAmount;
+                  const rate = liveRates[r.currency] ?? 1;
+                  const foreign = soTotalVnd / rate;
                   return (
                     <div key={r.id} className="bg-amber-50 border border-amber-200 rounded-2xl p-3 text-center">
                       <p className="text-[10px] font-bold text-amber-600 uppercase tracking-wider mb-1">{r.currency}</p>
@@ -8938,7 +8906,7 @@ function CashFlowTab() {
                             <p className="text-sm font-black text-violet-700">{formatPrice(staffVnd)}</p>
                             {fxRates.length > 0 && (
                               <p className="text-[10px] text-amber-600 font-bold">
-                                {fxRates.map((r) => `${Math.ceil(staffVnd / r.vndAmount * r.foreignAmount).toLocaleString()} ${r.currency}`).join(" · ")}
+                                {fxRates.map((r) => `${Math.ceil(staffVnd / (liveRates[r.currency] ?? 1)).toLocaleString()} ${r.currency}`).join(" · ")}
                               </p>
                             )}
                           </div>
