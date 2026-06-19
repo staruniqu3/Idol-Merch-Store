@@ -307,6 +307,7 @@ function AddSubVariantRow({ idx, isPreorder, onAdd }: {
     <div className="flex gap-1.5 pt-0.5">
       <input
         ref={nameRef}
+        autoFocus
         value={name}
         onChange={(e) => setName(e.target.value)}
         onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); e.stopPropagation(); e.nativeEvent.stopImmediatePropagation(); handleAdd(); } }}
@@ -360,6 +361,7 @@ function AddSubSubVariantRow({ ssvKey, isPreorder, onAdd }: {
     <div className="flex gap-1 pt-0.5">
       <input
         ref={nameRef}
+        autoFocus
         value={name}
         onChange={(e) => setName(e.target.value)}
         onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); e.stopPropagation(); e.nativeEvent.stopImmediatePropagation(); handleAdd(); } }}
@@ -889,6 +891,7 @@ function ProductsTab() {
                                       ))}
                                       {/* Add sub-sub-variant row */}
                                       <AddSubSubVariantRow
+                                        key={`ssv-add-${idx}-${svIdx}-${sv.subSubVariants?.length ?? 0}`}
                                         ssvKey={ssvKey}
                                         isPreorder={form.orderType === "preorder"}
                                         onAdd={(key, name, price, stock) => {
@@ -903,6 +906,7 @@ function ProductsTab() {
 
                             {/* Add sub-variant row */}
                             <AddSubVariantRow
+                              key={`sv-add-${idx}-${v.subVariants?.length ?? 0}`}
                               idx={idx}
                               isPreorder={form.orderType === "preorder"}
                               onAdd={(i, name, price, stock) => {
