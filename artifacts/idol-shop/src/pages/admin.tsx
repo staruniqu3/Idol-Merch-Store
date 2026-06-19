@@ -308,6 +308,9 @@ function ProductsTab() {
   });
   const [productLocks, setProductLocks] = useState<Record<string, string>>({});
   const [showArchived, setShowArchived] = useState(false);
+  const [productSearch, setProductSearch] = useState("");
+  const [productCatFilter, setProductCatFilter] = useState("Tất cả");
+  const [productTypeFilter, setProductTypeFilter] = useState("Tất cả");
 
   const PRESET_CATEGORIES = ["Kpop", "GMMTV", "US UK", "Tạp Hoá"];
   const allCategories = [...PRESET_CATEGORIES, ...customCategories];
@@ -462,6 +465,41 @@ function ProductsTab() {
         <Button size="sm" className="rounded-xl" onClick={() => { resetForm(); setEditId(null); setOpen(true); }} data-testid="button-add-product">
           <Plus size={14} className="mr-1" />Thêm
         </Button>
+      </div>
+
+      {/* Filter bar */}
+      <div className="space-y-2">
+        <input
+          type="text"
+          value={productSearch}
+          onChange={(e) => setProductSearch(e.target.value)}
+          placeholder="🔍 Tìm sản phẩm..."
+          className="w-full h-8 rounded-xl border border-input bg-background px-3 text-xs outline-none focus:border-primary/60"
+        />
+        <div className="flex gap-1.5 flex-wrap">
+          {["Tất cả", ...allCategories].map((cat) => (
+            <button
+              key={cat}
+              type="button"
+              onClick={() => setProductCatFilter(cat)}
+              className={`text-[10px] font-bold px-2.5 py-1 rounded-full border transition-colors ${productCatFilter === cat ? "bg-primary text-primary-foreground border-primary" : "bg-background border-border text-muted-foreground hover:border-primary/40"}`}
+            >
+              {cat}
+            </button>
+          ))}
+        </div>
+        <div className="flex gap-1.5">
+          {[{ v: "Tất cả", l: "Tất cả" }, { v: "preorder", l: "Pre-order" }, { v: "pickup", l: "Pickup" }, { v: "slot", l: "Slot" }].map(({ v, l }) => (
+            <button
+              key={v}
+              type="button"
+              onClick={() => setProductTypeFilter(v)}
+              className={`text-[10px] font-bold px-2.5 py-1 rounded-full border transition-colors ${productTypeFilter === v ? "bg-secondary text-secondary-foreground border-secondary" : "bg-background border-border text-muted-foreground hover:border-secondary/40"}`}
+            >
+              {l}
+            </button>
+          ))}
+        </div>
       </div>
 
       <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) { resetForm(); setEditId(null); } }}>
@@ -1199,8 +1237,15 @@ function ProductsTab() {
       {(() => {
         const now = new Date();
         const allProds = products ?? [];
-        const activeProds   = allProds.filter((p) => p.isAvailable);
-        const archivedProds = allProds.filter((p) => !p.isAvailable);
+        const applyFilters = (list: typeof allProds) => list.filter((p) => {
+          const search = productSearch.trim().toLowerCase();
+          if (search && !p.name.toLowerCase().includes(search)) return false;
+          if (productCatFilter !== "Tất cả" && p.category !== productCatFilter) return false;
+          if (productTypeFilter !== "Tất cả" && p.orderType !== productTypeFilter) return false;
+          return true;
+        });
+        const activeProds   = applyFilters(allProds.filter((p) => p.isAvailable));
+        const archivedProds = applyFilters(allProds.filter((p) => !p.isAvailable));
         const renderCard = (p: NonNullable<typeof products>[0]) => {
           const lockAt    = productLocks[String(p.id)];
           const lockDate  = lockAt ? new Date(lockAt) : null;
@@ -3310,6 +3355,8 @@ const STATS_RECEIVED_ITEMS_KEY     = "stats_received_batch_items";
 const STATS_BATCH_MANUAL_BUYERS_KEY  = "stats_batch_manual_buyers";
 const STATS_STAFF_CARDS_KEY          = "admin_staff_cards";
 const STATS_STAFF_ASSIGNMENTS_KEY    = "admin_staff_assignments";
+const STATS_FX_RATES_KEY             = "admin_fx_rates";
+type StatsFxRate = { id: string; currency: string; foreignAmount: number; vndAmount: number };
 
 type BatchBuyer       = { phone: string; name: string; orderId?: number | string; source: "app" | "manual" };
 type StaffCard        = { id: string; name: string; token: string };
@@ -3400,6 +3447,11 @@ function StatsTab() {
     });
   };
 
+  // ── FX rates (shared from profit tab) ──
+  const [statsFxRates, setStatsFxRates] = useState<StatsFxRate[]>(() => {
+    try { return JSON.parse(localStorage.getItem(STATS_FX_RATES_KEY) || "[]"); } catch { return []; }
+  });
+
   // ── Staff state ──
   const [staffCards, setStaffCards] = useState<StaffCard[]>(() => {
     try { return JSON.parse(localStorage.getItem(STATS_STAFF_CARDS_KEY) || "[]"); } catch { return []; }
@@ -3454,6 +3506,7 @@ function StatsTab() {
       loadFromServer<Record<string, Array<{ phone: string; name: string }>>>(STATS_BATCH_MANUAL_BUYERS_KEY, (d) => { setManualBatchBuyers(d); localStorage.setItem(STATS_BATCH_MANUAL_BUYERS_KEY, JSON.stringify(d)); }, STATS_BATCH_MANUAL_BUYERS_KEY, {}),
       loadFromServer<StaffCard[]>(STATS_STAFF_CARDS_KEY, (d) => { setStaffCards(d); localStorage.setItem(STATS_STAFF_CARDS_KEY, JSON.stringify(d)); }, STATS_STAFF_CARDS_KEY, []),
       loadFromServer<StaffAssignment[]>(STATS_STAFF_ASSIGNMENTS_KEY, (d) => { setStaffAssignments(d); localStorage.setItem(STATS_STAFF_ASSIGNMENTS_KEY, JSON.stringify(d)); }, STATS_STAFF_ASSIGNMENTS_KEY, []),
+      loadFromServer<StatsFxRate[]>(STATS_FX_RATES_KEY, (d) => { setStatsFxRates(d); localStorage.setItem(STATS_FX_RATES_KEY, JSON.stringify(d)); }, STATS_FX_RATES_KEY, []),
     ]);
     loadAll();
     const id = setInterval(loadAll, 60_000);
@@ -4255,7 +4308,14 @@ function StatsTab() {
                               <span className="text-[9px] bg-violet-100 text-violet-700 border border-violet-200 font-bold px-1.5 py-0.5 rounded-full shrink-0">{entry.variant}</span>
                             )}
                             <span className={`text-xs font-black shrink-0 ml-auto ${isEntryDone ? "text-muted-foreground" : "text-primary"}`}>×{entry.qty}</span>
-                            <span className="text-[11px] text-muted-foreground shrink-0">{formatPrice(entry.price * entry.qty)}</span>
+                            <div className="text-right shrink-0">
+                              <span className="text-[11px] text-muted-foreground block">{formatPrice(entry.price * entry.qty)}</span>
+                              {statsFxRates.length > 0 && entry.price > 0 && (
+                                <span className="text-[9px] text-amber-600 font-bold block">
+                                  {statsFxRates.map((r) => `${Math.ceil((entry.price * entry.qty) / r.vndAmount * r.foreignAmount).toLocaleString()} ${r.currency}`).join(" · ")}
+                                </span>
+                              )}
+                            </div>
                             {/* Push to next batch */}
                             <button
                               type="button"
