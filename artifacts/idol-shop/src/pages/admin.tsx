@@ -295,7 +295,7 @@ function AddSubVariantRow({ idx, isPreorder, onAdd }: {
   const lastRef = useRef(0);
   const handleAdd = () => {
     const now = Date.now();
-    if (now - lastRef.current < 500) return;
+    if (now - lastRef.current < 80) return;
     lastRef.current = now;
     const n = name.trim();
     if (!n) return;
@@ -309,14 +309,14 @@ function AddSubVariantRow({ idx, isPreorder, onAdd }: {
         ref={nameRef}
         value={name}
         onChange={(e) => setName(e.target.value)}
-        onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); e.stopPropagation(); handleAdd(); } }}
+        onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); e.stopPropagation(); e.nativeEvent.stopImmediatePropagation(); handleAdd(); } }}
         placeholder="Tên biến thể phụ..."
         className="flex h-7 w-full rounded-lg border border-input bg-white px-3 py-1 text-[10px] shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring flex-1"
       />
       <PriceInput
         value={price}
         onChange={(e) => setPrice(e.target.value)}
-        onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); e.stopPropagation(); handleAdd(); } }}
+        onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); e.stopPropagation(); e.nativeEvent.stopImmediatePropagation(); handleAdd(); } }}
         placeholder="Giá"
         className="rounded-lg h-7 text-[10px] w-24 bg-white border border-input px-2 outline-none focus:border-primary/60"
       />
@@ -326,12 +326,12 @@ function AddSubVariantRow({ idx, isPreorder, onAdd }: {
           min="0"
           value={stock}
           onChange={(e) => setStock(e.target.value)}
-          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); e.stopPropagation(); handleAdd(); } }}
+          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); e.stopPropagation(); e.nativeEvent.stopImmediatePropagation(); handleAdd(); } }}
           placeholder="Kho"
           className="flex h-7 rounded-lg border border-input bg-white px-2 py-1 text-[10px] shadow-sm w-14 outline-none focus:border-primary/60"
         />
       )}
-      <button type="button" onClick={handleAdd} className="shrink-0 h-7 px-2 rounded-lg text-[10px] font-bold bg-violet-600 text-white hover:bg-violet-700 transition-colors">+</button>
+      <button type="button" tabIndex={-1} onClick={handleAdd} className="shrink-0 h-7 px-2 rounded-lg text-[10px] font-bold bg-violet-600 text-white hover:bg-violet-700 transition-colors">+</button>
     </div>
   );
 }
@@ -348,7 +348,7 @@ function AddSubSubVariantRow({ ssvKey, isPreorder, onAdd }: {
   const lastRef = useRef(0);
   const handleAdd = () => {
     const now = Date.now();
-    if (now - lastRef.current < 500) return;
+    if (now - lastRef.current < 80) return;
     lastRef.current = now;
     const n = name.trim();
     if (!n) return;
@@ -362,14 +362,14 @@ function AddSubSubVariantRow({ ssvKey, isPreorder, onAdd }: {
         ref={nameRef}
         value={name}
         onChange={(e) => setName(e.target.value)}
-        onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); e.stopPropagation(); handleAdd(); } }}
+        onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); e.stopPropagation(); e.nativeEvent.stopImmediatePropagation(); handleAdd(); } }}
         placeholder="Tên size (S, M, L...)"
         className="flex h-6 w-full rounded border border-input bg-white px-1.5 py-1 text-[9px] shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring flex-1"
       />
       <PriceInput
         value={price}
         onChange={(e) => setPrice(e.target.value)}
-        onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); e.stopPropagation(); handleAdd(); } }}
+        onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); e.stopPropagation(); e.nativeEvent.stopImmediatePropagation(); handleAdd(); } }}
         placeholder="Giá"
         className="rounded h-6 text-[9px] w-20 bg-white px-1.5 border border-input outline-none focus:border-primary/60"
       />
@@ -379,12 +379,12 @@ function AddSubSubVariantRow({ ssvKey, isPreorder, onAdd }: {
           min="0"
           value={stock}
           onChange={(e) => setStock(e.target.value)}
-          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); e.stopPropagation(); handleAdd(); } }}
+          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); e.stopPropagation(); e.nativeEvent.stopImmediatePropagation(); handleAdd(); } }}
           placeholder="Kho"
           className="flex h-6 rounded border border-input bg-white px-1.5 py-1 text-[9px] shadow-sm w-12 outline-none focus:border-primary/60"
         />
       )}
-      <button type="button" onClick={handleAdd} className="shrink-0 h-6 px-2 rounded text-[9px] font-bold bg-fuchsia-600 text-white hover:bg-fuchsia-700 transition-colors">+</button>
+      <button type="button" tabIndex={-1} onClick={handleAdd} className="shrink-0 h-6 px-2 rounded text-[9px] font-bold bg-fuchsia-600 text-white hover:bg-fuchsia-700 transition-colors">+</button>
     </div>
   );
 }
@@ -1273,7 +1273,7 @@ function ProductsTab() {
                 </div>
               </div>
             )}
-            <Button className="w-full rounded-xl" onClick={handleSave} data-testid="button-save-product">Lưu</Button>
+            <Button type="button" className="w-full rounded-xl" onClick={handleSave} data-testid="button-save-product">Lưu</Button>
           </div>
         </DialogContent>
       </Dialog>
