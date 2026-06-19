@@ -297,6 +297,9 @@ function ProductsTab() {
   type VariantDraft = { name: string; price?: number; stock?: number; soldOut?: boolean; memberOnly?: boolean; subVariants?: SubVariantDraft[]; _showSubs?: boolean };
   const [form, setForm] = useState({ name: "", description: "", price: "", category: "Kpop", stock: "0", isAvailable: true, isSoldOut: false, orderType: "preorder", orderLabel: "", orderName: "", imageUrl: "", tags: [] as string[], variants: [] as VariantDraft[], slotPrefix: "", slotConfig: {} as Record<string, any>, lockAt: "" });
   const [subVariantInputs, setSubVariantInputs] = useState<Record<number, { name: string; price: string; stock: string }>>({});
+  const lastAddMainRef = useRef<number>(0);
+  const lastAddSubRef  = useRef<Record<number, number>>({});
+  const lastAddSubSubRef = useRef<Record<string, number>>({});
   const [subSubVariantInputs, setSubSubVariantInputs] = useState<Record<string, { name: string; price: string; stock: string }>>({});
   const [copiedSubVariants, setCopiedSubVariants] = useState<SubVariantDraft[] | null>(null);
   const [copiedSubSubVariants, setCopiedSubSubVariants] = useState<SubSubVariantDraft[] | null>(null);
@@ -578,6 +581,9 @@ function ProductsTab() {
                   {form.variants.map((v, idx) => {
                     const subInput = subVariantInputs[idx] ?? { name: "", price: "", stock: "" };
                     const addSubVariant = () => {
+                      const now = Date.now();
+                      if (now - (lastAddSubRef.current[idx] ?? 0) < 400) return;
+                      lastAddSubRef.current[idx] = now;
                       const name = subInput.name.trim();
                       if (!name) return;
                       const price = subInput.price ? parseFloat(subInput.price) : undefined;
@@ -690,6 +696,9 @@ function ProductsTab() {
                               const ssvKey = `${idx}-${svIdx}`;
                               const ssvInput = subSubVariantInputs[ssvKey] ?? { name: "", price: "", stock: "" };
                               const addSubSubVariant = () => {
+                                const now = Date.now();
+                                if (now - (lastAddSubSubRef.current[ssvKey] ?? 0) < 400) return;
+                                lastAddSubSubRef.current[ssvKey] = now;
                                 const name = ssvInput.name.trim();
                                 if (!name) return;
                                 const price = ssvInput.price ? parseFloat(ssvInput.price) : undefined;
@@ -891,6 +900,9 @@ function ProductsTab() {
                   onKeyDown={(e) => {
                     if (e.key === "Enter") {
                       e.preventDefault();
+                      const now = Date.now();
+                      if (now - lastAddMainRef.current < 400) return;
+                      lastAddMainRef.current = now;
                       const name = customVariantInput.name.trim();
                       if (!name) return;
                       const p = customVariantInput.price.trim();
@@ -910,6 +922,9 @@ function ProductsTab() {
                   onKeyDown={(e) => {
                     if (e.key === "Enter") {
                       e.preventDefault();
+                      const now = Date.now();
+                      if (now - lastAddMainRef.current < 400) return;
+                      lastAddMainRef.current = now;
                       const name = customVariantInput.name.trim();
                       if (!name) return;
                       const p = customVariantInput.price.trim();
@@ -930,6 +945,9 @@ function ProductsTab() {
                     onKeyDown={(e) => {
                       if (e.key === "Enter") {
                         e.preventDefault();
+                        const now = Date.now();
+                        if (now - lastAddMainRef.current < 400) return;
+                        lastAddMainRef.current = now;
                         const name = customVariantInput.name.trim();
                         if (!name) return;
                         const p = customVariantInput.price.trim();
@@ -949,6 +967,9 @@ function ProductsTab() {
                 <button
                   type="button"
                   onClick={() => {
+                    const now = Date.now();
+                    if (now - lastAddMainRef.current < 400) return;
+                    lastAddMainRef.current = now;
                     const name = customVariantInput.name.trim();
                     if (!name) return;
                     const p = customVariantInput.price.trim();
